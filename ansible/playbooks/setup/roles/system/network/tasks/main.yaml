@@ -1,7 +1,11 @@
 - name: Check required variables
   fail:
     msg: "The variables 'wan_interface', 'pppoe_username', 'pppoe_password', 'internal_interface' are required."
-  when: "wan_interface == '' or internal_interface == '' or pppoe_username == '' or pppoe_password == ''"
+  when: >
+    wan_interface == '' or
+    internal_interface == '' or
+    pppoe_username == '' or
+    pppoe_password == ''
 
 - name: Create VLAN config
   copy:
@@ -93,3 +97,43 @@
     name: net.ipv4.ip_forward
     value: 1
     state: present
+
+- name: Install nftables
+  apt:
+    name: nftables
+    state: present
+    update_cache: yes
+
+- name: Configure NAT rules with nftables
+  blockinfile:
+    path: /etc/nftables.conf
+    backup: yes
+    create: yes
+    insertbefore: EOF
+    block: |
+      # The source IP for masquerading will be automagically infered based on the
+      # output interface
+      # table ip affects only IPv4
+      table ip nat {
+        chain prerouting {
+          type nat hook prerouting priority 0; policy accept;
+        }
+
+        # for all packets to WAN, after routing,
+        # replace source address with primary IP of WAN interface
+        chain postrouting {
+          type nat hook postrouting priority 100; policy accept;
+          oifname "{{ wan_interface }}" masquerade
+        }
+      }
+
+- name: Reload nftables
+  command: nft -f /etc/nftables.conf
+  notify:
+    - Restart nftables service
+
+- name: Enable nftables on boot
+  service:
+    name: nftables
+    state: started
+    enabled: yes
