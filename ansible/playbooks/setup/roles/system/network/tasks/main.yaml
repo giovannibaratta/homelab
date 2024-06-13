@@ -135,6 +135,35 @@
         }
       }
 
+      # Drop all traffic from internet to internal network
+      table ip filter {
+
+        chain dispatcher {
+          type filter hook input priority filter;
+
+          iif lo accept comment "always accept loopback"
+          iifname {{ wan_interface}} jump public_filters
+          iifname {{ internal_interface}} jump internal_filters
+
+          reject
+        }
+
+        chain public_filters {
+          ct state {established,related} accept
+          ct state invalid drop
+          drop
+        }
+
+        chain internal_filters {
+          accept
+        }
+
+        chain output {
+          type filter hook output priority filter;
+          accept
+        }
+      }
+
 - name: Reload nftables
   command: nft -f /etc/nftables.conf
   notify:
