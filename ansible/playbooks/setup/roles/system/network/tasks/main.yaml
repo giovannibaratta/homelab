@@ -112,6 +112,12 @@
     state: present
     update_cache: yes
 
+- name: Install conntrack
+  apt:
+    name: conntrack
+    state: present
+    update_cache: yes
+
 - name: Configure NAT rules with nftables
   blockinfile:
     path: /etc/nftables.conf
