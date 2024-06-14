@@ -2,3 +2,8 @@
   service:
     name: nftables
     state: restarted
+
+- name: Restart NetworkManager service
+  service:
+    name: NetworkManager
+    state: restarted

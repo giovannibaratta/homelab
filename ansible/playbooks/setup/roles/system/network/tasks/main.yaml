@@ -18,10 +18,11 @@
 - name: Create VLAN config
   copy:
     content: |
+      [connection]
       id=vlan
       type=vlan
-      uuid=077e178d-47a4-483a-9ce3-6c7310b62621
-      autoconnect=false
+      autoconnect=true
+      autoconnect-retries=0
 
       [vlan]
       id=835
@@ -46,9 +47,10 @@
     content: |
       [connection]
       id=pppoe-ftth
-      uuid=bda1f9f7-7a73-4776-b6b4-3c35d6e8e820
       type=pppoe
       interface-name=ftth
+      autoconnect=true
+      autoconnect-retries=0
 
       [ipv4]
       method=auto
@@ -91,6 +93,23 @@
     name: network-manager
     state: present
     update_cache: yes
+
+- name: Configure Network Manager
+  copy:
+    content: |
+      [main]
+      plugins=ifupdown,keyfile
+      monitor-connection-files=yes
+
+      [ifupdown]
+      managed=false
+
+      [device]
+      wifi.scan-rand-mac-address=no
+    dest: /etc/NetworkManager/NetworkManager.conf
+    mode: 0644
+  notify:
+    - Restart NetworkManager service
 
 # Enable IP forwarding
 - name: Configure routing table
