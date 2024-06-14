@@ -148,7 +148,7 @@
           type filter hook input priority filter;
 
           iif lo accept comment "always accept loopback"
-          iifname {{ wan_interface}} jump public_filters
+          iifname ftth jump public_filters # ftth is the interface name
           iifname {{ internal_interface}} jump internal_filters
 
           reject
