@@ -230,13 +230,16 @@
         range {{ internal_network_dhcp_start }} {{ internal_network_dhcp_end }};
         option subnet-mask {{ internal_network_netmask }};
         option routers {{ internal_gateway }};
+        option domain-name-servers 1.1.1.1, 8.8.8.8;
       }
     dest: /etc/dhcp/dhcpd.conf
     mode: 0644
     backup: yes
+  notify:
+    - Restart DHCP service
 
-- name: Restart Kea service
+- name: Enable DHCP service
   service:
     name: isc-dhcp-server
-    state: restarted
     enabled: yes
+    state: started
