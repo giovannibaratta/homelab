@@ -137,7 +137,9 @@
         # replace source address with primary IP of WAN interface
         chain postrouting {
           type nat hook postrouting priority 100; policy accept;
-          oifname "{{ wan_interface }}" masquerade
+          oifname ftth masquerade # ftth is the interface name
+        }
+      }
         }
       }
 
