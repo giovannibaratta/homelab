@@ -140,6 +140,14 @@
           oifname ftth masquerade # ftth is the interface name
         }
       }
+
+      # Since we are using PPPOE, the packet size of TCP must be adjusted
+      # Not all client can adjusted the max MTU and TCP MSS, therefore
+      # we do it at the router level
+      table ip mss {
+        chain forward {
+          type filter hook forward priority filter; policy accept;
+          tcp flags syn tcp option maxseg size set rt mtu
         }
       }
 
