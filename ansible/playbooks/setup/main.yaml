@@ -7,3 +7,6 @@
 
     - role: roles/system/containers
       become: true
+
+    - role: roles/apps/adguard
+      become: true
