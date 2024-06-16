@@ -1,0 +1,54 @@
+- name: Install apt key
+  apt_key:
+    keyring: /etc/apt/trusted.gpg.d/home_alvistack.gpg
+    url: http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key
+    id: 789CFFDE0295B8A1F4E5690C4BECC97550D0B1FD
+    state: present
+
+- name: Add apt repository
+  apt_repository:
+    filename: home:alvistack
+    repo: deb http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /
+    state: present
+
+- name: apt update
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Create /usr/libexec/podman directory
+  file:
+    path: /usr/libexec/podman
+    state: directory
+    mode: 0755
+
+- name: Download netavark archive
+  get_url:
+    url: https://github.com/containers/netavark/releases/download/v1.11.0/netavark.gz
+    dest: /tmp/netavark.gz
+    mode: 0644
+
+- name: Uncompress netavark
+  command:
+    cmd: gunzip -d -k -f /tmp/netavark.gz
+
+- name: Copy netavark executable
+  copy:
+    src: /tmp/netavark
+    dest: /usr/libexec/podman/netavark
+    remote_src: yes
+    mode: 0755
+
+- name: Make netavark executable
+  file:
+    path: /usr/libexec/podman/netavark
+    mode: 0755
+
+- name: Install podman
+  package:
+    name: podman=100:5.1.1-1
+    state: present
+
+- name: Install podman-docker
+  package:
+    name: podman-docker
+    state: present

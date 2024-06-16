@@ -4,3 +4,6 @@
   roles:
     - role: roles/system/network
       become: true
+
+    - role: roles/system/containers
+      become: true
