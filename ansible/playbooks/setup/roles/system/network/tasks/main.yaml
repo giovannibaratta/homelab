@@ -15,6 +15,27 @@
     internal_network_dhcp_start == '' or
     internal_network_dhcp_end == ''
 
+- name: Create /etc/systemd/resolved.conf.d directory
+  file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: 0755
+
+- name: Disable DNSStubListener
+  copy:
+    content: |
+      [Resolve]
+      DNSStubListener=no
+    dest: /etc/systemd/resolved.conf.d/noresolved.conf
+    mode: 0644
+  register: resolved_conf_file
+
+- name: Restart systemd-resolved
+  service:
+    name: systemd-resolved
+    state: restarted
+  when: resolved_conf_file.changed
+
 - name: Create VLAN config
   copy:
     content: |
@@ -144,17 +165,27 @@
     create: yes
     insertbefore: EOF
     block: |
+      # Clean existing table and preserve docker tables
+      table ip ftth_nat
+      delete table ip ftth_nat
+
+      table ip firewall
+      delete table ip firewall
+
+      table ip mss
+      delete table ip mss
+
       # The source IP for masquerading will be automagically infered based on the
       # output interface
       # table ip affects only IPv4
-      table ip nat {
-        chain prerouting {
+      table ip ftth_nat {
+        chain nat_prerouting {
           type nat hook prerouting priority 0; policy accept;
         }
 
         # for all packets to WAN, after routing,
         # replace source address with primary IP of WAN interface
-        chain postrouting {
+        chain ftth_postrouting {
           type nat hook postrouting priority 100; policy accept;
           oifname ftth masquerade # ftth is the interface name
         }
@@ -164,36 +195,36 @@
       # Not all client can adjusted the max MTU and TCP MSS, therefore
       # we do it at the router level
       table ip mss {
-        chain forward {
+        chain mss_forward {
           type filter hook forward priority filter; policy accept;
           tcp flags syn tcp option maxseg size set rt mtu
         }
       }
 
       # Drop all traffic from internet to internal network
-      table ip filter {
+      table ip firewall {
 
         chain dispatcher {
           type filter hook input priority filter;
 
           iif lo accept comment "always accept loopback"
-          iifname ftth jump public_filters # ftth is the interface name
-          iifname {{ internal_interface}} jump internal_filters
+          iifname ftth jump public_traffic # ftth is the interface name
+          iifname {{ internal_interface}} jump internal_traffic
           log
           reject
         }
 
-        chain public_filters {
+        chain public_traffic {
           ct state {established,related} accept
           ct state invalid log drop
           log drop
         }
 
-        chain internal_filters {
+        chain internal_traffic {
           accept
         }
 
-        chain output {
+        chain output_traffic {
           type filter hook output priority filter;
           accept
         }
@@ -201,8 +232,6 @@
 
 - name: Reload nftables
   command: nft -f /etc/nftables.conf
-  notify:
-    - Restart nftables service
 
 - name: Enable nftables on boot
   service:
@@ -221,7 +250,7 @@
     path: /etc/default/isc-dhcp-server
     line: INTERFACESv4="{{ internal_interface }}"
     create: yes
-    regexp: '^INTERFACESv4='
+    regexp: "^INTERFACESv4="
 
 - name: Configure DHCP server
   copy:
@@ -230,7 +259,7 @@
         range {{ internal_network_dhcp_start }} {{ internal_network_dhcp_end }};
         option subnet-mask {{ internal_network_netmask }};
         option routers {{ internal_gateway }};
-        option domain-name-servers 1.1.1.1, 8.8.8.8;
+        option domain-name-servers 172.16.255.254, 1.1.1.1, 8.8.8.8;
       }
     dest: /etc/dhcp/dhcpd.conf
     mode: 0644

@@ -1,8 +1,3 @@
-- name: Restart nftables service
-  service:
-    name: nftables
-    state: restarted
-
 - name: Restart NetworkManager service
   service:
     name: NetworkManager
