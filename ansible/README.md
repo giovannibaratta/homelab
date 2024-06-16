@@ -1,5 +1,23 @@
 # Ansible
 
+## Run playbook
+
+1. Select the playbook that you want to run
+    ```bash
+    playbook="setup"
+    ```
+
+1. Install the requirements
+
+    ```bash
+    ansible-galaxy install -r "playbooks/${playbook}/requirements.yaml"
+    ```
+
+1. Run the playbook
+    ```bash
+    ansible-playbook "playbooks/${playbook}/main.yaml" -i inventory/home.yaml -v
+    ```
+
 ## Manual setup to enable Ansible
 
 1. Create a group for passwordless sudo
