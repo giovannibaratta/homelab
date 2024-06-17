@@ -114,7 +114,7 @@
         interval: 24h
         enabled: true
       filters:
-        - enabled: true
+        - enabled: false
           url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
           name: AdGuard DNS filter
           id: 1
@@ -122,6 +122,10 @@
           url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
           name: AdAway Default Blocklist
           id: 2
+        - enabled: true
+          # Source https://github.com/hagezi/dns-blocklists/tree/main#pro
+          url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/pro.txt
+          id: 3
       whitelist_filters: []
       user_rules: []
       dhcp:
@@ -196,6 +200,7 @@
     mode: 0600
     owner: root
     group: root
+  notify: Restart AdGuard Home service
 
 - name: Create adguardhome.service file
   copy:

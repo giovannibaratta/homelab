@@ -1,0 +1,4 @@
+- name: Restart AdGuard Home service
+  service:
+    name: adguardhome.service
+    state: restarted
