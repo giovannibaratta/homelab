@@ -13,3 +13,7 @@
 
     - role: roles/apps/prometheus
       become: true
+
+    - role: prometheus.prometheus.node_exporter
+      become: true
+      node_exporter_web_listen_address: "172.16.255.254:9100"
