@@ -1,0 +1,135 @@
+- name: Create Grafana configuration directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0755
+    owner: root
+    group: root
+  with_items:
+    - "/app/grafana/conf"
+    - "/app/grafana/conf/provisioning"
+    - "/app/grafana/conf/provisioning/datasources"
+    - "/app/grafana/conf/provisioning/dashboards"
+    - "/app/grafana/conf/provisioning/alerting"
+    - "/app/grafana/conf/provisioning/plugins"
+    - "/app/grafana/conf/provisioning/dashboards/system"
+
+- name: Copy datasource file
+  copy:
+    content: |
+      apiVersion: 1
+
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          uid: prometheus_ds
+          url: http://172.16.255.254:9090
+          isDefault: true
+          # Used to compare versions when updating.
+          version: 1
+          editable: false
+
+    dest: /app/grafana/conf/provisioning/datasources/prometheus.yaml
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Copy node_exporter dashboard config
+  copy:
+    content: |
+      apiVersion: 1
+
+      providers:
+        - name: prometheus_ds
+          folder: 'system'
+          type: file
+          disableDeletion: true
+          # how often Grafana will scan for changed dashboards
+          updateIntervalSeconds: 10
+          allowUiUpdates: false
+          options:
+            path: /opt/grafana/conf/provisioning/dashboards/system/node_exporter_full.json
+            foldersFromFilesStructure: true
+
+    dest: /app/grafana/conf/provisioning/dashboards/node_exporter.yaml
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Copy node_exporter full dashboard
+  copy:
+    # https://grafana.com/grafana/dashboards/1860-node-exporter-full/
+    src: dashboards/node_exporter_full_1860_rev37.json
+    dest: /app/grafana/conf/provisioning/dashboards/system/node_exporter_full.json
+    mode: 0644
+    owner: root
+    group: root
+
+- name: Copy grafana.ini configuration
+  copy:
+    content: |
+      [security]
+      admin_user = admin
+      admin_password = {{ grafana_password | default(admin) }}
+      disable_initial_admin_creation = false
+
+    dest: /app/grafana/conf/grafana.ini
+    mode: 0644
+    owner: root
+    group: root
+  notify: Restart Grafana service
+
+- name: Create grafana.service file
+  copy:
+    content: |
+      [Unit]
+      Description=Podman container-grafana.service
+      Documentation=man:podman-generate-systemd(1)
+      Wants=network-online.target
+      After=network-online.target
+      RequiresMountsFor=%t/containers
+
+      [Service]
+      Environment=PODMAN_SYSTEMD_UNIT=%n
+      Restart=on-failure
+      TimeoutStopSec=70
+      ExecStart=/usr/bin/podman run \
+              --cidfile=%t/%n.ctr-id \
+              --cgroups=no-conmon \
+              --rm \
+              --sdnotify=conmon \
+              --replace \
+              -d \
+              --name grafana \
+              -v /app/grafana/conf:/opt/grafana/conf \
+              -p 172.16.255.254:8000:3000/tcp \
+              -e "GF_PATHS_CONFIG=/opt/grafana/conf/grafana.ini" \
+              -e "GF_PATHS_PROVISIONING=/opt/grafana/conf/provisioning" \
+              docker.io/grafana/grafana-oss:11.0.0
+      ExecStop=/usr/bin/podman stop \
+              --ignore -t 10 \
+              --cidfile=%t/%n.ctr-id
+      ExecStopPost=/usr/bin/podman rm \
+              -f \
+              --ignore -t 10 \
+              --cidfile=%t/%n.ctr-id
+      Type=notify
+      NotifyAccess=all
+
+      [Install]
+      WantedBy=default.target
+    dest: /etc/systemd/system/grafana.service
+    mode: 0644
+  register: grafana_service_unit
+
+- name: Reload systemd daemons
+  systemd_service:
+    daemon_reload: yes
+  when: grafana_service_unit.changed
+
+- name: Enable and start grafana service
+  systemd_service:
+    name: grafana.service
+    enabled: yes
+    state: started
