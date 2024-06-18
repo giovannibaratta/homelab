@@ -205,7 +205,7 @@
       table ip firewall {
 
         chain dispatcher {
-          type filter hook input priority filter;
+          type filter hook input priority 1000;
 
           iif lo accept comment "always accept loopback"
           iifname ftth jump public_traffic # ftth is the interface name
@@ -230,7 +230,7 @@
         }
 
         chain output_traffic {
-          type filter hook output priority filter;
+          type filter hook output priority 1000;
           accept
         }
       }
