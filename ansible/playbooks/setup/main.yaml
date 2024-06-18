@@ -10,3 +10,6 @@
 
     - role: roles/apps/adguard
       become: true
+
+    - role: roles/apps/prometheus
+      become: true

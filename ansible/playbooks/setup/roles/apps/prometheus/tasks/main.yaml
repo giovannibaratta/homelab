@@ -1,0 +1,91 @@
+- name: Create /app/prometheus/work directory
+  file:
+    path: /app/prometheus/work
+    state: directory
+    # Prometheus container runs as user nobody
+    mode: 0770
+    owner: root
+    group: nogroup
+
+- name: Create /app/prometheus/conf directory
+  file:
+    path: /app/prometheus/conf
+    state: directory
+    # Prometheus container runs as user nobody
+    mode: 0750
+    owner: root
+    group: nogroup
+
+- name: Copy prometheus.yaml configuration
+  copy:
+    content: |
+      global:
+
+      scrape_configs:
+        - job_name: 'prometheus'
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['localhost:9090']
+
+    dest: /app/prometheus/conf/prometheus.yaml
+    # Prometheus container runs as user nobody
+    mode: 0644
+    owner: root
+    group: nogroup
+  notify: Reload Prometheus configuration
+
+- name: Create prometheus.service file
+  copy:
+    content: |
+      [Unit]
+      Description=Podman container-prometheus.service
+      Documentation=man:podman-generate-systemd(1)
+      Wants=network-online.target
+      After=network-online.target
+      RequiresMountsFor=%t/containers
+
+      [Service]
+      Environment=PODMAN_SYSTEMD_UNIT=%n
+      Restart=on-failure
+      TimeoutStopSec=70
+      ExecStart=/usr/bin/podman run \
+              --cidfile=%t/%n.ctr-id \
+              --cgroups=no-conmon \
+              --rm \
+              --sdnotify=conmon \
+              --replace \
+              -d \
+              --name prometheus \
+              -v /app/prometheus/work:/opt/prometheus/work \
+              -v /app/prometheus/conf:/opt/prometheus/conf \
+              -p 172.16.255.254:9090:9090/tcp \
+              docker.io/prom/prometheus:v2.52.0 \
+              --config.file=/opt/prometheus/conf/prometheus.yaml \
+              --storage.tsdb.path=/opt/prometheus/work \
+              --storage.tsdb.retention.size="10GB"
+      ExecStop=/usr/bin/podman stop \
+              --ignore -t 10 \
+              --cidfile=%t/%n.ctr-id
+      ExecStopPost=/usr/bin/podman rm \
+              -f \
+              --ignore -t 10 \
+              --cidfile=%t/%n.ctr-id
+      Type=notify
+      NotifyAccess=all
+
+      [Install]
+      WantedBy=default.target
+    dest: /etc/systemd/system/prometheus.service
+    mode: 0644
+  register: prometheus_service_unit
+
+- name: Reload systemd daemons
+  systemd_service:
+    daemon_reload: yes
+  when: prometheus_service_unit.changed
+
+- name: Enable and start prometheus service
+  systemd_service:
+    name: prometheus.service
+    enabled: yes
+    state: started
