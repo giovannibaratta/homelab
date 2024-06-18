@@ -210,7 +210,7 @@
           iif lo accept comment "always accept loopback"
           iifname ftth jump public_traffic # ftth is the interface name
           iifname {{ internal_interface}} jump internal_traffic
-          log
+          iifname podman0 jump container_traffic
           reject
         }
 
@@ -221,6 +221,10 @@
         }
 
         chain internal_traffic {
+          accept
+        }
+
+        chain container_traffic {
           accept
         }
 
