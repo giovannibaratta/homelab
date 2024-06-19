@@ -49,6 +49,12 @@
     name: uidmap
     state: present
 
+# passt is required to install Pasta used by podman for non root user
+- name: Install Pasta
+  package:
+    name: passt
+    state: present
+
 - name: Install podman
   package:
     name: podman=100:5.1.1-1
