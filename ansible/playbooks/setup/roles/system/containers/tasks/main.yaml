@@ -43,6 +43,12 @@
     path: /usr/libexec/podman/netavark
     mode: 0755
 
+# uidmap is required by podman for non root user
+- name: Install uidmap
+  package:
+    name: uidmap
+    state: present
+
 - name: Install podman
   package:
     name: podman=100:5.1.1-1
