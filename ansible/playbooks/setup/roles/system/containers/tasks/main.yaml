@@ -64,3 +64,9 @@
   package:
     name: podman-docker
     state: present
+
+- name: Create /etc/containers/nodocker
+  file:
+    path: /etc/containers/nodocker
+    state: touch
+    mode: 0644
