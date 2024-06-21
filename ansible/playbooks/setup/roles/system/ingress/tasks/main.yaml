@@ -1,10 +1,14 @@
-- name: Create /app/traefik/conf directory
+- name: Create Traefik directories
   file:
-    path: /app/traefik/conf
+    path: "{{ item }}"
     state: directory
     mode: 0700
     owner: root
     group: root
+  with_items:
+    - /app/traefik/conf
+    - /app/traefik/work
+    - /app/traefik/work/certificates
 
 - name: Copy traefik.yaml configuration
   copy:
@@ -35,7 +39,27 @@
       log:
         level: INFO
 
+      certificatesResolvers:
+        letsencrypt:
+          acme:
+            email: {{ acme_email }}
+            storage: /app/traefik/work/certificates/acme.json
+            dnsChallenge:
+              provider: desec
+              delayBeforeCheck: 60
+
     dest: /app/traefik/conf/traefik.yaml
+    mode: 0600
+    owner: root
+    group: root
+  notify: Restart Traefik service
+
+- name: Copy traefik.env configuration
+  copy:
+    content: |
+      DESEC_TOKEN={{ desec_token }}
+
+    dest: /app/traefik/conf/traefik.env
     mode: 0600
     owner: root
     group: root
@@ -63,7 +87,9 @@
               --replace \
               -d \
               --name traefik \
+              --env-file=/app/traefik/conf/traefik.env \
               -v /app/traefik/conf/traefik.yaml:/etc/traefik/traefik.yml:ro \
+              -v /app/traefik/work:/app/traefik/work \
               -v /var/run/docker.sock:/var/run/docker.sock:ro \
               -p 172.16.255.254:80:80/tcp \
               -p 172.16.255.254:8080:8080/tcp \
