@@ -230,7 +230,10 @@
               -v /app/adguardhome/conf:/opt/adguardhome/conf \
               -p 172.16.255.254:53:53/tcp \
               -p 172.16.255.254:53:53/udp \
-              -p 172.16.255.254:3000:3000/tcp docker.io/adguard/adguardhome:v0.107.51
+              --label="traefik.enable=true" \
+              --label="traefik.http.routers.adguard.rule=Host(`adguard.internal`)" \
+              --label="traefik.http.services.adguard.loadbalancer.server.port=3000" \
+              docker.io/adguard/adguardhome:v0.107.51
       ExecStop=/usr/bin/podman stop \
               --ignore -t 10 \
               --cidfile=%t/%n.ctr-id
