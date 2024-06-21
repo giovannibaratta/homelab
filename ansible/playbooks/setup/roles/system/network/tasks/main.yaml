@@ -1,19 +1,22 @@
-- name: Check required variables
-  fail:
-    msg: >
-      The variables 'wan_interface', 'pppoe_username', 'pppoe_password', 'internal_interface',
-      'internal_network_cidr', 'internal_gateway', 'internal_network_dhcp_start',
-      'internal_network_dhcp_end' are required.
-  when: >
-    wan_interface == '' or
-    internal_interface == '' or
-    pppoe_username == '' or
-    pppoe_password == '' or
-    internal_network == '' or
-    internal_network_netmask == '' or
-    internal_gateway == '' or
-    internal_network_dhcp_start == '' or
-    internal_network_dhcp_end == ''
+# Disabled until Bitwarden Secret manager will fix the bug to access
+# multiple variables in the same block.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+# - name: Check required variables
+#   fail:
+#     msg: >
+#       The variables 'wan_interface', 'pppoe_username', 'pppoe_password', 'internal_interface',
+#       'internal_network_cidr', 'internal_gateway', 'internal_network_dhcp_start',
+#       'internal_network_dhcp_end' are required.
+#   when: >
+#     wan_interface == '' or
+#     internal_interface == '' or
+#     pppoe_username == '' or
+#     pppoe_password == '' or
+#     internal_network == '' or
+#     internal_network_netmask == '' or
+#     internal_gateway == '' or
+#     internal_network_dhcp_start == '' or
+#     internal_network_dhcp_end == ''
 
 - name: Create /etc/systemd/resolved.conf.d directory
   file:
@@ -62,6 +65,15 @@
       [proxy]
     dest: /etc/NetworkManager/system-connections/vlan.nmconnection
     mode: 0600
+
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- set_fact:
+    pppoe_username: "{{ pppoe_username }}"
+
+- set_fact:
+    pppoe_password: "{{ pppoe_password }}"
 
 - name: Create PPPOE connection config
   copy:

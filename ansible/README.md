@@ -13,6 +13,13 @@
     ansible-galaxy install -r "playbooks/${playbook}/requirements.yaml"
     ```
 
+1. (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK and configure an access token.
+
+    ```bash
+    pip install bitwarden-sdk
+    export BWS_ACCESS_TOKEN=""
+    ```
+
 1. Run the playbook
     ```bash
     ansible-playbook "playbooks/${playbook}/main.yaml" -i inventory/home.yaml -v
