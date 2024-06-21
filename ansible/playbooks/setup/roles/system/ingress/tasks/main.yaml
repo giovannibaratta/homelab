@@ -67,7 +67,7 @@
               -v /var/run/docker.sock:/var/run/docker.sock:ro \
               -p 172.16.255.254:80:80/tcp \
               -p 172.16.255.254:8080:8080/tcp \
-              -p 172.16.255.254:443:443/udp \
+              -p 172.16.255.254:443:443/tcp \
               docker.io/traefik:v3.0.3
       ExecStop=/usr/bin/podman stop \
               --ignore -t 10 \
