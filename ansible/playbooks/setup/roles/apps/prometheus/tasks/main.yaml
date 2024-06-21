@@ -63,7 +63,13 @@
               --name prometheus \
               -v /app/prometheus/work:/opt/prometheus/work \
               -v /app/prometheus/conf:/opt/prometheus/conf \
-              -p 172.16.255.254:9090:9090/tcp \
+              --label="traefik.enable=true" \
+              --label="traefik.http.routers.prometheus.rule=Host(`prometheus.{{ internal_domain}}`)" \
+              --label="traefik.http.routers.prometheus.entrypoints=websecure" \
+              --label="traefik.http.routers.prometheus.tls.certresolver=letsencrypt" \
+              --label="traefik.http.routers.prometheus.tls.domains[0].main=prometheus.{{ internal_domain }}" \
+              --label="traefik.http.services.prometheus.loadbalancer.server.port=9090" \
+              --dns=172.16.255.254 \
               docker.io/prom/prometheus:v2.52.0 \
               --config.file=/opt/prometheus/conf/prometheus.yaml \
               --storage.tsdb.path=/opt/prometheus/work \
