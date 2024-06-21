@@ -122,11 +122,9 @@
     dest: /etc/systemd/system/grafana.service
     mode: 0644
   register: grafana_service_unit
-
-- name: Reload systemd daemons
-  systemd_service:
-    daemon_reload: yes
-  when: grafana_service_unit.changed
+  notify:
+    - Reload systemd daemons
+    - Restart Grafana service
 
 - name: Enable and start grafana service
   systemd_service:

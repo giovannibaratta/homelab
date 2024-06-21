@@ -1,4 +1,8 @@
-- name: Reload Prometheus configuration
+- name: Reload systemd daemons
+  systemd_service:
+    daemon_reload: yes
+
+- name: Restart Prometheus service
   service:
     name: prometheus.service
     state: restarted

@@ -37,7 +37,7 @@
     mode: 0644
     owner: root
     group: nogroup
-  notify: Reload Prometheus configuration
+  notify: Restart Prometheus service
 
 - name: Create prometheus.service file
   copy:
@@ -82,12 +82,9 @@
       WantedBy=default.target
     dest: /etc/systemd/system/prometheus.service
     mode: 0644
-  register: prometheus_service_unit
-
-- name: Reload systemd daemons
-  systemd_service:
-    daemon_reload: yes
-  when: prometheus_service_unit.changed
+  notify:
+    - Reload systemd daemons
+    - Restart Prometheus service
 
 - name: Enable and start prometheus service
   systemd_service:
