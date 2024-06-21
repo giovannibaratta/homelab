@@ -5,6 +5,9 @@
     - role: roles/system/network
       become: true
 
+    - role: roles/system/ingress
+      become: true
+
     - role: roles/system/containers
       become: true
 
