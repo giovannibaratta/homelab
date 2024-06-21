@@ -103,9 +103,14 @@
               -d \
               --name grafana \
               -v /app/grafana/conf:/opt/grafana/conf \
-              -p 172.16.255.254:8000:3000/tcp \
               -e "GF_PATHS_CONFIG=/opt/grafana/conf/grafana.ini" \
               -e "GF_PATHS_PROVISIONING=/opt/grafana/conf/provisioning" \
+              --label="traefik.enable=true" \
+              --label="traefik.http.routers.grafana.rule=Host(`grafana.{{ internal_domain}}`)" \
+              --label="traefik.http.routers.grafana.entrypoints=websecure" \
+              --label="traefik.http.routers.grafana.tls.certresolver=letsencrypt" \
+              --label="traefik.http.routers.grafana.tls.domains[0].main=grafana.{{ internal_domain }}" \
+              --label="traefik.http.services.grafana.loadbalancer.server.port=3000" \
               docker.io/grafana/grafana-oss:11.0.0
       ExecStop=/usr/bin/podman stop \
               --ignore -t 10 \
