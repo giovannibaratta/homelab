@@ -165,7 +165,7 @@
         parental_block_host: family-block.dns.adguard.com
         safebrowsing_block_host: standard-block.dns.adguard.com
         rewrites:
-          - domain: '*.internal'
+          - domain: '*.{{ internal_domain }}'
             answer: 172.16.255.254
         safebrowsing_cache_size: 1048576
         safesearch_cache_size: 1048576
@@ -231,7 +231,10 @@
               -p 172.16.255.254:53:53/tcp \
               -p 172.16.255.254:53:53/udp \
               --label="traefik.enable=true" \
-              --label="traefik.http.routers.adguard.rule=Host(`adguard.internal`)" \
+              --label="traefik.http.routers.adguard.rule=Host(`adguard.{{ internal_domain}}`)" \
+              --label="traefik.http.routers.adguard.entrypoints=websecure" \
+              --label="traefik.http.routers.adguard.tls.certresolver=letsencrypt" \
+              --label="traefik.http.routers.adguard.tls.domains[0].main=adguard.{{ internal_domain }}" \
               --label="traefik.http.services.adguard.loadbalancer.server.port=3000" \
               docker.io/adguard/adguardhome:v0.107.51
       ExecStop=/usr/bin/podman stop \
