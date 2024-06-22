@@ -1,0 +1,13 @@
+- name: Create cron job for update and reboot
+  cron:
+    name: "update-reboot"
+    job: >
+      DEBIAN_FRONTEND=noninteractive apt update &&
+      DEBIAN_FRONTEND=noninteractive apt upgrade -y &&
+      DEBIAN_FRONTEND=noninteractive apt autoremove -y &&
+      DEBIAN_FRONTEND=noninteractive apt autoclean -y &&
+      reboot
+    hour: "03"
+    weekday: "6"
+    state: present
+    user: root

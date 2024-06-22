@@ -1,1 +1,2 @@
 - import_tasks: kernel-hardening.yaml
+- import_tasks: system-updates.yaml
