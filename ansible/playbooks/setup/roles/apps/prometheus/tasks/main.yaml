@@ -1,20 +1,24 @@
+# Prometheus and AlertManager run as nobody:nogroup
+
 - name: Create /app/prometheus/work directory
   file:
     path: /app/prometheus/work
     state: directory
-    # Prometheus container runs as user nobody
     mode: 0770
     owner: root
     group: nogroup
 
-- name: Create /app/prometheus/conf directory
+- name: Create config directories
   file:
-    path: /app/prometheus/conf
+    path: "{{ item }}"
     state: directory
-    # Prometheus container runs as user nobody
     mode: 0750
     owner: root
     group: nogroup
+  with_items:
+    - /app/prometheus/conf
+    - /app/prometheus/conf/rules
+    - /app/alertmanager/conf
 
 - name: Copy prometheus.yaml configuration
   copy:
@@ -32,12 +36,75 @@
           static_configs:
             - targets: ['172.16.255.254:9100']
 
+      rule_files:
+        - /opt/prometheus/conf/rules/*.yaml
+
+      alerting:
+        alertmanagers:
+          - scheme: https
+            static_configs:
+              - targets: ['alertmanager.{{ internal_domain }}']
+
     dest: /app/prometheus/conf/prometheus.yaml
-    # Prometheus container runs as user nobody
-    mode: 0644
+    mode: 0640
     owner: root
     group: nogroup
   notify: Restart Prometheus service
+
+- name: Copy system rules
+  copy:
+    content: |
+      groups:
+      - name: System Load
+        rules:
+        - expr: count by (job) (sum by (job, cpu) (node_cpu_seconds_total))
+          record: node_num_cpu
+        - alert: HostHighCpuLoad
+          expr: 1 - (sum by (job) (rate(node_cpu_seconds_total{mode="idle"}[1m]))) / node_num_cpu > 0.80
+          for: 15m
+          annotations:
+            summary: Host high CPU load (instance {{ '{{' }} $labels.job {{ '}}' }})
+            description: "CPU load is > 80%\n  VALUE = {{ '{{' }}  $value {{ '}}' }}\n  LABELS = {{ '{{' }}  $labels {{ '}}' }}"
+    dest: /app/prometheus/conf/rules/system.yaml
+    mode: 0640
+    owner: root
+    group: nogroup
+  notify: Restart Prometheus service
+
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- set_fact:
+    alertmanager_sender: "{{ alertmanager_sender }}"
+
+- set_fact:
+    alertmanager_smtp_auth_password: "{{ alertmanager_smtp_auth_password }}"
+
+- set_fact:
+    alertmanager_receiver_email: "{{ alertmanager_receiver_email }}"
+
+- name: Copy alertmanager.yaml configuration
+  copy:
+    content: |
+      global:
+        smtp_from: {{ alertmanager_sender }}
+        smtp_smarthost: smtp.sendgrid.net:587
+        smtp_auth_username: 'apikey'
+        smtp_auth_password: {{ alertmanager_smtp_auth_password }}
+      route:
+        receiver: 'me'
+
+      receivers:
+        - name: 'me'
+          email_configs:
+            - to: '{{ alertmanager_receiver_email }}'
+              send_resolved: true
+
+    dest: /app/alertmanager/conf/alertmanager.yaml
+    mode: 0640
+    owner: root
+    group: nogroup
+  notify: Restart AlertManager service
 
 - name: Create prometheus.service file
   copy:
@@ -73,7 +140,8 @@
               docker.io/prom/prometheus:v2.52.0 \
               --config.file=/opt/prometheus/conf/prometheus.yaml \
               --storage.tsdb.path=/opt/prometheus/work \
-              --storage.tsdb.retention.size="10GB"
+              --storage.tsdb.retention.size="10GB" \
+              --web.external-url=https://prometheus.{{ internal_domain }}/
       ExecStop=/usr/bin/podman stop \
               --ignore -t 10 \
               --cidfile=%t/%n.ctr-id
@@ -92,8 +160,63 @@
     - Reload systemd daemons
     - Restart Prometheus service
 
-- name: Enable and start prometheus service
+- name: Create alertmanager.service file
+  copy:
+    content: |
+      [Unit]
+      Description=Podman container-alertmanager.service
+      Documentation=man:podman-generate-systemd(1)
+      Wants=network-online.target
+      After=network-online.target
+      RequiresMountsFor=%t/containers
+
+      [Service]
+      Environment=PODMAN_SYSTEMD_UNIT=%n
+      Restart=on-failure
+      TimeoutStopSec=70
+      ExecStart=/usr/bin/podman run \
+              --cidfile=%t/%n.ctr-id \
+              --cgroups=no-conmon \
+              --rm \
+              --sdnotify=conmon \
+              --replace \
+              -d \
+              --name alertmanager \
+              -v /app/alertmanager/conf:/opt/alertmanager/conf:ro \
+              --label="traefik.enable=true" \
+              --label="traefik.http.routers.alertmanager.rule=Host(`alertmanager.{{ internal_domain}}`)" \
+              --label="traefik.http.routers.alertmanager.entrypoints=websecure" \
+              --label="traefik.http.routers.alertmanager.tls.certresolver=letsencrypt" \
+              --label="traefik.http.routers.alertmanager.tls.domains[0].main=alertmanager.{{ internal_domain }}" \
+              --label="traefik.http.services.alertmanager.loadbalancer.server.port=9093" \
+              --dns=172.16.255.254 \
+              quay.io/prometheus/alertmanager:v0.27.0 \
+              --config.file=/opt/alertmanager/conf/alertmanager.yaml \
+              --log.level=debug \
+              --web.external-url=https://alertmanager.{{ internal_domain }}/
+      ExecStop=/usr/bin/podman stop \
+              --ignore -t 10 \
+              --cidfile=%t/%n.ctr-id
+      ExecStopPost=/usr/bin/podman rm \
+              -f \
+              --ignore -t 10 \
+              --cidfile=%t/%n.ctr-id
+      Type=notify
+      NotifyAccess=all
+
+      [Install]
+      WantedBy=default.target
+    dest: /etc/systemd/system/alertmanager.service
+    mode: 0644
+  notify:
+    - Reload systemd daemons
+    - Restart AlertManager service
+
+- name: Enable and start services
   systemd_service:
-    name: prometheus.service
+    name: "{{ item }}.service"
     enabled: yes
     state: started
+  with_items:
+    - prometheus
+    - alertmanager
