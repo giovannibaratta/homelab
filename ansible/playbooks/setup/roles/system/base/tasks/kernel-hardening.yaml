@@ -1,0 +1,36 @@
+- name: Copy sysctl flags
+  copy:
+    content: |
+      # Disable autoload of TTY line disciplines
+      dev.tty.ldisc_autoload=0
+      # Protect against writing to non-owned FIFO and regular files
+      fs.protected_fifos=2
+      fs.protected_regular=2
+      # Protect against creating links of non-owned source files
+      fs.protected_hardlinks=1
+      fs.protected_symlinks=1
+      # Miscellaneuos
+      fs.suid_dumpable=0
+      kernel.core_uses_pid=1
+      kernel.ctrl-alt-del=0
+      kernel.dmesg_restrict=1
+      kernel.kptr_restrict=2
+      kernel.perf_event_paranoid=3
+      kernel.randomize_va_space=2
+      # Disable response to magical key combo 
+      kernel.sysrq=0
+      kernel.unprivileged_bpf_disabled=1
+      kernel.yama.ptrace_scope=2
+      net.core.bpf_jit_harden=2
+      net.ipv4.conf.all.rp_filter=1
+      net.ipv4.conf.all.send_redirects=0
+      net.ipv4.conf.default.accept_redirects=0
+      net.ipv4.conf.default.accept_source_route=0
+      net.ipv6.conf.all.accept_redirects=0
+      net.ipv6.conf.default.accept_redirects=0
+
+      # For more info see:
+      # - https://docs.kernel.org/admin-guide/sysctl/fs.html#protected-fifos
+      # - https://sysctl-explorer.net/kernel/
+    dest: /etc/sysctl.d/99-kernel-hardening.conf
+    mode: 0644

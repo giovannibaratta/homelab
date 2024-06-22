@@ -2,6 +2,9 @@
 - hosts: all
 
   roles:
+    - role: roles/system/base
+      become: true
+
     - role: roles/system/network
       become: true
 
