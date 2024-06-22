@@ -3,6 +3,7 @@ home:
     172.16.255.254:
       ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/ansible
+      ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
       wan_interface: enp1s0
       internal_interface: enp1s0
       pppoe_username: "{{ lookup('bitwarden.secrets.lookup', 'bd0b9603-45e4-40a1-a9f7-b19600edd71c') }}"
