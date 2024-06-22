@@ -55,6 +55,13 @@
     name: passt
     state: present
 
+# Alternative option to Pasta. It seems that there are a few issues with some release of pasta
+# when working with rootless containers
+- name: Install slirp4netns
+  package:
+    name: slirp4netns
+    state: present
+
 - name: Install podman
   package:
     name: podman=100:5.1.1-1
