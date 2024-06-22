@@ -19,6 +19,7 @@
 
     - role: roles/apps/prometheus
       become: true
+      tags: 'prometheus'
 
     - role: prometheus.prometheus.node_exporter
       become: true
