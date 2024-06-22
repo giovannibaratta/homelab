@@ -1,5 +1,15 @@
 # Ansible
 
+## Prerequisites
+
+- `pip install netaddr`
+- (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK and configure an access token.
+
+    ```bash
+    pip install bitwarden-sdk
+    export BWS_ACCESS_TOKEN=""
+    ```
+
 ## Run playbook
 
 1. Select the playbook that you want to run
@@ -11,13 +21,6 @@
 
     ```bash
     ansible-galaxy install -r "playbooks/${playbook}/requirements.yaml"
-    ```
-
-1. (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK and configure an access token.
-
-    ```bash
-    pip install bitwarden-sdk
-    export BWS_ACCESS_TOKEN=""
     ```
 
 1. Run the playbook

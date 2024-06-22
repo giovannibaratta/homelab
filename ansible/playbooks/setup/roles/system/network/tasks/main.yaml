@@ -289,3 +289,5 @@
     name: isc-dhcp-server
     enabled: yes
     state: started
+
+- import_tasks: hardening-ssh.yaml

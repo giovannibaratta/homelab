@@ -1,0 +1,32 @@
+- name: Get internal interface IP address
+  set_fact:
+    internal_interface_ip: "{{ ansible_facts[internal_interface]['ipv4']['address'] }}"
+
+- name: Create sshd_config.d file for internal interface
+  copy:
+    dest: /etc/ssh/sshd_config.d/99-hardening.conf
+    backup: true
+    mode: 0644
+    owner: root
+    group: root
+    content: |
+      ListenAddress {{ internal_interface_ip }}
+      PermitRootLogin no
+      PubkeyAuthentication yes
+      # Max retries per connection, if you disconnect and reconnect the value is reset
+      MaxAuthTries 3
+      # Max time to complete a connection
+      LoginGraceTime 20
+      PermitEmptyPasswords no
+      # Allow all users from the internal network
+      AllowUsers *@{{ (internal_network + '/' + internal_network_netmask) | ansible.utils.ipaddr('network/prefix') }}
+      # Not used in this specific Environment
+      ChallengeResponseAuthentication no
+      PasswordAuthentication no
+      KerberosAuthentication no
+      GSSAPIAuthentication no
+      X11Forwarding no
+      AllowAgentForwarding no
+      AllowTcpForwarding no
+      PermitTunnel no
+
