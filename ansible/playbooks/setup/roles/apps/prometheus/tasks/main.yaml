@@ -62,7 +62,7 @@
               -d \
               --name prometheus \
               -v /app/prometheus/work:/opt/prometheus/work \
-              -v /app/prometheus/conf:/opt/prometheus/conf \
+              -v /app/prometheus/conf:/opt/prometheus/conf:ro \
               --label="traefik.enable=true" \
               --label="traefik.http.routers.prometheus.rule=Host(`prometheus.{{ internal_domain}}`)" \
               --label="traefik.http.routers.prometheus.entrypoints=websecure" \
