@@ -73,6 +73,9 @@
     image: docker.io/postgres:16.3-alpine
     state: quadlet
 
+    volumes: "{{ coder_database_dir }}:/var/lib/postgresql/data"
+    env_file: "{{ coder_conf_dir }}/coder-db.env"
+    network: coder
     # Run container as non-root user. We need to map the host id and gid in the container
     # to avoid that the container will change the permission of mounted volume.
     user: "{{ coder_db_container_user }}"
@@ -97,14 +100,11 @@
     image: ghcr.io/coder/coder:{{ coder_version }}
     state: quadlet
 
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
-    env_file:
-      - "{{ coder_conf_dir }}/coder.env"
-
-    network:
-      - coder
+    volumes: /var/run/docker.sock:/var/run/docker.sock
+    env_file: "{{ coder_conf_dir }}/coder.env"
+    recreate: true
+    network: coder
+    requires: coder-db
 
     labels:
       traefik.enable: true
@@ -113,9 +113,6 @@
       traefik.http.routers.coder.tls.certresolver: letsencrypt
       traefik.http.routers.coder.tls.domains[0].main: coder.{{ internal_domain }}
       traefik.http.services.coder.loadbalancer.server.port: 7080
-
-    requires:
-      - coder-db
   notify:
     - Reload systemd daemons
     - Restart Coder service
