@@ -72,6 +72,11 @@
     name: podman-docker
     state: present
 
+- name: Install aardvark-dns
+  package:
+    name: aardvark-dns
+    state: present
+
 - name: Create /etc/containers/nodocker
   file:
     path: /etc/containers/nodocker
