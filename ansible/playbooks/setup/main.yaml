@@ -27,3 +27,7 @@
 
     - role: roles/apps/grafana
       become: true
+
+    - role: roles/apps/coder
+      become: true
+      tags: 'coder'

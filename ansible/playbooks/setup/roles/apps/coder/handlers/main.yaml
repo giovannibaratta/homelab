@@ -1,0 +1,13 @@
+- name: Reload systemd daemons
+  ansible.builtin.systemd_service:
+    daemon_reload: yes
+
+- name: Restart Coder DB service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: coder-db
+
+- name: Restart Coder service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: coder

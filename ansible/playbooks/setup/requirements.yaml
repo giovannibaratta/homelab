@@ -6,3 +6,6 @@ collections:
   - name: bitwarden.secrets
     version: ">=1.0.0"
     source: https://galaxy.ansible.com
+  - name: containers.podman
+    version: ">=1.14.0"
+    source: https://galaxy.ansible.com
