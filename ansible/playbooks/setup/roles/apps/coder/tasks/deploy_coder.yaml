@@ -7,17 +7,31 @@
 - set_fact:
     internal_domain: "{{ internal_domain }}"
 
+- name: Add {{ coder_db_container_user }} user
+  ansible.builtin.user:
+    name: "{{ coder_db_container_user }}"
+    comment: User used to run the PostgreSQL database for Coder
+    create_home: no
+    shell: /usr/sbin/nologin
+  register: coder_db_container_user_result
+
 - name: Create coder directories
   file:
     path: "{{ item }}"
     state: directory
     mode: 0770
-    owner: root
-    group: nogroup
   with_items:
     - "{{ coder_conf_dir }}"
     - "{{ coder_work_dir }}"
     - "{{ coder_database_dir }}"
+
+- name: Change {{ coder_database_dir }} permissions
+  file:
+    path: "{{ coder_database_dir }}"
+    state: directory
+    mode: 0770
+    owner: "{{ coder_db_container_user }}"
+    group: "{{ coder_db_container_user }}"
 
 - name: Copy coder-db.env file
   template:
@@ -59,14 +73,14 @@
     image: docker.io/postgres:16.3-alpine
     state: quadlet
 
-    volumes:
-      - "{{ coder_database_dir }}:/var/lib/postgresql/data"
+    # Run container as non-root user. We need to map the host id and gid in the container
+    # to avoid that the container will change the permission of mounted volume.
+    user: "{{ coder_db_container_user }}"
+    hostuser: "{{ coder_db_container_user }}"
+    userns: "keep-id:uid={{ coder_db_container_user_result.uid }},gid={{ coder_db_container_user_result.group }}"
+    group_entry: "{{ coder_db_container_user }}:x:{{ coder_db_container_user_result.group }}:{{ coder_db_container_user }}"
 
-    env_file:
-      - "{{ coder_conf_dir }}/coder-db.env"
-
-    network:
-      - coder
+    recreate: true
 
     healthcheck: "pg_isready -U {{ coder_db_user }} -d {{ coder_db_name }}"
     healthcheck_interval: 5s
