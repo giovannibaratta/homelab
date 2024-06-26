@@ -1,10 +1,19 @@
+- name: Add {{ traefik_container_user }} user
+  ansible.builtin.user:
+    name: "{{ traefik_container_user }}"
+    comment: User used to run Traefik
+    create_home: no
+    shell: /usr/sbin/nologin
+  register: traefik_container_user_result
+
 - name: Create Traefik directories
   file:
     path: "{{ item }}"
     state: directory
     mode: 0700
-    owner: root
-    group: root
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
+    recurse: true
   with_items:
     - /app/traefik/conf
     - /app/traefik/work
@@ -50,8 +59,8 @@
 
     dest: /app/traefik/conf/traefik.yaml
     mode: 0600
-    owner: root
-    group: root
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
   notify: Restart Traefik service
 
 - name: Copy traefik.env configuration
@@ -61,9 +70,14 @@
 
     dest: /app/traefik/conf/traefik.env
     mode: 0600
-    owner: root
-    group: root
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
   notify: Restart Traefik service
+
+- name: Get the group ID of the 'containers' group
+  shell: |
+    getent group containers | cut -d: -f3
+  register: containers_group_result
 
 - name: Create traefik.service file
   copy:
@@ -94,6 +108,10 @@
               -p 172.16.255.254:80:80/tcp \
               -p 172.16.255.254:8080:8080/tcp \
               -p 172.16.255.254:443:443/tcp \
+              --uidmap="0:{{ traefik_container_user_result.uid }}:1" \
+              --uidmap="1:4000000000:100000" \
+              --gidmap="0:{{ containers_group_result.stdout }}:1" \
+              --gidmap="1:4000000000:100000" \
               docker.io/traefik:v3.0.3
       ExecStop=/usr/bin/podman stop \
               --ignore -t 10 \
