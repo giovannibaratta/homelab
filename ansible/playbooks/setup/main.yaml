@@ -10,6 +10,7 @@
 
     - role: roles/system/ingress
       become: true
+      tags: 'ingress'
 
     - role: roles/system/containers
       become: true
