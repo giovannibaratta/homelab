@@ -34,7 +34,7 @@
           address: :443
 
       api:
-        # Dashboard is server on port 8080
+        # Dashboard is served on port 8080
         insecure: true
         dashboard: true
 
@@ -79,6 +79,7 @@
     getent group containers | cut -d: -f3
   register: containers_group_result
 
+# The gidmap is needed to give traefik access to the Docker socket.
 - name: Create traefik.service file
   copy:
     content: |
