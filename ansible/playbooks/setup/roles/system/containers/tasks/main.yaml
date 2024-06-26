@@ -82,3 +82,32 @@
     path: /etc/containers/nodocker
     state: touch
     mode: 0644
+
+- name: Ensure group containters exists
+  ansible.builtin.group:
+    name: containers
+    state: present
+
+- name: Ensure podman.socket.d exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/podman.socket.d
+    mode: 0740
+    state: directory
+
+- name: Ensure Podman socket overrides are present
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/podman.socket.d/socket-group.conf
+    content: |
+      [Socket]
+      SocketGroup=containers
+    mode: 0640
+  notify:
+    - Reload systemd daemon
+    - Restart podman.socket service
+
+- name: Change Docker socket owner
+  ansible.builtin.file:
+    path: /var/run/docker
+    owner: root
+    group: containers
+    state: link
