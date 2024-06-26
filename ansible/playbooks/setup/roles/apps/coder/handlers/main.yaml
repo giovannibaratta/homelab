@@ -2,6 +2,11 @@
   ansible.builtin.systemd_service:
     daemon_reload: yes
 
+- name: Restart Coder network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: coder-network
+
 - name: Restart Coder DB service
   ansible.builtin.systemd_service:
     state: restarted

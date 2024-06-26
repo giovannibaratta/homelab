@@ -7,6 +7,14 @@
 - set_fact:
     internal_domain: "{{ internal_domain }}"
 
+- name: Add {{ coder_container_user }} user
+  ansible.builtin.user:
+    name: "{{ coder_container_user }}"
+    comment: User used to run Coder
+    create_home: no
+    shell: /usr/sbin/nologin
+  register: coder_container_user_result
+
 - name: Add {{ coder_db_container_user }} user
   ansible.builtin.user:
     name: "{{ coder_db_container_user }}"
@@ -20,6 +28,8 @@
     path: "{{ item }}"
     state: directory
     mode: 0770
+    owner: "{{ coder_container_user }}"
+    group: "{{ coder_container_user }}"
   with_items:
     - "{{ coder_conf_dir }}"
     - "{{ coder_work_dir }}"
@@ -54,11 +64,21 @@
   containers.podman.podman_network:
     name: coder
     state: quadlet
+    # Enable DNS resolution based on container names
     disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
     driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
     interface_name: podman-coder
     opt:
       isolate: true
+  notify:
+    - Reload systemd daemons
+    - Restart Coder network
 
 - name: Start Coder network
   systemd_service:
@@ -66,6 +86,11 @@
     name: coder-network
     state: started
     enabled: true
+
+- name: Get the group ID of the 'containers' group
+  shell: |
+    getent group containers | cut -d: -f3
+  register: containers_group_result
 
 - name: Create Coder database Quadlet
   containers.podman.podman_container:
@@ -106,6 +131,20 @@
     network: coder
     requires: coder-db
 
+    # Coder runs as coder:coder.
+    # We map the coder container user to the coder user running on the host
+    # to give access to configuration files
+    uidmap:
+      - "0:4000000000:1000"
+      - "1000:{{ coder_container_user_result.uid }}:1"
+      - "1001:4000001000:100000"
+
+    # We map the coder group in the container to the containers group running on
+    # the host to give access to the Docker socket.
+    gidmap:
+      - "0:4000000000:100000"
+      - "+1000:@{{ containers_group_result.stdout }}:1"
+
     labels:
       traefik.enable: true
       traefik.http.routers.coder.rule: Host(`coder.{{ internal_domain}}`)
@@ -128,3 +167,37 @@
     name: coder
     state: started
     enabled: true
+
+- name: Create Coder workspaces network Quadlet
+  containers.podman.podman_network:
+    name: coder-workspaces
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    internal: false
+    interface_name: podman-coder
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons
+
+# Temporary fix until containers.podman.podman_network release > 1.15.3 is published
+# See https://github.com/containers/ansible-podman-collections/pull/793
+- name: Add DNS entry to coder network
+  ansible.builtin.lineinfile:
+    path: /etc/containers/systemd/coder.network
+    line: DNS="{{ internal_gateway }}"
+  notify:
+    - Reload systemd daemons
+
+- name: Add DNS entry to coder-workspaces network
+  ansible.builtin.lineinfile:
+    path: /etc/containers/systemd/coder-workspaces.network
+    line: DNS="{{ internal_gateway }}"
+  notify:
+    - Reload systemd daemons
