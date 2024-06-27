@@ -7,7 +7,7 @@ home:
       wan_interface: enp1s0
       internal_interface: enp1s0
       pppoe_username: "{{ lookup('bitwarden.secrets.lookup', 'bd0b9603-45e4-40a1-a9f7-b19600edd71c') }}"
-      pppoe_password: "{{ lookup('bitwarden.secrets.lookup', '892d3e64-1b4a-45ab-b1a2-b19600f46dd0') }}"
+      pppoe_password: "{{ lookup('bitwarden.secrets.lookup', '15745580-f311-499b-a07c-b19600ee0739') }}"
       internal_network: 172.16.0.0
       internal_network_netmask: 255.255.0.0
       internal_gateway: 172.16.255.254
