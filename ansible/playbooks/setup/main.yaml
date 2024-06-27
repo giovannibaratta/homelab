@@ -15,6 +15,7 @@
 
     - role: roles/system/containers
       become: true
+      container_storage_dir: "/app/containers"
       tags: 'containers'
 
     - role: roles/apps/adguard

@@ -1,0 +1,2 @@
+container_storage_dir: /var/lib/containers/storage
+container_temp_storage_dir: /run/containers/storage

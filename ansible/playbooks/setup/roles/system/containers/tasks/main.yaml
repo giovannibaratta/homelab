@@ -83,6 +83,33 @@
     state: touch
     mode: 0644
 
+- name: Create {{ container_storage_dir }} directory
+  file:
+    path: "{{ container_storage_dir }}"
+    state: directory
+    mode: 0711
+
+- name: Create {{ container_temp_storage_dir }} directory
+  file:
+    path: "{{ container_temp_storage_dir }}"
+    state: directory
+    mode: 0711
+
+# Reference https://github.com/containers/podman/blob/main/vendor/github.com/containers/storage/storage.conf
+- name: Create /etc/containers/storage.conf
+  copy:
+    dest: /etc/containers/storage.conf 
+    content: |
+      [storage]
+      driver = "overlay"
+
+      # Primary Read/Write location of container storage
+      graphroot = "{{ container_storage_dir }}"
+
+      # Temporary storage location
+      runroot = "{{ container_temp_storage_dir }}"
+    mode: 0640
+
 - name: Ensure group containters exists
   ansible.builtin.group:
     name: containers
