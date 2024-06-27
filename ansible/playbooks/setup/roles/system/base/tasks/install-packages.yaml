@@ -1,0 +1,5 @@
+# Used by Ansible when using unprivileged users
+- name: Install acl
+  package:
+    name: acl
+    state: present

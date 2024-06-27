@@ -1,4 +1,5 @@
 - import_tasks: kernel-hardening.yaml
 - import_tasks: system-updates.yaml
+- import_tasks: install-packages.yaml
 - import_tasks: customize-shell.yaml
   when: ohmyzsh_install
