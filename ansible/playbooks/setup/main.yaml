@@ -2,6 +2,10 @@
 - hosts: all
 
   roles:
+    - role: roles/system/network
+      become: true
+      tags: "system-network"
+
     - role: roles/system/base
       become: true
       ohmyzsh_install: true
@@ -9,10 +13,6 @@
         - root
         - gbaratta
       tags: "system-base"
-
-    - role: roles/system/network
-      become: true
-      tags: "system-network"
 
     - role: roles/system/ingress
       become: true
