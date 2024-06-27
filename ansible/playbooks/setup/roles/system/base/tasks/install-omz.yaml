@@ -1,0 +1,27 @@
+- name: Set user home
+  set_fact:
+    user_home: "{{ '/root' if item == 'root' else '/home/' + item }}"
+
+- name: Check if Oh My Zsh is installed
+  stat:
+    path: "{{ user_home }}/.oh-my-zsh"
+  register: oh_my_zsh_dir
+
+- name: Set omz_installed fact
+  set_fact:
+    omz_installed: "{{ oh_my_zsh_dir.stat.exists }}"
+
+- name: Download Oh My Zsh install script
+  get_url:
+    url: https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
+    dest: /tmp/install.sh
+    mode: 0755
+  when: not omz_installed
+
+- name: Run Oh My Zsh install script as user
+  shell: /tmp/install.sh --unattended
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ item }}"
+  when: not omz_installed

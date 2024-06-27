@@ -1,0 +1,3 @@
+ohmyzsh_install: false
+ohmyzsh_users: []
+custom_shell_path: /usr/bin/zsh

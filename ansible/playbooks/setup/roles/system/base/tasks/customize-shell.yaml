@@ -1,0 +1,12 @@
+- name: Install zsh
+  package:
+    name: zsh
+    state: present
+
+- name: Set shell for users
+  include_tasks: set-shell.yaml
+  loop: "{{ ohmyzsh_users }}"
+
+- name: Install omz
+  include_tasks: install-omz.yaml
+  loop: "{{ ohmyzsh_users }}"
