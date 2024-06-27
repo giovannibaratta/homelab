@@ -132,9 +132,9 @@
     - Reload systemd daemon
     - Restart podman.socket service
 
-- name: Change Docker socket owner
-  ansible.builtin.file:
-    path: /var/run/docker
-    owner: root
-    group: containers
-    state: link
+- name: Ensure Docker socket is assigned to the right group
+  ansible.builtin.copy:
+    # override /usr/lib/tmpfiles.d/podman-docker.conf
+    dest: /etc/tmpfiles.d/podman-docker.conf
+    content:
+      L+  %t/docker.sock   -    root    containers     -   %t/podman/podman.sock
