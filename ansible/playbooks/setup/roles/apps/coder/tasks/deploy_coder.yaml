@@ -35,11 +35,11 @@
     - "{{ coder_work_dir }}"
     - "{{ coder_database_dir }}"
 
-- name: Change {{ coder_database_dir }} permissions
+- name: Change {{ coder_database_dir }} ownership
   file:
     path: "{{ coder_database_dir }}"
     state: directory
-    mode: 0770
+    recurse: true
     owner: "{{ coder_db_container_user }}"
     group: "{{ coder_db_container_user }}"
 
@@ -80,6 +80,8 @@
     - Reload systemd daemons
     - Restart Coder network
 
+- meta: flush_handlers
+
 - name: Start Coder network
   systemd_service:
     # The name is the name of the network + network suffix
@@ -101,12 +103,19 @@
     volumes: "{{ coder_database_dir }}:/var/lib/postgresql/data"
     env_file: "{{ coder_conf_dir }}/coder-db.env"
     network: coder
-    # Run container as non-root user. We need to map the host id and gid in the container
-    # to avoid that the container will change the permission of mounted volume.
-    user: "{{ coder_db_container_user }}"
-    hostuser: "{{ coder_db_container_user }}"
-    userns: "keep-id:uid={{ coder_db_container_user_result.uid }},gid={{ coder_db_container_user_result.group }}"
-    group_entry: "{{ coder_db_container_user }}:x:{{ coder_db_container_user_result.group }}:{{ coder_db_container_user }}"
+    delete_depend: true
+
+    # Coder runs as root:root but /var/lib/postgresql/data must be assigned to postgres (70:70)
+    # We map the root container user to the coder-db user running on the host
+    # to give access to configuration and database files
+    uidmap:
+      - "0:4000000000:70"
+      - "70:{{ coder_db_container_user_result.uid }}:1"
+      - "71:4000000071:100000"
+
+    gidmap:
+      - "0:4000000000:100000"
+      - "+70:@{{ coder_db_container_user_result.group }}:1"
 
     recreate: true
 
@@ -114,10 +123,17 @@
     healthcheck_interval: 5s
     healthcheck_timeout: 5s
     healthcheck_retries: 5
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
   notify:
     - Reload systemd daemons
     - Restart Coder DB service
     - Restart Coder service
+
+- meta: flush_handlers
 
 - name: Create Coder Quadlet
   containers.podman.podman_container:
@@ -152,9 +168,16 @@
       traefik.http.routers.coder.tls.certresolver: letsencrypt
       traefik.http.routers.coder.tls.domains[0].main: coder.{{ internal_domain }}
       traefik.http.services.coder.loadbalancer.server.port: 7080
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
   notify:
     - Reload systemd daemons
     - Restart Coder service
+
+- meta: flush_handlers
 
 - name: Start Coder DB
   systemd_service:
