@@ -18,6 +18,12 @@
 #     internal_network_dhcp_start == '' or
 #     internal_network_dhcp_end == ''
 
+- name: Ensure systemd-networkd-wait-online waits for the right interface
+  ansible.builtin.lineinfile:
+    path: /usr/lib/systemd/system/systemd-networkd-wait-online.service
+    regexp: '^ExecStart.+'
+    line: "/usr/lib/systemd/systemd-networkd-wait-online --interface={{ internal_interface }}"
+
 - name: Create /etc/systemd/resolved.conf.d directory
   file:
     path: /etc/systemd/resolved.conf.d
