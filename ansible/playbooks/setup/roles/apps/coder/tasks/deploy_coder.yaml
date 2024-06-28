@@ -80,6 +80,15 @@
     - Reload systemd daemons
     - Restart Coder network
 
+# Temporary fix until containers.podman.podman_network release > 1.15.3 is published
+# See https://github.com/containers/ansible-podman-collections/pull/793
+- name: Add DNS entry to coder network
+  ansible.builtin.lineinfile:
+    path: /etc/containers/systemd/coder.network
+    line: DNS="{{ internal_gateway }}"
+  notify:
+    - Reload systemd daemons
+
 - meta: flush_handlers
 
 - name: Start Coder network
@@ -145,7 +154,6 @@
     env_file: "{{ coder_conf_dir }}/coder.env"
     recreate: true
     network: coder
-    requires: coder-db
 
     # Coder runs as coder:coder.
     # We map the coder container user to the coder user running on the host
@@ -173,6 +181,8 @@
       - |
         [Install]
         WantedBy=default.target
+        [Unit]
+        Requires=coder-db.service
   notify:
     - Reload systemd daemons
     - Restart Coder service
@@ -211,13 +221,6 @@
 
 # Temporary fix until containers.podman.podman_network release > 1.15.3 is published
 # See https://github.com/containers/ansible-podman-collections/pull/793
-- name: Add DNS entry to coder network
-  ansible.builtin.lineinfile:
-    path: /etc/containers/systemd/coder.network
-    line: DNS="{{ internal_gateway }}"
-  notify:
-    - Reload systemd daemons
-
 - name: Add DNS entry to coder-workspaces network
   ansible.builtin.lineinfile:
     path: /etc/containers/systemd/coder-workspaces.network
