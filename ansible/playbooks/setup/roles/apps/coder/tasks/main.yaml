@@ -1,1 +1,5 @@
 - ansible.builtin.import_tasks: deploy_coder.yaml
+- ansible.builtin.import_tasks: configure-templates.yaml
+  delegate_to: localhost
+  become: false
+  when: coder_template_src_dir is defined

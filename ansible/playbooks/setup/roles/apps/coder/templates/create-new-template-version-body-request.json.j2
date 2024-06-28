@@ -1,0 +1,9 @@
+{
+  "file_id": "{{ uploaded_artifact_id }}",
+  "name": "{{ template_local_version }}",
+  "provisioner": "terraform",
+  {% if remote_template_id %}
+  "template_id": "{{ remote_template_id }}",
+  {% endif %}
+  "storage_method": "file"
+}

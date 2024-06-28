@@ -2,7 +2,8 @@
 
 ## Prerequisites
 
-- `pip install netaddr`
+- `pip install netaddr` (Manipulate network fields)
+- `pip install jmespath` (Use JSON query)
 - (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK and configure an access token.
 
     ```bash
