@@ -1,0 +1,134 @@
+---
+- name: Get local version
+  # Get the last commit and use it as local version
+  ansible.builtin.shell: "git --no-pager log --pretty=format:%H --max-count=1 --skip=0 HEAD -- {{ template_dir }}"
+  ignore_errors: true
+  register: template_local_version_result
+
+- name: Set local version fact
+  ansible.builtin.set_fact:
+    template_local_version: "{{ template_local_version_result.stdout }}"
+
+- name: Check if remote template exist with name {{ template_name }}
+  ansible.builtin.uri:
+    url: "{{ coder_server_url }}/api/v2/organizations/{{ organization_id }}/templates/{{ template_name }}"
+    method: GET
+    headers:
+      Coder-Session-Token: "{{ coder_api_token }}"
+      Accept: application/json
+    status_code: [200, 404]
+  register: remote_template_result
+
+- name: Set remote version fact
+  ansible.builtin.set_fact:
+    remote_template_id: "{{ remote_template_result.json.id if remote_template_result.status == 200 else '' }}"
+    remote_active_version_id: "{{ remote_template_result.json.active_version_id if remote_template_result.status == 200 else '' }}"
+    # Initialize to empty string to avoid undefined error
+    matching_remote_template_version_id: ""
+
+# Coder does not allow to create two template versions for a template with the same name. Hence we
+# first check if a version with the local name exsits, then if it is not the active version we
+# update it. Instead if the version can not be found, we will create a new one.
+- name: Check if a remote version already exist with name {{ template_local_version }}
+  when: remote_template_id
+  block:
+    - name: Retrieve template version id matching local version name {{ template_local_version }}
+      ansible.builtin.uri:
+        url: "{{ coder_server_url }}/api/v2/organizations/{{ organization_id }}/templates/{{ template_name }}/versions/{{ template_local_version }}"
+        method: GET
+        headers:
+          Coder-Session-Token: "{{ coder_api_token }}"
+          Accept: application/json
+        status_code: [200, 404]
+      register: remote_template_version_matching_local_result
+    - name: Set remote version fact
+      ansible.builtin.set_fact:
+        matching_remote_template_version_id: "{{ remote_template_version_matching_local_result.json.id if remote_template_version_matching_local_result.status == 200 else '' }}"
+
+- name: Set upload_local_version fact
+  ansible.builtin.set_fact:
+    # Upload a new artifact only if we have a commit (sanity check) and we haven't found a remote
+    # template with the same name of the local one.
+    upload_local_version: "{{ template_local_version and not matching_remote_template_version_id }}"
+
+- name: Upload local version
+  when: upload_local_version
+  block:
+    - name: Create temporary directory for {{ template_name }}
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: archive
+      register: temp_dir
+    - name: Compress tempalate {{ template_name }}
+      community.general.archive:
+        path: "{{ template_dir }}/*"
+        dest: "{{ temp_dir.path }}/{{ template_name }}.zip"
+        format: zip
+        exclude_path: "{{ template_dir }}"
+        exclusion_patterns:
+          - ".git"
+        mode: "0644"
+    - name: Upload new version artifact for {{ template_name }}
+      ansible.builtin.uri:
+        url: "{{ coder_server_url }}/api/v2/files"
+        method: POST
+        src: "{{ temp_dir.path }}/{{ template_name }}.zip"
+        headers:
+          Coder-Session-Token: "{{ coder_api_token }}"
+          Accept: application/json
+          Content-Type: application/zip
+        status_code: [200, 201]
+      register: upload_artifact_result
+    - name: Set upload_artifact fact
+      ansible.builtin.set_fact:
+        uploaded_artifact_id: "{{ upload_artifact_result.json.hash }}"
+    # POST templates requires an id of a template version, while for POST templateversions the id of a
+    # template is not mandatory. Hence we first create the version and the template only if needed.
+    - name: Create new template version for {{ template_name }}
+      ansible.builtin.uri:
+        url: "{{ coder_server_url }}/api/v2/organizations/{{ organization_id }}/templateversions"
+        method: POST
+        headers:
+          Coder-Session-Token: "{{ coder_api_token }}"
+          Accept: application/json
+          Content-Type: application/json
+        status_code: [200, 201]
+        body: "{{ lookup('ansible.builtin.template', 'create-new-template-version-body-request.json.j2') }}"
+        body_format: json
+      register: new_template_version_result
+    - name: Set new template version fact
+      ansible.builtin.set_fact:
+        matching_remote_template_version_id: "{{ new_template_version_result.json.id }}"
+
+- name: Create new template for {{ template_name }}
+  when: not remote_template_id
+  block:
+    - name: Create the template
+      ansible.builtin.uri:
+        url: "{{ coder_server_url }}/api/v2/organizations/{{ organization_id }}/templates"
+        method: POST
+        headers:
+          Coder-Session-Token: "{{ coder_api_token }}"
+          Accept: application/json
+          Content-Type: application/json
+        status_code: [200, 201]
+        body: "{{ lookup('ansible.builtin.template', 'create-new-template-body-request.json.j2') }}"
+        body_format: json
+      register: new_template_result
+    - name: Set new_template fact
+      ansible.builtin.set_fact:
+        remote_template_id: "{{ new_template_result.json.id }}"
+        remote_active_version_id: "{{ new_template_result.json.active_version_id }}"
+
+- name: Set active template for {{ template_name }}
+  when: remote_active_version_id != matching_remote_template_version_id
+  ansible.builtin.uri:
+    url: "{{ coder_server_url }}/api/v2/templates/{{ remote_template_id }}/versions"
+    method: PATCH
+    headers:
+      Coder-Session-Token: "{{ coder_api_token }}"
+      Accept: application/json
+      Content-Type: application/json
+    status_code: [200]
+    body: "{{ lookup('ansible.builtin.template', 'set-active-template-version-body-request.json.j2') }}"
+    body_format: json
