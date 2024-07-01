@@ -1,3 +1,9 @@
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- ansible.builtin.set_fact:
+    adguardhome_hashed_password: "{{ adguardhome_hashed_password }}"
+
 - name: Create /app/adguardhome/work directory
   file:
     path: /app/adguardhome/work
@@ -25,7 +31,7 @@
         session_ttl: 720h
       users:
         - name: gbaratta
-          password: $2a$10$1rC75x0NifXAB0Ll0LiKkuSGW.RYkwnnlrW72MyzYZC3WetPkSTL.
+          password: {{ adguardhome_hashed_password }}
       auth_attempts: 5
       block_auth_min: 10
       http_proxy: ""

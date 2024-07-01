@@ -25,6 +25,7 @@
 
     - role: roles/apps/adguard
       become: true
+      tags: "adguard"
 
     - role: roles/apps/prometheus
       become: true
