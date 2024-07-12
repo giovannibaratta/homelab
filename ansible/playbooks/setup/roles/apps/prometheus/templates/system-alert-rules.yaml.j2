@@ -10,3 +10,8 @@ groups:
       summary: Host high CPU load (instance {{ '{{' }} $labels.job {{ '}}' }})
       description: "CPU load is > 80%\n  VALUE = {{ '{{' }}  $value {{ '}}' }}\n  LABELS = {{ '{{' }}  $labels {{ '}}' }}"
   - alert: HostNoWeeklyReboot
+    # 619200 = 7 days and 4 hours
+    expr: sum by (job) (node_time_seconds - node_boot_time_seconds) > 619200
+    annotations:
+      summary: Host did not complete weekly reboot (instance {{ '{{' }} $labels.job {{ '}}' }}).
+      description: "Host has not been rebooted for {{ '{{' }}  $value {{ '}}' }} seconds."
