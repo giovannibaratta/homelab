@@ -1,5 +1,5 @@
 groups:
-- name: System Load
+- name: System
   rules:
   - expr: count by (job) (sum by (job, cpu) (node_cpu_seconds_total))
     record: node_num_cpu
@@ -15,3 +15,9 @@ groups:
     annotations:
       summary: Host did not complete weekly reboot (instance {{ '{{' }} $labels.job {{ '}}' }}).
       description: "Host has not been rebooted for {{ '{{' }}  $value {{ '}}' }} seconds."
+  - alert: HostLowFreeSpace
+    expr: sum by (job, mountpoint) (((node_filesystem_avail_bytes{device!~"tmpfs",mountpoint!~"/boot.*"}) / node_filesystem_size_bytes) * 100) < 20
+    for: 30m
+    annotations:
+      summary: Host has low free disk space (instance {{ '{{' }} $labels.job {{ '}}' }})
+      description: "Host {{ '{{' }} $labels.job {{ '}}' }} has {{ '{{' }}  $value {{ '}}' }} remaining free disk space for {{ '{{' }} $labels.mountpoint {{ '}}' }}"
