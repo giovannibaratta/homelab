@@ -1,0 +1,12 @@
+groups:
+- name: System Load
+  rules:
+  - expr: count by (job) (sum by (job, cpu) (node_cpu_seconds_total))
+    record: node_num_cpu
+  - alert: HostHighCpuLoad
+    expr: 1 - (sum by (job) (rate(node_cpu_seconds_total{mode="idle"}[1m]))) / node_num_cpu > 0.80
+    for: 15m
+    annotations:
+      summary: Host high CPU load (instance {{ '{{' }} $labels.job {{ '}}' }})
+      description: "CPU load is > 80%\n  VALUE = {{ '{{' }}  $value {{ '}}' }}\n  LABELS = {{ '{{' }}  $labels {{ '}}' }}"
+  - alert: HostNoWeeklyReboot
