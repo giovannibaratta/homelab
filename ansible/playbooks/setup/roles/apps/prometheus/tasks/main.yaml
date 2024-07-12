@@ -1,18 +1,18 @@
 # Prometheus and AlertManager run as nobody:nogroup
 
 - name: Create /app/prometheus/work directory
-  file:
+  ansible.builtin.file:
     path: /app/prometheus/work
     state: directory
-    mode: 0770
+    mode: "0770"
     owner: root
     group: nogroup
 
 - name: Create config directories
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: 0750
+    mode: "0750"
     owner: root
     group: nogroup
   with_items:
@@ -21,7 +21,7 @@
     - /app/alertmanager/conf
 
 - name: Copy prometheus.yaml configuration
-  copy:
+  ansible.builtin.copy:
     content: |
       global:
 
@@ -46,13 +46,13 @@
               - targets: ['alertmanager.{{ internal_domain }}']
 
     dest: /app/prometheus/conf/prometheus.yaml
-    mode: 0640
+    mode: "0640"
     owner: root
     group: nogroup
   notify: Restart Prometheus service
 
 - name: Copy system rules
-  copy:
+  ansible.builtin.copy:
     content: |
       groups:
       - name: System Load
@@ -66,7 +66,7 @@
             summary: Host high CPU load (instance {{ '{{' }} $labels.job {{ '}}' }})
             description: "CPU load is > 80%\n  VALUE = {{ '{{' }}  $value {{ '}}' }}\n  LABELS = {{ '{{' }}  $labels {{ '}}' }}"
     dest: /app/prometheus/conf/rules/system.yaml
-    mode: 0640
+    mode: "0640"
     owner: root
     group: nogroup
   notify: Restart Prometheus service
@@ -74,17 +74,20 @@
 # This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
 # two variables cannot be used at the same time.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-- set_fact:
+- name: Bitwarden workaround for alermanager_sender
+  ansible.builtin.set_fact:
     alertmanager_sender: "{{ alertmanager_sender }}"
 
-- set_fact:
+- name: Bitwarden workaround for alertmanager_smtp_auth_password
+  ansible.builtin.set_fact:
     alertmanager_smtp_auth_password: "{{ alertmanager_smtp_auth_password }}"
 
-- set_fact:
+- name: Bitwarden workaround for alertmanager_receiver_email
+  ansible.builtin.set_fact:
     alertmanager_receiver_email: "{{ alertmanager_receiver_email }}"
 
 - name: Copy alertmanager.yaml configuration
-  copy:
+  ansible.builtin.copy:
     content: |
       global:
         smtp_from: {{ alertmanager_sender }}
@@ -101,13 +104,13 @@
               send_resolved: true
 
     dest: /app/alertmanager/conf/alertmanager.yaml
-    mode: 0640
+    mode: "0640"
     owner: root
     group: nogroup
   notify: Restart AlertManager service
 
 - name: Create prometheus.service file
-  copy:
+  ansible.builtin.copy:
     content: |
       [Unit]
       Description=Podman container-prometheus.service
@@ -131,7 +134,7 @@
               -v /app/prometheus/work:/opt/prometheus/work \
               -v /app/prometheus/conf:/opt/prometheus/conf:ro \
               --label="traefik.enable=true" \
-              --label="traefik.http.routers.prometheus.rule=Host(`prometheus.{{ internal_domain}}`)" \
+              --label="traefik.http.routers.prometheus.rule=Host(`prometheus.{{ internal_domain }}`)" \
               --label="traefik.http.routers.prometheus.entrypoints=websecure" \
               --label="traefik.http.routers.prometheus.tls.certresolver=letsencrypt" \
               --label="traefik.http.routers.prometheus.tls.domains[0].main=prometheus.{{ internal_domain }}" \
@@ -155,13 +158,13 @@
       [Install]
       WantedBy=default.target
     dest: /etc/systemd/system/prometheus.service
-    mode: 0644
+    mode: "0644"
   notify:
     - Reload systemd daemons
     - Restart Prometheus service
 
 - name: Create alertmanager.service file
-  copy:
+  ansible.builtin.copy:
     content: |
       [Unit]
       Description=Podman container-alertmanager.service
@@ -184,7 +187,7 @@
               --name alertmanager \
               -v /app/alertmanager/conf:/opt/alertmanager/conf:ro \
               --label="traefik.enable=true" \
-              --label="traefik.http.routers.alertmanager.rule=Host(`alertmanager.{{ internal_domain}}`)" \
+              --label="traefik.http.routers.alertmanager.rule=Host(`alertmanager.{{ internal_domain }}`)" \
               --label="traefik.http.routers.alertmanager.entrypoints=websecure" \
               --label="traefik.http.routers.alertmanager.tls.certresolver=letsencrypt" \
               --label="traefik.http.routers.alertmanager.tls.domains[0].main=alertmanager.{{ internal_domain }}" \
@@ -207,15 +210,15 @@
       [Install]
       WantedBy=default.target
     dest: /etc/systemd/system/alertmanager.service
-    mode: 0644
+    mode: "0644"
   notify:
     - Reload systemd daemons
     - Restart AlertManager service
 
 - name: Enable and start services
-  systemd_service:
+  ansible.builtin.systemd_service:
     name: "{{ item }}.service"
-    enabled: yes
+    enabled: true
     state: started
   with_items:
     - prometheus
