@@ -1,0 +1,185 @@
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for bitmagnet_db_password
+  ansible.builtin.set_fact:
+    bitmagnet_db_password: "{{ bitmagnet_db_password }}"
+
+- name: Bitwarden workaround for internal_domain
+  ansible.builtin.set_fact:
+    internal_domain: "{{ internal_domain }}"
+
+- name: Add {{ bitmagnet_container_user }} user
+  ansible.builtin.user:
+    name: "{{ bitmagnet_container_user }}"
+    comment: User used to run bitmagnet
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: bitmagnet_container_user_result
+
+- name: Add user {{ bitmagnet_db_container_user }}
+  ansible.builtin.user:
+    name: "{{ bitmagnet_db_container_user }}"
+    comment: User used to run the PostgreSQL database for bitmagnet
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: bitmagnet_db_container_user_result
+
+- name: Create bitmagnet directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ bitmagnet_container_user }}"
+    group: "{{ bitmagnet_container_user }}"
+  with_items:
+    - "{{ bitmagnet_conf_dir }}"
+    - "{{ bitmagnet_work_dir }}"
+    - "{{ bitmagnet_database_dir }}"
+
+- name: Change ownership for {{ bitmagnet_database_dir }}
+  ansible.builtin.file:
+    path: "{{ bitmagnet_database_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ bitmagnet_db_container_user }}"
+    group: "{{ bitmagnet_db_container_user }}"
+
+- name: Create bitmagnet network Quadlet
+  containers.podman.podman_network:
+    name: bitmagnet
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-bitmagnet
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons
+    - Restart bitmagnet network
+
+- meta: flush_handlers
+
+- name: Start bitmagnet network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: bitmagnet-network
+    state: started
+    enabled: true
+
+- name: Copy bitmagnet-db.env file
+  ansible.builtin.template:
+    src: bitmagnet-db.env.j2
+    dest: "{{ bitmagnet_conf_dir }}/bitmagnet-db.env"
+    mode: "0640"
+  notify:
+    - Restart bitmagnet DB service
+
+- name: Create bitmagnet database Quadlet
+  containers.podman.podman_container:
+    name: bitmagnet-db
+    image: docker.io/postgres:16.3-alpine
+    state: quadlet
+
+    volumes: "{{ bitmagnet_database_dir }}:/var/lib/postgresql/data"
+    env_file: "{{ bitmagnet_conf_dir }}/bitmagnet-db.env"
+    network: bitmagnet
+    delete_depend: true
+
+    # bitmagnet-db runs as root:root but /var/lib/postgresql/data must be assigned to postgres (70:70)
+    # We map the root container user to the bitmagnet-db user running on the host
+    # to give access to configuration and database files
+    uidmap:
+      - "0:4000000000:70"
+      - "70:{{ bitmagnet_db_container_user_result.uid }}:1"
+      - "71:4000000071:100000"
+
+    gidmap:
+      - "0:4000000000:100000"
+      - "+70:@{{ bitmagnet_db_container_user_result.group }}:1"
+
+    recreate: true
+
+    healthcheck: "pg_isready -U {{ bitmagnet_db_user }} -d {{ bitmagnet_db_name }}"
+    healthcheck_interval: 5s
+    healthcheck_timeout: 5s
+    healthcheck_retries: 5
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons
+    - Restart bitmagnet DB service
+
+- name: Trigger Handlers for Bitmagnet DB
+  ansible.builtin.meta: flush_handlers
+
+- name: Start bitmagnet DB
+  ansible.builtin.systemd_service:
+    name: bitmagnet-db
+    state: started
+    enabled: true
+
+- name: Copy bitmagnet.env file
+  ansible.builtin.template:
+    src: bitmagnet.env.j2
+    dest: "{{ bitmagnet_conf_dir }}/bitmagnet.env"
+    mode: "0640"
+  notify:
+    - Restart bitmagnet service
+
+- name: Create bitmagnet Quadlet
+  containers.podman.podman_container:
+    name: bitmagnet
+    state: quadlet
+    image: ghcr.io/bitmagnet-io/bitmagnet:{{ bitmagnet_version }}
+    command: worker run --keys=http_server --keys=queue_server --keys=dht_crawler
+    env_file: "{{ bitmagnet_conf_dir }}/bitmagnet.env"
+    recreate: true
+    network: bitmagnet
+
+    # bitmagnet runs as root:root.
+    # We map the container root user to the bitmagnet user running on the host
+    uidmap:
+      - "0:{{ bitmagnet_container_user_result.uid }}:1"
+      - "1:4000001000:100000"
+
+    gidmap:
+      - "0:{{ bitmagnet_container_user_result.group }}:1"
+      - "1:4000001000:100000"
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.bitmagnet.rule: Host(`bitmagnet.{{ internal_domain}}`)
+      traefik.http.routers.bitmagnet.entrypoints: websecure
+      traefik.http.routers.bitmagnet.tls.certresolver: letsencrypt
+      traefik.http.routers.bitmagnet.tls.domains[0].main: bitmagnet.{{ internal_domain }}
+      traefik.http.services.bitmagnet.loadbalancer.server.port: 3333
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=bitmagnet-db.service
+  notify:
+    - Reload systemd daemons
+    - Restart bitmagnet service
+
+- name: Trigger Handlers for Bitmagnet
+  ansible.builtin.meta: flush_handlers
+
+- name: Start bitmagnet
+  ansible.builtin.systemd_service:
+    name: bitmagnet
+    state: started
+    enabled: true

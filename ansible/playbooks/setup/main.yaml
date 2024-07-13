@@ -41,3 +41,7 @@
     - role: roles/apps/coder
       become: true
       tags: "coder"
+
+    - role: roles/apps/p2p
+      become: true
+      tags: "p2p"

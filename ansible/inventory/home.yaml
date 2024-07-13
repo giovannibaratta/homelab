@@ -22,3 +22,5 @@ home:
       alertmanager_smtp_auth_password: "{{ lookup('bitwarden.secrets.lookup', 'e284d18a-f488-4dde-b887-b19700f3aea3') }}"
       coder_db_password: "{{ lookup('bitwarden.secrets.lookup', '90f228e2-5405-4cfb-ada2-b199009f2d39') }}"
       adguardhome_hashed_password: "{{ lookup('bitwarden.secrets.lookup', '1cc495f1-1ec9-47eb-b698-b1a000de76d1') }}"
+      bitmagnet_db_password: "{{ lookup('bitwarden.secrets.lookup', '119f3c7b-3b7a-4fb2-96d4-b1ac00cd1a02') }}"
+      tmdb_api_key: "{{ lookup('bitwarden.secrets.lookup', 'd1995ff6-fb11-490b-b397-b1ac00d9d02b') }}"

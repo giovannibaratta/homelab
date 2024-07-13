@@ -1,0 +1,5 @@
+bitmagnet_database_dir: "{{ bitmagnet_work_dir }}/database"
+bitmagnet_db_user: bitmagnet
+bitmagnet_db_name: bitmagnet
+bitmagnet_db_container_user: postgres_bitmagnet
+bitmagnet_container_user: bitmagnet
