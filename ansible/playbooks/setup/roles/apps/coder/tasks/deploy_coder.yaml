@@ -43,23 +43,6 @@
     owner: "{{ coder_db_container_user }}"
     group: "{{ coder_db_container_user }}"
 
-- name: Copy coder-db.env file
-  template:
-    src: coder-db.env.j2
-    dest: "{{ coder_conf_dir }}/coder-db.env"
-    mode: 0640
-  notify:
-    - Restart Coder DB service
-    - Restart Coder service
-
-- name: Copy coder.env file
-  template:
-    src: coder.env.j2
-    dest: "{{ coder_conf_dir }}/coder.env"
-    mode: 0640
-  notify:
-    - Restart Coder service
-
 - name: Create Coder network Quadlet
   containers.podman.podman_network:
     name: coder
@@ -80,15 +63,6 @@
     - Reload systemd daemons
     - Restart Coder network
 
-# Temporary fix until containers.podman.podman_network release > 1.15.3 is published
-# See https://github.com/containers/ansible-podman-collections/pull/793
-- name: Add DNS entry to coder network
-  ansible.builtin.lineinfile:
-    path: /etc/containers/systemd/coder.network
-    line: DNS="{{ internal_gateway }}"
-  notify:
-    - Reload systemd daemons
-
 - meta: flush_handlers
 
 - name: Start Coder network
@@ -102,6 +76,14 @@
   shell: |
     getent group containers | cut -d: -f3
   register: containers_group_result
+
+- name: Copy coder-db.env file
+  template:
+    src: coder-db.env.j2
+    dest: "{{ coder_conf_dir }}/coder-db.env"
+    mode: 0640
+  notify:
+    - Restart Coder DB service
 
 - name: Create Coder database Quadlet
   containers.podman.podman_container:
@@ -143,6 +125,14 @@
     - Restart Coder service
 
 - meta: flush_handlers
+
+- name: Copy coder.env file
+  template:
+    src: coder.env.j2
+    dest: "{{ coder_conf_dir }}/coder.env"
+    mode: 0640
+  notify:
+    - Restart Coder service
 
 - name: Create Coder Quadlet
   containers.podman.podman_container:
@@ -216,14 +206,5 @@
     interface_name: podman-coder
     opt:
       isolate: true
-  notify:
-    - Reload systemd daemons
-
-# Temporary fix until containers.podman.podman_network release > 1.15.3 is published
-# See https://github.com/containers/ansible-podman-collections/pull/793
-- name: Add DNS entry to coder-workspaces network
-  ansible.builtin.lineinfile:
-    path: /etc/containers/systemd/coder-workspaces.network
-    line: DNS="{{ internal_gateway }}"
   notify:
     - Reload systemd daemons
