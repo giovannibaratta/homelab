@@ -1,0 +1,212 @@
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for prowlarr_db_password
+  ansible.builtin.set_fact:
+    prowlarr_db_password: "{{ prowlarr_db_password }}"
+
+- name: Bitwarden workaround for prowlarr_api_key
+  ansible.builtin.set_fact:
+    prowlarr_api_key: "{{ prowlarr_api_key }}"
+
+- name: Bitwarden workaround for internal_domain
+  ansible.builtin.set_fact:
+    internal_domain: "{{ internal_domain }}"
+
+- name: Add user {{ prowlarr_container_user }}
+  ansible.builtin.user:
+    name: "{{ prowlarr_container_user }}"
+    comment: User used to run prowlarr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: prowlarr_container_user_result
+
+- name: Add user {{ prowlarr_db_container_user }}
+  ansible.builtin.user:
+    name: "{{ prowlarr_db_container_user }}"
+    comment: User used to run the PostgreSQL database for prowlarr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: prowlarr_db_container_user_result
+
+- name: Create prowlarr directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ prowlarr_container_user }}"
+    group: "{{ prowlarr_container_user }}"
+  with_items:
+    - "{{ prowlarr_conf_dir }}"
+    - "{{ prowlarr_work_dir }}"
+    - "{{ prowlarr_database_dir }}"
+
+- name: Change ownership for {{ prowlarr_database_dir }}
+  ansible.builtin.file:
+    path: "{{ prowlarr_database_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ prowlarr_db_container_user }}"
+    group: "{{ prowlarr_db_container_user }}"
+
+- name: Create prowlarr network Quadlet
+  containers.podman.podman_network:
+    name: prowlarr
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-prowlarr
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons
+    - Restart prowlarr network
+
+- name: Trigger Handlers for prowlarr network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start prowlarr network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: prowlarr-network
+    state: started
+    enabled: true
+
+- name: Copy prowlarr-db.env file
+  ansible.builtin.template:
+    src: prowlarr-db.env.j2
+    dest: "{{ prowlarr_conf_dir }}/prowlarr-db.env"
+    mode: "0640"
+  notify:
+    - Restart prowlarr DB service
+
+# This file is executed only if the database directory is empty
+- name: Copy database init file
+  ansible.builtin.template:
+    src: prowlarr-logs-db.sql.j2
+    dest: "{{ prowlarr_conf_dir }}/prowlarr-logs-db.sql"
+    mode: "0640"
+    owner: "{{ prowlarr_db_container_user }}"
+    group: "{{ prowlarr_db_container_user }}"
+
+- name: Create prowlarr database Quadlet
+  containers.podman.podman_container:
+    name: prowlarr-db
+    image: docker.io/postgres:16.3-alpine
+    state: quadlet
+
+    volumes:
+      - "{{ prowlarr_database_dir }}:/var/lib/postgresql/data"
+      - "{{ prowlarr_conf_dir }}/prowlarr-logs-db.sql:/docker-entrypoint-initdb.d/init-logs-db.sql"
+    env_file: "{{ prowlarr_conf_dir }}/prowlarr-db.env"
+    network: prowlarr
+    delete_depend: true
+
+    # prowlarr-db runs as root:root but /var/lib/postgresql/data must be assigned to postgres (70:70)
+    # We map the root container user to the prowlarr-db user running on the host
+    # to give access to configuration and database files
+    uidmap:
+      - "0:4000000000:70"
+      - "70:{{ prowlarr_db_container_user_result.uid }}:1"
+      - "71:4000000071:100000"
+
+    gidmap:
+      - "0:4000000000:100000"
+      - "+70:@{{ prowlarr_db_container_user_result.group }}:1"
+
+    recreate: true
+
+    healthcheck: "pg_isready -U {{ prowlarr_db_user }} -d {{ prowlarr_main_db_name }} && pg_isready -U {{ prowlarr_db_user }} -d {{ prowlarr_logs_db_name }}"
+    healthcheck_interval: 5s
+    healthcheck_timeout: 5s
+    healthcheck_retries: 5
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons
+    - Restart prowlarr DB service
+
+- name: Trigger Handlers for prowlarr DB
+  ansible.builtin.meta: flush_handlers
+
+- name: Start prowlarr DB
+  ansible.builtin.systemd_service:
+    name: prowlarr-db
+    state: started
+    enabled: true
+
+- name: Copy prowlarr.env file
+  ansible.builtin.template:
+    src: prowlarr.env.j2
+    dest: "{{ prowlarr_conf_dir }}/prowlarr.env"
+    mode: "0640"
+  notify:
+    - Restart prowlarr service
+
+- name: Copy config.xml file
+  ansible.builtin.template:
+    src: prowlarr-config.xml.j2
+    dest: "{{ prowlarr_work_dir }}/config.xml"
+    mode: "0640"
+    owner: "{{ prowlarr_container_user }}"
+    group: "{{ prowlarr_container_user }}"
+
+  notify:
+    - Restart prowlarr service
+
+- name: Create prowlarr Quadlet
+  containers.podman.podman_container:
+    name: prowlarr
+    state: quadlet
+    image: lscr.io/linuxserver/prowlarr:{{ prowlarr_version }}
+    env_file: "{{ prowlarr_conf_dir }}/prowlarr.env"
+    recreate: true
+    network: prowlarr
+
+    volumes: "{{ prowlarr_work_dir }}:/config"
+
+    # prowlarr runs as the user indicated in the env file.
+    # We map the container root user to the prowlarr user running on the host
+    uidmap:
+      - "0:4000000000:1000"
+      - "1000:{{ prowlarr_container_user_result.uid }}:1"
+      - "1001:4000001001:100000"
+
+    gidmap:
+      - "0:4000000000:100000"
+      - "+1000:@{{ prowlarr_container_user_result.group }}:1"
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.prowlarr.rule: Host(`prowlarr.{{ internal_domain}}`)
+      traefik.http.routers.prowlarr.entrypoints: websecure
+      traefik.http.routers.prowlarr.tls.certresolver: letsencrypt
+      traefik.http.routers.prowlarr.tls.domains[0].main: prowlarr.{{ internal_domain }}
+      traefik.http.services.prowlarr.loadbalancer.server.port: 9696
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons
+    - Restart prowlarr service
+
+- name: Trigger Handlers for prowlarr
+  ansible.builtin.meta: flush_handlers
+
+- name: Start prowlarr
+  ansible.builtin.systemd_service:
+    name: prowlarr
+    state: started
+    enabled: true

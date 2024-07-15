@@ -16,3 +16,18 @@
   ansible.builtin.systemd_service:
     state: restarted
     name: bitmagnet
+
+- name: Restart prowlarr network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: prowlarr-network
+
+- name: Restart prowlarr DB service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: prowlarr-db
+
+- name: Restart prowlarr service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: prowlarr

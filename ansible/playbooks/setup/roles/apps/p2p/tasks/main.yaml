@@ -1,2 +1,6 @@
 - name: Deploy Bitmagnet
   ansible.builtin.import_tasks: deploy_bitmagnet.yaml
+
+- name: Deploy Prowlarr
+  ansible.builtin.import_tasks: deploy_prowlarr.yaml
+

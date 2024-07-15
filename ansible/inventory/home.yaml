@@ -24,3 +24,5 @@ home:
       adguardhome_hashed_password: "{{ lookup('bitwarden.secrets.lookup', '1cc495f1-1ec9-47eb-b698-b1a000de76d1') }}"
       bitmagnet_db_password: "{{ lookup('bitwarden.secrets.lookup', '119f3c7b-3b7a-4fb2-96d4-b1ac00cd1a02') }}"
       tmdb_api_key: "{{ lookup('bitwarden.secrets.lookup', 'd1995ff6-fb11-490b-b397-b1ac00d9d02b') }}"
+      prowlarr_db_password: "{{ lookup('bitwarden.secrets.lookup', 'af9f1b09-6d7f-4313-9fa7-b1ad011e4fcc') }}"
+      prowlarr_api_key: "{{ lookup('bitwarden.secrets.lookup', '530f6e0e-e7e9-4b3b-a1e7-b1ad011e87aa') }}"

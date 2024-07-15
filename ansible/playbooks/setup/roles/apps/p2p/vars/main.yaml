@@ -3,3 +3,9 @@ bitmagnet_db_user: bitmagnet
 bitmagnet_db_name: bitmagnet
 bitmagnet_db_container_user: postgres_bitmagnet
 bitmagnet_container_user: bitmagnet
+prowlarr_database_dir: "{{ prowlarr_work_dir }}/database"
+prowlarr_db_user: prowlarr
+prowlarr_main_db_name: prowlarrmain
+prowlarr_logs_db_name: prowlarrlogs
+prowlarr_db_container_user: postgres_prowlarr
+prowlarr_container_user: prowlarr
