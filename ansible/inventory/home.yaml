@@ -27,3 +27,5 @@ home:
       prowlarr_db_password: "{{ lookup('bitwarden.secrets.lookup', 'af9f1b09-6d7f-4313-9fa7-b1ad011e4fcc') }}"
       prowlarr_api_key: "{{ lookup('bitwarden.secrets.lookup', '530f6e0e-e7e9-4b3b-a1e7-b1ad011e87aa') }}"
       bittorrent_webui_encoded_password: "{{ lookup('bitwarden.secrets.lookup', '9cb41826-5d10-420c-bad5-b1ae00e27f81') }}"
+      sonarr_db_password: "{{ lookup('bitwarden.secrets.lookup', '97e77f61-cb02-4845-8c55-b1ae0110b056') }}"
+      sonarr_api_key: "{{ lookup('bitwarden.secrets.lookup', '822bf760-4d47-43e0-99a7-b1ae0110d100') }}"

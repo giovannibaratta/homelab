@@ -10,3 +10,9 @@ prowlarr_main_db_name: prowlarrmain
 prowlarr_logs_db_name: prowlarrlogs
 prowlarr_db_container_user: postgres_prowlarr
 prowlarr_container_user: prowlarr
+sonarr_database_dir: "{{ sonarr_work_dir }}/database"
+sonarr_db_user: sonarr
+sonarr_main_db_name: sonarrmain
+sonarr_logs_db_name: sonarrlogs
+sonarr_db_container_user: postgres_sonarr
+sonarr_container_user: sonarr

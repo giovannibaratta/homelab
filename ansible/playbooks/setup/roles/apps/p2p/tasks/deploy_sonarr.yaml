@@ -1,0 +1,214 @@
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for sonarr_db_password
+  ansible.builtin.set_fact:
+    sonarr_db_password: "{{ sonarr_db_password }}"
+
+- name: Bitwarden workaround for sonarr_api_key
+  ansible.builtin.set_fact:
+    sonarr_api_key: "{{ sonarr_api_key }}"
+
+- name: Bitwarden workaround for internal_domain
+  ansible.builtin.set_fact:
+    internal_domain: "{{ internal_domain }}"
+
+- name: Add user {{ sonarr_container_user }}
+  ansible.builtin.user:
+    name: "{{ sonarr_container_user }}"
+    comment: User used to run sonarr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: sonarr_container_user_result
+
+- name: Add user {{ sonarr_db_container_user }}
+  ansible.builtin.user:
+    name: "{{ sonarr_db_container_user }}"
+    comment: User used to run the PostgreSQL database for sonarr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: sonarr_db_container_user_result
+
+- name: Create sonarr directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ sonarr_container_user }}"
+    group: "{{ sonarr_container_user }}"
+  with_items:
+    - "{{ sonarr_conf_dir }}"
+    - "{{ sonarr_work_dir }}"
+    - "{{ sonarr_database_dir }}"
+
+- name: Change ownership for {{ sonarr_database_dir }}
+  ansible.builtin.file:
+    path: "{{ sonarr_database_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ sonarr_db_container_user }}"
+    group: "{{ sonarr_db_container_user }}"
+
+- name: Create sonarr network Quadlet
+  containers.podman.podman_network:
+    name: sonarr
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-sonarr
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons
+    - Restart sonarr network
+
+- name: Trigger Handlers for sonarr network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start sonarr network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: sonarr-network
+    state: started
+    enabled: true
+
+- name: Copy sonarr-db.env file
+  ansible.builtin.template:
+    src: sonarr-db.env.j2
+    dest: "{{ sonarr_conf_dir }}/sonarr-db.env"
+    mode: "0640"
+  notify:
+    - Restart sonarr DB service
+
+# This file is executed only if the database directory is empty
+- name: Copy database init file
+  ansible.builtin.template:
+    src: sonarr-logs-db.sql.j2
+    dest: "{{ sonarr_conf_dir }}/sonarr-logs-db.sql"
+    mode: "0640"
+    owner: "{{ sonarr_db_container_user }}"
+    group: "{{ sonarr_db_container_user }}"
+
+- name: Create sonarr database Quadlet
+  containers.podman.podman_container:
+    name: sonarr-db
+    image: docker.io/postgres:16.3-alpine
+    state: quadlet
+
+    volumes:
+      - "{{ sonarr_database_dir }}:/var/lib/postgresql/data"
+      - "{{ sonarr_conf_dir }}/sonarr-logs-db.sql:/docker-entrypoint-initdb.d/init-logs-db.sql"
+    env_file: "{{ sonarr_conf_dir }}/sonarr-db.env"
+    network: sonarr
+    delete_depend: true
+
+    # sonarr-db runs as root:root but /var/lib/postgresql/data must be assigned to postgres (70:70)
+    # We map the root container user to the sonarr-db user running on the host
+    # to give access to configuration and database files
+    uidmap:
+      - "0:4000000000:70"
+      - "70:{{ sonarr_db_container_user_result.uid }}:1"
+      - "71:4000000071:100000"
+
+    gidmap:
+      - "0:4000000000:100000"
+      - "+70:@{{ sonarr_db_container_user_result.group }}:1"
+
+    recreate: true
+
+    healthcheck: "pg_isready -U {{ sonarr_db_user }} -d {{ sonarr_main_db_name }} && pg_isready -U {{ sonarr_db_user }} -d {{ sonarr_logs_db_name }}"
+    healthcheck_interval: 5s
+    healthcheck_timeout: 5s
+    healthcheck_retries: 5
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons
+    - Restart sonarr DB service
+
+- name: Trigger Handlers for sonarr DB
+  ansible.builtin.meta: flush_handlers
+
+- name: Start sonarr DB
+  ansible.builtin.systemd_service:
+    name: sonarr-db
+    state: started
+    enabled: true
+
+- name: Copy sonarr.env file
+  ansible.builtin.template:
+    src: sonarr.env.j2
+    dest: "{{ sonarr_conf_dir }}/sonarr.env"
+    mode: "0640"
+  notify:
+    - Restart sonarr service
+
+- name: Copy config.xml file
+  ansible.builtin.template:
+    src: sonarr-config.xml.j2
+    dest: "{{ sonarr_work_dir }}/config.xml"
+    mode: "0640"
+    owner: "{{ sonarr_container_user }}"
+    group: "{{ sonarr_container_user }}"
+
+  notify:
+    - Restart sonarr service
+
+- name: Create sonarr Quadlet
+  containers.podman.podman_container:
+    name: sonarr
+    state: quadlet
+    image: lscr.io/linuxserver/sonarr:{{ sonarr_version }}
+    env_file: "{{ sonarr_conf_dir }}/sonarr.env"
+    recreate: true
+    network: sonarr
+
+    volumes: "{{ sonarr_work_dir }}:/config"
+
+    # sonarr runs as the user indicated in the env file.
+    # We map the container root user to the sonarr user running on the host
+    uidmap:
+      - "0:4000000000:1000"
+      - "1000:{{ sonarr_container_user_result.uid }}:1"
+      - "1001:4000001001:100000"
+
+    gidmap:
+      - "0:4000000000:100000"
+      - "+1000:@{{ sonarr_container_user_result.group }}:1"
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.sonarr.rule: Host(`sonarr.{{ internal_domain}}`)
+      traefik.http.routers.sonarr.entrypoints: websecure
+      traefik.http.routers.sonarr.tls.certresolver: letsencrypt
+      traefik.http.routers.sonarr.tls.domains[0].main: sonarr.{{ internal_domain }}
+      traefik.http.services.sonarr.loadbalancer.server.port: 9696
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=sonarr-db.service
+  notify:
+    - Reload systemd daemons
+    - Restart sonarr service
+
+- name: Trigger Handlers for sonarr
+  ansible.builtin.meta: flush_handlers
+
+- name: Start sonarr
+  ansible.builtin.systemd_service:
+    name: sonarr
+    state: started
+    enabled: true

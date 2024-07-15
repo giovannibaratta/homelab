@@ -41,3 +41,18 @@
   ansible.builtin.systemd_service:
     state: restarted
     name: bittorrent
+
+- name: Restart sonarr network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: sonarr-network
+
+- name: Restart sonarr DB service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: sonarr-db
+
+- name: Restart sonarr service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: sonarr

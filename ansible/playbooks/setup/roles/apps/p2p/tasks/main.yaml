@@ -7,7 +7,6 @@
 - name: Deploy Prowlarr
   ansible.builtin.import_tasks: deploy_prowlarr.yaml
 
-- name: Configure Prowlarr
-  ansible.builtin.import_tasks: configure_prowlarr.yaml
-  delegate_to: localhost
-  become: false
+
+- name: Deploy Sonarr
+  ansible.builtin.import_tasks: deploy_sonarr.yaml

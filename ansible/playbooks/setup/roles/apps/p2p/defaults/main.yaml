@@ -7,3 +7,6 @@ prowlarr_work_dir: /app/prowlarr/work
 bittorrent_version: 4.6.5-r0-ls341
 bittorrent_port: 53428
 bittorrent_work_dir: /app/bittorrent/work
+sonarr_version: 4.0.7
+sonarr_conf_dir: /app/sonarr/conf
+sonarr_work_dir: /app/sonarr/work
