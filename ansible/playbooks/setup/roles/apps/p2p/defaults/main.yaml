@@ -4,3 +4,6 @@ bitmagnet_work_dir: /app/bitmagnet/work
 prowlarr_version: 1.20.1
 prowlarr_conf_dir: /app/prowlarr/conf
 prowlarr_work_dir: /app/prowlarr/work
+bittorrent_version: 4.6.5-r0-ls341
+bittorrent_port: 53428
+bittorrent_work_dir: /app/bittorrent/work

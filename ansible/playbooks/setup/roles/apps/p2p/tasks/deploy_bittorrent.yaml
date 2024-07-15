@@ -1,0 +1,134 @@
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+
+- name: Bitwarden workaround for internal_domain
+  ansible.builtin.set_fact:
+    internal_domain: "{{ internal_domain }}"
+
+- name: Bitwarden workaround for bittorrent_webui_encoded_password
+  ansible.builtin.set_fact:
+    bittorrent_webui_encoded_password: "{{ bittorrent_webui_encoded_password }}"
+
+- name: Add user {{ bittorrent_container_user }}
+  ansible.builtin.user:
+    name: "{{ bittorrent_container_user }}"
+    comment: User used to run bittorrent
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: bittorrent_container_user_result
+
+- name: Create bittorrent directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ bittorrent_container_user }}"
+    group: "{{ bittorrent_container_user }}"
+  with_items:
+    - "{{ bittorrent_work_dir }}"
+    - "{{ bittorrent_downloads_dir }}"
+
+- name: Change ownership for {{ bittorrent_downloads_dir }}
+  ansible.builtin.file:
+    path: "{{ bittorrent_downloads_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ bittorrent_container_user }}"
+    group: "{{ bittorrent_container_user }}"
+    mode: "0774"
+
+- name: Create bittorrent network Quadlet
+  containers.podman.podman_network:
+    name: bittorrent
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-bittorrent
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons
+    - Restart bittorrent network
+
+- name: Trigger Handlers for Bittorrent network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start bittorrent network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: bittorrent-network
+    state: started
+    enabled: true
+
+- name: Copy bittorrent.env file
+  ansible.builtin.template:
+    src: bittorrent.env.j2
+    dest: "{{ bittorrent_work_dir }}/bittorrent.env"
+    mode: "0640"
+  notify:
+    - Restart bittorrent service
+
+- name: Copy bittorrent.conf file
+  ansible.builtin.template:
+    src: bittorrent.conf.j2
+    dest: "{{ bittorrent_work_dir }}/qBittorrent/qBittorrent.conf"
+    mode: "0640"
+  notify:
+    - Restart bittorrent service
+
+- name: Create bittorrent Quadlet
+  containers.podman.podman_container:
+    name: bittorrent
+    state: quadlet
+    image: lscr.io/linuxserver/qbittorrent:{{ bittorrent_version }}
+
+    env_file: "{{ bittorrent_work_dir }}/bittorrent.env"
+    recreate: true
+    network: bittorrent
+
+    volumes:
+      - "{{ bittorrent_work_dir }}:/config"
+      - "{{ bittorrent_downloads_dir }}:/downloads"
+
+    # bittorrent runs as root:root.
+    # We map the container root user to the bittorrent user running on the host
+    uidmap:
+      - "0:{{ bittorrent_container_user_result.uid }}:1"
+      - "1:4000000000:100000"
+
+    gidmap:
+      - "0:{{ bittorrent_container_user_result.group }}:1"
+      - "1:4000000000:100000"
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.bittorrent.rule: Host(`bittorrent.{{ internal_domain }}`)
+      traefik.http.routers.bittorrent.entrypoints: websecure
+      traefik.http.routers.bittorrent.tls.certresolver: letsencrypt
+      traefik.http.routers.bittorrent.tls.domains[0].main: bittorrent.{{ internal_domain }}
+      traefik.http.services.bittorrent.loadbalancer.server.port: 8080
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons
+    - Restart bittorrent service
+
+- name: Trigger Handlers for bittorrent
+  ansible.builtin.meta: flush_handlers
+
+- name: Start bittorrent
+  ansible.builtin.systemd_service:
+    name: bittorrent
+    state: started
+    enabled: true

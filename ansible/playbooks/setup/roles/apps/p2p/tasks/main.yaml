@@ -1,3 +1,6 @@
+- name: Deploy qBittorrent
+  ansible.builtin.import_tasks: deploy_bittorrent.yaml
+
 - name: Deploy Bitmagnet
   ansible.builtin.import_tasks: deploy_bitmagnet.yaml
 

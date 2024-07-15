@@ -26,3 +26,4 @@ home:
       tmdb_api_key: "{{ lookup('bitwarden.secrets.lookup', 'd1995ff6-fb11-490b-b397-b1ac00d9d02b') }}"
       prowlarr_db_password: "{{ lookup('bitwarden.secrets.lookup', 'af9f1b09-6d7f-4313-9fa7-b1ad011e4fcc') }}"
       prowlarr_api_key: "{{ lookup('bitwarden.secrets.lookup', '530f6e0e-e7e9-4b3b-a1e7-b1ad011e87aa') }}"
+      bittorrent_webui_encoded_password: "{{ lookup('bitwarden.secrets.lookup', '9cb41826-5d10-420c-bad5-b1ae00e27f81') }}"

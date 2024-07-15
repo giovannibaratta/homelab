@@ -43,5 +43,6 @@
       tags: "coder"
 
     - role: roles/apps/p2p
+      bittorrent_downloads_dir: "/external/torrent/downloads"
       become: true
       tags: "p2p"
