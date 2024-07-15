@@ -1,0 +1,84 @@
+{
+  "indexerUrls": [
+    ""
+  ],
+  "legacyUrls": [],
+  "definitionName": "Torznab",
+  "description": "Bitmagnet Torznab",
+  "language": "en-US",
+  "encoding": "Unicode (UTF-8)",
+  "enable": true,
+  "redirect": false,
+  "supportsRss": true,
+  "supportsSearch": true,
+  "supportsRedirect": true,
+  "supportsPagination": true,
+  "appProfileId": 1,
+  "protocol": "torrent",
+  "privacy": "private",
+  "capabilities": {
+    "limitsMax": 100,
+    "limitsDefault": 100,
+    "categories": [],
+    "supportsRawSearch": false,
+    "searchParams": [
+      "q"
+    ],
+    "tvSearchParams": [],
+    "movieSearchParams": [],
+    "musicSearchParams": [],
+    "bookSearchParams": []
+  },
+  "priority": 25,
+  "downloadClientId": 0,
+  "added": "0001-01-01T00:00:00Z",
+  "sortName": "generic torznab",
+  "name": "bitmagnet",
+  "fields": [
+    {
+      "name": "baseUrl",
+      "value": "https://bitmagnet.{{ internal_domain }}/torznab"
+    },
+    {
+      "name": "apiPath",
+      "value": "/api"
+    },
+    {
+      "name": "apiKey"
+    },
+    {
+      "name": "torrentBaseSettings.appMinimumSeeders"
+    },
+    {
+      "name": "torrentBaseSettings.seedRatio"
+    },
+    {
+      "name": "torrentBaseSettings.seedTime"
+    },
+    {
+      "name": "torrentBaseSettings.packSeedTime"
+    },
+    {
+      "name": "additionalParameters"
+    },
+    {
+      "name": "vipExpiration",
+      "value": ""
+    },
+    {
+      "name": "baseSettings.queryLimit"
+    },
+    {
+      "name": "baseSettings.grabLimit"
+    },
+    {
+      "name": "baseSettings.limitsUnit",
+      "value": 0
+    }
+  ],
+  "implementationName": "Torznab",
+  "implementation": "Torznab",
+  "configContract": "TorznabSettings",
+  "infoLink": "https://wiki.servarr.com/prowlarr/supported-indexers#torznab",
+  "tags": []
+}

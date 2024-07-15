@@ -1,0 +1,52 @@
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for prowlarr_api_key
+  ansible.builtin.set_fact:
+    prowlarr_api_key: "{{ prowlarr_api_key }}"
+
+- name: Bitwarden workaround for internal_domain
+  ansible.builtin.set_fact:
+    internal_domain: "{{ internal_domain }}"
+
+- name: Prowlarr server url
+  ansible.builtin.set_fact:
+    prowlarr_server_url: "https://prowlarr.{{ internal_domain }}"
+
+- name: Check if indexer for Bitmagnet exists
+  ansible.builtin.uri:
+    url: "{{ prowlarr_server_url }}/api/v1/indexer"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ prowlarr_api_key }}"
+    status_code: [200]
+  register: prowlarr_indexers_api_response
+
+- name: Set bitmagnet_indexer_url
+  ansible.builtin.set_fact:
+    bitmagnet_indexer_url: "https://bitmagnet.{{ internal_domain }}/torznab"
+
+- name: Set bitmagnet_indexer_count fact
+  ansible.builtin.set_fact:
+    bitmagnet_indexer_count: "{{ prowlarr_indexers_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
+  vars:
+    # Extract entries that have bitmagnet_indexer_url in indexerUrls field, count the number of result
+    jsme_query: "[?contains(indexerUrls, '{{ bitmagnet_indexer_url }}' )] | length(@)"
+
+- name: Set bitmagnet_indexer_exists fact
+  ansible.builtin.set_fact:
+    bitmagnet_indexer_exists: "{{ bitmagnet_indexer_count != '0' }}"
+
+- name: Add Bitmagnet indexers
+  when: not bitmagnet_indexer_exists
+  ansible.builtin.uri:
+    url: "{{ prowlarr_server_url }}/api/v1/indexer"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ prowlarr_api_key }}"
+    status_code: [201]
+    body: "{{ lookup('ansible.builtin.template', 'prowlarr-add-new-indexer-body-request.json.j2') }}"
+    body_format: json
