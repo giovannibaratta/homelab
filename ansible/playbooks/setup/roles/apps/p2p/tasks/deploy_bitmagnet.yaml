@@ -151,11 +151,11 @@
     # We map the container root user to the bitmagnet user running on the host
     uidmap:
       - "0:{{ bitmagnet_container_user_result.uid }}:1"
-      - "1:4000001000:100000"
+      - "1:4000000000:100000"
 
     gidmap:
       - "0:{{ bitmagnet_container_user_result.group }}:1"
-      - "1:4000001000:100000"
+      - "1:4000000000:100000"
 
     labels:
       traefik.enable: true
