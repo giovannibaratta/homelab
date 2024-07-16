@@ -1,0 +1,69 @@
+{
+  "enable": true,
+  "protocol": "torrent",
+  "priority": 1,
+  "removeCompletedDownloads": true,
+  "removeFailedDownloads": true,
+  "name": "bittorrent.{{ internal_domain }}",
+  "fields": [
+    {
+      "name": "host",
+      "value": "bittorrent.{{ internal_domain }}"
+    },
+    {
+      "name": "port",
+      "value": "443"
+    },
+    {
+      "name": "useSsl",
+      "value": true
+    },
+    {
+      "name": "urlBase"
+    },
+    {
+      "name": "username",
+      "value": "admin"
+    },
+    {
+      "name": "password",
+      "value": "{{ bittorrent_webui_decoded_password }}"
+    },
+    {
+      "name": "tvCategory",
+      "value": "tv-sonarr"
+    },
+    {
+      "name": "tvImportedCategory"
+    },
+    {
+      "name": "recentTvPriority",
+      "value": 0
+    },
+    {
+      "name": "olderTvPriority",
+      "value": 0
+    },
+    {
+      "name": "initialState",
+      "value": 0
+    },
+    {
+      "name": "sequentialOrder",
+      "value": true
+    },
+    {
+      "name": "firstAndLast",
+      "value": false
+    },
+    {
+      "name": "contentLayout",
+      "value": 2
+    }
+  ],
+  "implementationName": "qBittorrent",
+  "implementation": "QBittorrent",
+  "configContract": "QBittorrentSettings",
+  "infoLink": "https://wiki.servarr.com/sonarr/supported#qbittorrent",
+  "tags": []
+}
