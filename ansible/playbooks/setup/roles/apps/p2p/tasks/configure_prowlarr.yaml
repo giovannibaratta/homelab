@@ -50,3 +50,41 @@
     status_code: [201]
     body: "{{ lookup('ansible.builtin.template', 'prowlarr-add-new-indexer-body-request.json.j2') }}"
     body_format: json
+
+- name: Check if app Sonarr exists
+  ansible.builtin.uri:
+    url: "{{ prowlarr_server_url }}/api/v1/applications"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ prowlarr_api_key }}"
+    status_code: [200]
+  register: prowlarr_apps_api_response
+
+- name: Set sonarr_url
+  ansible.builtin.set_fact:
+    sonarr_url: "sonarr.{{ internal_domain }}"
+
+- name: Set sonarr_apps_count fact
+  ansible.builtin.set_fact:
+    sonarr_apps_count: "{{ prowlarr_apps_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
+  vars:
+    jsme_query: "[?contains(name, '{{ sonarr_url }}' )] | length(@)"
+
+- name: Set sonar_sync_exists fact
+  ansible.builtin.set_fact:
+    sonar_sync_exists: "{{ sonarr_apps_count != '0' }}"
+
+
+- name: Add Sonarr sync
+  when: not sonar_sync_exists
+  ansible.builtin.uri:
+    url: "{{ prowlarr_server_url }}/api/v1/applications"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ prowlarr_api_key }}"
+    status_code: [201]
+    body: "{{ lookup('ansible.builtin.template', 'prowlarr-add-sonarr-body-request.json.j2') }}"
+    body_format: json

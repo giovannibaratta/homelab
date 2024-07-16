@@ -1,0 +1,50 @@
+{
+  "syncLevel": "fullSync",
+  "fields": [
+    {
+      "name": "prowlarrUrl",
+      "value": "https://prowlarr.{{ internal_domain }}"
+    },
+    {
+      "name": "baseUrl",
+      "value": "https://sonarr.{{ internal_domain }}"
+    },
+    {
+      "name": "apiKey",
+      "value": "{{ sonarr_api_key }}"
+    },
+    {
+      "name": "syncCategories",
+      "value": [
+        5000,
+        5010,
+        5020,
+        5030,
+        5040,
+        5045,
+        5050,
+        5090
+      ]
+    },
+    {
+      "name": "animeSyncCategories",
+      "value": [
+        5070
+      ]
+    },
+    {
+      "name": "syncAnimeStandardFormatSearch",
+      "value": true
+    },
+    {
+      "name": "syncRejectBlocklistedTorrentHashesWhileGrabbing",
+      "value": false
+    }
+  ],
+  "implementationName": "Sonarr",
+  "implementation": "Sonarr",
+  "configContract": "SonarrSettings",
+  "infoLink": "https://wiki.servarr.com/prowlarr/supported#sonarr",
+  "tags": [],
+  "name": "sonarr.{{ internal_domain }}"
+}
