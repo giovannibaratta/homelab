@@ -176,7 +176,7 @@
     state: present
     update_cache: yes
 
-- name: Configure NAT rules with nftables
+- name: Configure NAT and firewall rules with nftables
   blockinfile:
     path: /etc/nftables.conf
     backup: yes
@@ -219,7 +219,6 @@
         }
       }
 
-      # Drop all traffic from internet to internal network
       table ip firewall {
 
         chain dispatcher {
@@ -233,6 +232,7 @@
           reject
         }
 
+        # Drop all traffic from internet if not initiated from internal network
         chain public_traffic {
           ct state {established,related} accept
           ct state invalid log drop
