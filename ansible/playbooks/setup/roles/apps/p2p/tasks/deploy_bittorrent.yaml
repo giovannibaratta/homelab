@@ -27,16 +27,14 @@
     group: "{{ bittorrent_container_user }}"
   with_items:
     - "{{ bittorrent_work_dir }}"
-    - "{{ bittorrent_downloads_dir }}"
 
-- name: Change ownership for {{ bittorrent_downloads_dir }}
+- name: Create directory {{ bittorrent_downloads_dir }}
   ansible.builtin.file:
     path: "{{ bittorrent_downloads_dir }}"
     state: directory
-    recurse: true
-    owner: "{{ bittorrent_container_user }}"
-    group: "{{ bittorrent_container_user }}"
     mode: "0774"
+    owner: "{{ bittorrent_container_user }}"
+    group: "ptop"
 
 - name: Create bittorrent network Quadlet
   containers.podman.podman_network:
@@ -107,6 +105,7 @@
     gidmap:
       - "0:{{ bittorrent_container_user_result.group }}:1"
       - "1:4000000000:100000"
+      - "+1000:@{{ ptop_gid }}:1"
 
     labels:
       traefik.enable: true

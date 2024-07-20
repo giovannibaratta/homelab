@@ -183,6 +183,7 @@
     volumes:
       - "{{ sonarr_work_dir }}:/config"
       - "{{ sonarr_data_dir }}:/data"
+      - "{{ bittorrent_downloads_dir }}:/downloads"
 
     # sonarr runs as the user indicated in the env file.
     # We map the container root user to the sonarr user running on the host
@@ -193,7 +194,7 @@
 
     gidmap:
       - "0:4000000000:100000"
-      - "+1000:@{{ sonarr_container_user_result.group }}:1"
+      - "+1000:@{{ ptop_gid }}:1"
 
     labels:
       traefik.enable: true

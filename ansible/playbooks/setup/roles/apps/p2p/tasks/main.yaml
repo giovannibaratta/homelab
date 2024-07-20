@@ -1,3 +1,13 @@
+- name: Ensure group ptop exists
+  ansible.builtin.group:
+    name: ptop
+    state: present
+  register: ptop_group_result
+
+- name: Set ptop_gid
+  ansible.builtin.set_fact:
+    ptop_gid: "{{ ptop_group_result.gid }}"
+
 - name: Deploy qBittorrent
   ansible.builtin.import_tasks: deploy_bittorrent.yaml
 
