@@ -49,5 +49,6 @@
 
     - role: roles/apps/p2p
       bittorrent_downloads_dir: "/external/torrent/downloads"
+      sonarr_data_dir: "/external/media/tv"
       become: true
       tags: "p2p"

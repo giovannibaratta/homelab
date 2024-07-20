@@ -40,6 +40,7 @@
     - "{{ sonarr_conf_dir }}"
     - "{{ sonarr_work_dir }}"
     - "{{ sonarr_database_dir }}"
+    - "{{ sonarr_data_dir }}"
 
 - name: Change ownership for {{ sonarr_database_dir }}
   ansible.builtin.file:
@@ -48,6 +49,12 @@
     recurse: true
     owner: "{{ sonarr_db_container_user }}"
     group: "{{ sonarr_db_container_user }}"
+
+- name: Change mode for {{ sonarr_data_dir }}
+  ansible.builtin.file:
+    path: "{{ sonarr_data_dir }}"
+    state: directory
+    mode: "0777"
 
 - name: Create sonarr network Quadlet
   containers.podman.podman_network:
@@ -173,7 +180,9 @@
     recreate: true
     network: sonarr
 
-    volumes: "{{ sonarr_work_dir }}:/config"
+    volumes:
+      - "{{ sonarr_work_dir }}:/config"
+      - "{{ sonarr_data_dir }}:/data"
 
     # sonarr runs as the user indicated in the env file.
     # We map the container root user to the sonarr user running on the host
