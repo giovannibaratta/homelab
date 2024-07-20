@@ -73,7 +73,7 @@
     opt:
       isolate: true
   notify:
-    - Reload systemd daemons
+    - Reload systemd daemons for p2p role
     - Restart sonarr network
 
 - name: Trigger Handlers for sonarr network
@@ -140,7 +140,7 @@
         [Install]
         WantedBy=default.target
   notify:
-    - Reload systemd daemons
+    - Reload systemd daemons for p2p role
     - Restart sonarr DB service
 
 - name: Trigger Handlers for sonarr DB
@@ -210,7 +210,7 @@
         [Unit]
         Requires=sonarr-db.service
   notify:
-    - Reload systemd daemons
+    - Reload systemd daemons for p2p role
     - Restart sonarr service
 
 - name: Trigger Handlers for sonarr

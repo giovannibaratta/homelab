@@ -62,7 +62,7 @@
     opt:
       isolate: true
   notify:
-    - Reload systemd daemons
+    - Reload systemd daemons for p2p role
     - Restart bitmagnet network
 
 - meta: flush_handlers
@@ -117,7 +117,7 @@
         [Install]
         WantedBy=default.target
   notify:
-    - Reload systemd daemons
+    - Reload systemd daemons for p2p role
     - Restart bitmagnet DB service
 
 - name: Trigger Handlers for Bitmagnet DB
@@ -172,7 +172,7 @@
         [Unit]
         Requires=bitmagnet-db.service
   notify:
-    - Reload systemd daemons
+    - Reload systemd daemons for p2p role
     - Restart bitmagnet service
 
 - name: Trigger Handlers for Bitmagnet

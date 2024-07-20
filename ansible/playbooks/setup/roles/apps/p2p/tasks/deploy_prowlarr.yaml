@@ -66,7 +66,7 @@
     opt:
       isolate: true
   notify:
-    - Reload systemd daemons
+    - Reload systemd daemons for p2p role
     - Restart prowlarr network
 
 - name: Trigger Handlers for prowlarr network
@@ -135,7 +135,7 @@
         [Unit]
         Requires=prowlarr-db.service
   notify:
-    - Reload systemd daemons
+    - Reload systemd daemons for p2p role
     - Restart prowlarr DB service
 
 - name: Trigger Handlers for prowlarr DB
@@ -201,7 +201,7 @@
         [Install]
         WantedBy=default.target
   notify:
-    - Reload systemd daemons
+    - Reload systemd daemons for p2p role
     - Restart prowlarr service
 
 - name: Trigger Handlers for prowlarr

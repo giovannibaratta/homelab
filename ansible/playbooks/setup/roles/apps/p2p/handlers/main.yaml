@@ -1,4 +1,4 @@
-- name: Reload systemd daemons
+- name: Reload systemd daemons for p2p role
   ansible.builtin.systemd_service:
     daemon_reload: true
 
