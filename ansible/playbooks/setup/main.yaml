@@ -42,6 +42,11 @@
       become: true
       tags: "coder"
 
+    - role: roles/apps/media-server
+      plex_media_dir: "/external/torrent/downloads"
+      become: true
+      tags: "media-server"
+
     - role: roles/apps/p2p
       bittorrent_downloads_dir: "/external/torrent/downloads"
       become: true
