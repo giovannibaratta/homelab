@@ -1,0 +1,110 @@
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+
+- name: Bitwarden workaround for internal_domain
+  ansible.builtin.set_fact:
+    internal_domain: "{{ internal_domain }}"
+
+- name: Add user {{ overseerr_container_user }}
+  ansible.builtin.user:
+    name: "{{ overseerr_container_user }}"
+    comment: User used to run overseerr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: overseerr_container_user_result
+
+- name: Create overseerr directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ overseerr_container_user }}"
+    group: "{{ overseerr_container_user }}"
+  with_items:
+    - "{{ overseerr_conf_dir }}"
+    - "{{ overseerr_work_dir }}"
+
+- name: Create overseerr network Quadlet
+  containers.podman.podman_network:
+    name: overseerr
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-overseerr
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart overseerr network
+
+- name: Trigger Handlers for overseerr network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start overseerr network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: overseerr-network
+    state: started
+    enabled: true
+
+- name: Copy overseerr.env file
+  ansible.builtin.template:
+    src: overseerr.env.j2
+    dest: "{{ overseerr_conf_dir }}/overseerr.env"
+    mode: "0640"
+  notify:
+    - Restart overseerr service
+
+- name: Create overseerr Quadlet
+  containers.podman.podman_container:
+    name: overseerr
+    state: quadlet
+    image: sctx/overseerr:{{ overseerr_version }}
+    env_file: "{{ overseerr_conf_dir }}/overseerr.env"
+    recreate: true
+    network: overseerr
+
+    volumes: "{{ overseerr_work_dir }}:/app/config"
+
+    # overseerr runs as the user indicated in the env file.
+    # We map the container root user to the overseerr user running on the host
+    uidmap:
+      - "0:{{ overseerr_container_user_result.uid }}:1"
+      - "1:4000000000:100000"
+
+    gidmap:
+      - "0:{{ overseerr_container_user_result.group }}:1"
+      - "1:4000000000:100000"
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.overseerr.rule: Host(`overseerr.{{ internal_domain}}`)
+      traefik.http.routers.overseerr.entrypoints: websecure
+      traefik.http.routers.overseerr.tls.certresolver: letsencrypt
+      traefik.http.routers.overseerr.tls.domains[0].main: overseerr.{{ internal_domain }}
+      traefik.http.services.overseerr.loadbalancer.server.port: 8080
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart overseerr service
+
+- name: Trigger Handlers for overseerr
+  ansible.builtin.meta: flush_handlers
+
+- name: Start overseerr
+  ansible.builtin.systemd_service:
+    name: overseerr
+    state: started
+    enabled: true

@@ -16,3 +16,4 @@ sonarr_main_db_name: sonarrmain
 sonarr_logs_db_name: sonarrlogs
 sonarr_db_container_user: postgres_sonarr
 sonarr_container_user: sonarr
+overseerr_container_user: overseerr
