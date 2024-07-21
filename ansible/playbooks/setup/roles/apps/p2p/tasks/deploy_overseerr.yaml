@@ -108,3 +108,18 @@
     name: overseerr
     state: started
     enabled: true
+
+- name: Wait for {{ overseerr_work_dir }}/settings.json
+  ansible.builtin.wait_for:
+    path: "{{ overseerr_work_dir }}/settings.json"
+
+- name: Read Overseerr settings
+  ansible.builtin.slurp:
+    src: "{{ overseerr_work_dir }}/settings.json"
+  register: overseerr_settings
+
+- name: Set overseerr_api_key
+  ansible.builtin.set_fact:
+    overseerr_api_key: "{{ overseerr_settings.content | b64decode | from_json | community.general.json_query(jsme_query) | b64decode }}"
+  vars:
+    jsme_query: "main.apiKey"

@@ -91,3 +91,100 @@
     status_code: [201]
     body: "{{ lookup('ansible.builtin.template', 'sonarr-add-rootfolder-body-request.json.j2') }}"
     body_format: json
+
+- name: Retrieve custom formats
+  ansible.builtin.uri:
+    url: "{{ sonarr_server_url }}/api/v3/customformat"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ sonarr_api_key }}"
+    status_code: [200]
+  register: sonarr_customformats_api_response
+  # Is Sonarr is restarted, it might take a few seconds to become responsive
+  until: sonarr_customformats_api_response.status == 200
+  retries: 60 # 60 * 1 seconds = 1min
+  delay: 1
+
+- name: Set boostitalian_count fact
+  ansible.builtin.set_fact:
+    boostitalian_count: "{{ sonarr_customformats_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
+  vars:
+    jsme_query: "[?contains(name, 'BoostItalian' )] | length(@)"
+
+- name: Set boostitalian_exists fact
+  ansible.builtin.set_fact:
+    boostitalian_exists: "{{ boostitalian_count != '0' }}"
+
+- name: Add BoostItalian custom format
+  when: not boostitalian_exists
+  ansible.builtin.uri:
+    url: "{{ sonarr_server_url }}/api/v3/customformat"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ sonarr_api_key }}"
+    status_code: [201]
+    body: "{{ lookup('ansible.builtin.template', 'sonarr-add-custom-formats-boost-italian-request-body.json.j2') }}"
+    body_format: json
+
+- name: Set release_does_not_include_ita_count fact
+  ansible.builtin.set_fact:
+    release_does_not_include_ita_count: "{{ sonarr_customformats_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
+  vars:
+    jsme_query: "[?contains(name, 'ReleaseDoesNotIncludeITA' )] | length(@)"
+
+- name: Set release_does_not_include_ita_exists fact
+  ansible.builtin.set_fact:
+    release_does_not_include_ita_exists: "{{ release_does_not_include_ita_count != '0' }}"
+
+- name: Add ReleaseDoesNotIncludeITA custom format
+  when: not release_does_not_include_ita_exists
+  ansible.builtin.uri:
+    url: "{{ sonarr_server_url }}/api/v3/customformat"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ sonarr_api_key }}"
+    status_code: [201]
+    body: "{{ lookup('ansible.builtin.template', 'sonarr-add-custom-formats-release-does-not-include-ita.json.j2') }}"
+    body_format: json
+
+- name: Retrieve quality profiles
+  ansible.builtin.uri:
+    url: "{{ sonarr_server_url }}/api/v3/qualityprofile"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ sonarr_api_key }}"
+    status_code: [200]
+  register: sonarr_quality_profiles_api_response
+  # Is Sonarr is restarted, it might take a few seconds to become responsive
+  until: sonarr_quality_profiles_api_response.status == 200
+  retries: 60 # 60 * 1 seconds = 1min
+  delay: 1
+
+- name: Set quality_profiles_high_quality_ita_count fact
+  ansible.builtin.set_fact:
+    quality_profiles_high_quality_ita_count: "{{ sonarr_quality_profiles_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
+  vars:
+    jsme_query: "[?contains(name, 'HighQuality-ITA' )] | length(@)"
+
+- name: Set quality_profiles_high_quality_ita_exists fact
+  ansible.builtin.set_fact:
+    quality_profiles_high_quality_ita_exists: "{{ quality_profiles_high_quality_ita_count != '0' }}"
+
+- name: POST Sonarr HighQuality-ITA quality profile
+  when: not quality_profiles_high_quality_ita_exists
+  ansible.builtin.uri:
+    url: "{{ sonarr_server_url }}/api/v3/qualityprofile"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ sonarr_api_key }}"
+    status_code: [201]
+    body: "{{ lookup('ansible.builtin.template', 'sonarr-add-profile-highquality-ita.json.j2') }}"
+    body_format: json

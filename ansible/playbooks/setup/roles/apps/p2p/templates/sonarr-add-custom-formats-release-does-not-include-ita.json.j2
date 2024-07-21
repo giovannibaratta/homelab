@@ -1,0 +1,28 @@
+{
+  "includeCustomFormatWhenRenaming": false,
+  "name": "ReleaseDoesNotIncludeITA",
+  "specifications": [
+    {
+      "implementation": "ReleaseTitleSpecification",
+      "implementationName": "Release Title",
+      "infoLink": "https://wiki.servarr.com/sonarr/settings#custom-formats-2",
+      "negate": true,
+      "required": false,
+      "fields": [
+        {
+          "order": 0,
+          "name": "value",
+          "label": "Regular Expression",
+          "helpText": "Custom Format RegEx is Case Insensitive",
+          "type": "textbox",
+          "advanced": false,
+          "privacy": "normal",
+          "isFloat": false,
+          "value": "^.*[iI][tT][aA].*$"
+        }
+      ],
+      "id": 2,
+      "name": "ReleaseDoesNotIncludeITA"
+    }
+  ]
+}
