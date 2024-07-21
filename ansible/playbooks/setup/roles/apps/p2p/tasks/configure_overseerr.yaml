@@ -1,0 +1,97 @@
+# There is no easy way to fully initialize the server since a login with a Plex account is required
+# If the first login has not happend yet, the script will pause to let the user
+# complete the first login
+
+- name: Retrieve auth me from Overseerr
+  ansible.builtin.uri:
+    url: "{{ overseerr_server_url }}/api/v1/auth/me"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ overseerr_api_key }}"
+    status_code: [200, 403]
+  register: overseerr_authme_api_response
+  until: overseerr_authme_api_response.status == 200 or overseerr_authme_api_response.status == 403
+  retries: 60 # 10 seconds
+  delay: 1
+
+- name: Set is_first_login_completed
+  ansible.builtin.set_fact:
+    is_first_login_completed: "{{ overseerr_authme_api_response.status == 200 }}"
+
+- name: Let user completed first login
+  when: not is_first_login_completed
+  ansible.builtin.pause:
+    prompt: "Open overseerr.{{ internal_domain }} and complete login. When finished press enter"
+
+- name: Configure Plex in Overseerr
+  ansible.builtin.uri:
+    url: "{{ overseerr_server_url }}/api/v1/settings/plex"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ overseerr_api_key }}"
+    status_code: [200]
+    body: "{{ lookup('ansible.builtin.template', 'overseerr-configure-plex-body-request.json.j2') }}"
+    body_format: json
+
+- name: Retrieve Sonarr settings from Overseerr
+  ansible.builtin.uri:
+    url: "{{ overseerr_server_url }}/api/v1/settings/sonarr"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ overseerr_api_key }}"
+    status_code: [200]
+  register: overseerr_sonarr_settings_api_response
+
+- name: Set sonarr_count fact
+  ansible.builtin.set_fact:
+    sonarr_count: "{{ overseerr_sonarr_settings_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
+  vars:
+    jsme_query: "[?contains(name, '{{ sonarr_fqdn }}' )] | length(@)"
+
+- name: Set sonarr_exists fact
+  ansible.builtin.set_fact:
+    sonarr_exists: "{{ sonarr_count != '0' }}"
+
+- name: Configure Sonarr in Overseerr if missing
+  when: not sonarr_exists
+  block:
+  - name: Retrieve Sonarr quality profiles
+    ansible.builtin.uri:
+      url: "{{ sonarr_server_url }}/api/v3/qualityprofile"
+      method: GET
+      headers:
+        Accept: application/json
+        X-Api-Key: "{{ sonarr_api_key }}"
+      status_code: [200]
+    register: sonarr_quality_profiles_api_response
+    # Is Sonarr is restarted, it might take a few seconds to become responsive
+    until: sonarr_quality_profiles_api_response.status == 200
+    retries: 10 # 10 seconds
+    delay: 1
+
+  - name: Set quality_profiles_high_quality_ita_count fact
+    ansible.builtin.set_fact:
+      high_quality_ita_profile: "{{ sonarr_quality_profiles_api_response.json | to_json | from_json | community.general.json_query(jsme_query) | first }}"
+    vars:
+      jsme_query: "[?contains(name, 'HighQuality-ITA' )]"
+
+  - name: Set Sonarr profile facts
+    ansible.builtin.set_fact:
+      sonar_qualityprofile_name: "{{ high_quality_ita_profile | community.general.json_query('name') }}"
+      sonar_qualityprofile_id: "{{ high_quality_ita_profile | community.general.json_query('id') }}"
+
+  - name: Configure Sonarr in Overseerr
+    ansible.builtin.uri:
+      url: "{{ overseerr_server_url }}/api/v1/settings/sonarr"
+      method: POST
+      headers:
+        Accept: application/json
+        Content-Type: application/json
+        X-Api-Key: "{{ overseerr_api_key }}"
+      status_code: [201]
+      body: "{{ lookup('ansible.builtin.template', 'overseerr-add-sonarr-body-request.json.j2') }}"
+      body_format: json

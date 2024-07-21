@@ -46,3 +46,8 @@
   ansible.builtin.import_tasks: configure_prowlarr.yaml
   delegate_to: localhost
   become: false
+
+- name: Configure Overseerr
+  ansible.builtin.import_tasks: configure_overseerr.yaml
+  delegate_to: localhost
+  become: false

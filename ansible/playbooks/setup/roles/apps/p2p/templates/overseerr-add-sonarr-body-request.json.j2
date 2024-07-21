@@ -1,0 +1,19 @@
+{
+  "name": "{{ sonarr_fqdn }}",
+  "hostname": "{{ sonarr_fqdn }}",
+  "port": 443,
+  "apiKey": "{{ sonarr_api_key }}",
+  "useSsl": true,
+  "activeProfileId": {{ sonar_qualityprofile_id }},
+  "activeProfileName": "{{ sonar_qualityprofile_name }}",
+  "activeDirectory": "{{ sonar_container_data_dir }}",
+  "activeLanguageProfileId": 1,
+  "activeAnimeProfileId": {{ sonar_qualityprofile_id }},
+  "activeAnimeProfileName": "{{ sonar_qualityprofile_name }}",
+  "activeAnimeDirectory": "{{ sonar_container_data_dir }}",
+  "is4k": false,
+  "enableSeasonFolders": true,
+  "isDefault": true,
+  "syncEnabled": false,
+  "preventSearch": false
+}
