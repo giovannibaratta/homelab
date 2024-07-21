@@ -108,3 +108,30 @@
     name: overseerr
     state: started
     enabled: true
+
+- name: Wait for {{ overseerr_work_dir }}/settings.json
+  ansible.builtin.wait_for:
+    path: "{{ overseerr_work_dir }}/settings.json"
+
+- name: Read Overseerr settings
+  ansible.builtin.slurp:
+    src: "{{ overseerr_work_dir }}/settings.json"
+  register: overseerr_settings
+
+- name: Set overseerr_api_key
+  ansible.builtin.set_fact:
+    overseerr_api_key: "{{ overseerr_settings.content | b64decode | from_json | community.general.json_query(jsme_query) }}"
+  vars:
+    jsme_query: "main.apiKey"
+
+- name: Ensure Overseerr is set as initialized
+  ansible.builtin.replace:
+    path: "{{ overseerr_work_dir }}/settings.json"
+    regexp: '^(.*)initialized(.*)false(.*)$'
+    replace: '\1initialized\2true\3'
+    backup: true
+  notify:
+  - Restart overseerr service
+
+- name: Trigger Handlers for overseerr network
+  ansible.builtin.meta: flush_handlers
