@@ -5,14 +5,6 @@
   ansible.builtin.set_fact:
     prowlarr_api_key: "{{ prowlarr_api_key }}"
 
-- name: Bitwarden workaround for internal_domain
-  ansible.builtin.set_fact:
-    internal_domain: "{{ internal_domain }}"
-
-- name: Prowlarr server url
-  ansible.builtin.set_fact:
-    prowlarr_server_url: "https://prowlarr.{{ internal_domain }}"
-
 - name: Check if indexer for Bitmagnet exists
   ansible.builtin.uri:
     url: "{{ prowlarr_server_url }}/api/v1/indexer"

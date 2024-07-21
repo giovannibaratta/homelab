@@ -5,14 +5,6 @@
   ansible.builtin.set_fact:
     sonarr_api_key: "{{ sonarr_api_key }}"
 
-- name: Bitwarden workaround for internal_domain
-  ansible.builtin.set_fact:
-    internal_domain: "{{ internal_domain }}"
-
-- name: Set sonarr server url
-  ansible.builtin.set_fact:
-    sonarr_server_url: "https://sonarr.{{ internal_domain }}"
-
 - name: Check if bittorrent client exists
   ansible.builtin.uri:
     url: "{{ sonarr_server_url }}/api/v3/downloadclient"

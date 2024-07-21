@@ -1,3 +1,17 @@
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for internal_domain
+  ansible.builtin.set_fact:
+    internal_domain: "{{ internal_domain }}"
+
+- name: Set server URLs
+  ansible.builtin.set_fact:
+    prowlarr_server_url: "https://prowlarr.{{ internal_domain }}"
+    sonarr_fqdn: "sonarr.{{ internal_domain }}"
+    sonarr_server_url: "https://sonarr.{{ internal_domain }}"
+    overseerr_server_url: "https://overseerr.{{ internal_domain }}"
+
 - name: Ensure group ptop exists
   ansible.builtin.group:
     name: ptop
