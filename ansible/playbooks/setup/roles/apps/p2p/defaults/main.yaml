@@ -10,6 +10,7 @@ bittorrent_work_dir: /app/bittorrent/work
 sonarr_version: 4.0.7
 sonarr_conf_dir: /app/sonarr/conf
 sonarr_work_dir: /app/sonarr/work
+sonar_container_data_dir: /data
 overseerr_version: 14cf43de26e44d5ef082806c2b97a88ce4bd6c84
 overseerr_conf_dir: /app/overseerr/conf
 overseerr_work_dir: /app/overseerr/work

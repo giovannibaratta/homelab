@@ -65,7 +65,7 @@
   ansible.builtin.set_fact:
     rootfolder_count: "{{ sonarr_rootfolder_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
   vars:
-    jsme_query: "[?contains(path, '/data' )] | length(@)"
+    jsme_query: "[?contains(path, '{{ sonar_container_data_dir }}' )] | length(@)"
 
 - name: Set rootfolder_exists fact
   ansible.builtin.set_fact:
