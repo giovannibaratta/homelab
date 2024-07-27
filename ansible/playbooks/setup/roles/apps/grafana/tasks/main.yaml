@@ -1,8 +1,8 @@
 - name: Create Grafana configuration directories
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: 0755
+    mode: "0755"
     owner: root
     group: root
   with_items:
@@ -15,7 +15,7 @@
     - "/app/grafana/conf/provisioning/dashboards/system"
 
 - name: Copy datasource file
-  copy:
+  ansible.builtin.copy:
     content: |
       apiVersion: 1
 
@@ -31,12 +31,12 @@
           editable: false
 
     dest: /app/grafana/conf/provisioning/datasources/prometheus.yaml
-    mode: 0644
+    mode: "0644"
     owner: root
     group: root
 
 - name: Copy node_exporter dashboard config
-  copy:
+  ansible.builtin.copy:
     content: |
       apiVersion: 1
 
@@ -80,7 +80,7 @@
     group: root
 
 - name: Copy node_exporter full dashboard
-  copy:
+  ansible.builtin.copy:
     # https://grafana.com/grafana/dashboards/1860-node-exporter-full/
     src: dashboards/node_exporter_full_1860_rev37.json
     dest: /app/grafana/conf/provisioning/dashboards/system/node_exporter_full.json
@@ -97,7 +97,7 @@
     group: root
 
 - name: Copy grafana.ini configuration
-  copy:
+  ansible.builtin.copy:
     content: |
       [security]
       admin_user = admin
@@ -105,13 +105,13 @@
       disable_initial_admin_creation = false
 
     dest: /app/grafana/conf/grafana.ini
-    mode: 0644
+    mode: "0644"
     owner: root
     group: root
   notify: Restart Grafana service
 
 - name: Create grafana.service file
-  copy:
+  ansible.builtin.copy:
     content: |
       [Unit]
       Description=Podman container-grafana.service
@@ -136,7 +136,7 @@
               -e "GF_PATHS_CONFIG=/opt/grafana/conf/grafana.ini" \
               -e "GF_PATHS_PROVISIONING=/opt/grafana/conf/provisioning" \
               --label="traefik.enable=true" \
-              --label="traefik.http.routers.grafana.rule=Host(`grafana.{{ internal_domain}}`)" \
+              --label="traefik.http.routers.grafana.rule=Host(`grafana.{{ internal_domain }}`)" \
               --label="traefik.http.routers.grafana.entrypoints=websecure" \
               --label="traefik.http.routers.grafana.tls.certresolver=letsencrypt" \
               --label="traefik.http.routers.grafana.tls.domains[0].main=grafana.{{ internal_domain }}" \
@@ -156,14 +156,14 @@
       [Install]
       WantedBy=default.target
     dest: /etc/systemd/system/grafana.service
-    mode: 0644
+    mode: "0644"
   register: grafana_service_unit
   notify:
     - Reload systemd daemons
     - Restart Grafana service
 
 - name: Enable and start grafana service
-  systemd_service:
+  ansible.builtin.systemd_service:
     name: grafana.service
-    enabled: yes
+    enabled: true
     state: started
