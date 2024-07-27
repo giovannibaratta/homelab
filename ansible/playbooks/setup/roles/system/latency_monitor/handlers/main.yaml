@@ -1,0 +1,13 @@
+- name: Reload systemd daemons for latency monitor role
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart pingexporter network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: pingexporter-network
+
+- name: Restart pingexporter service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: pingexporter

@@ -36,6 +36,12 @@
           static_configs:
             - targets: ['172.16.255.254:9100']
 
+        - job_name: 'pingexporter'
+          scrape_interval: 1s
+          scheme: https
+          static_configs:
+            - targets: ['pingexporter.gkube.it']
+
       rule_files:
         - /opt/prometheus/conf/rules/*.yaml
 

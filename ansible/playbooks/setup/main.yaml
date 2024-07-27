@@ -23,6 +23,10 @@
       container_storage_dir: "/app/containers"
       tags: "containers"
 
+    - role: roles/system/latency_monitor
+      become: true
+      tags: "monitoring"
+
     - role: roles/apps/adguard
       become: true
       tags: "adguard"

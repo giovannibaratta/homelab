@@ -1,0 +1,113 @@
+- name: Add user {{ ping_exporter_container_user }}
+  ansible.builtin.user:
+    name: "{{ ping_exporter_container_user }}"
+    comment: User used to run ping exporter
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: ping_exporter_container_user_result
+
+- name: Create config directories
+  ansible.builtin.file:
+    path: "/app/ping_exporter/conf"
+    state: directory
+    mode: "0750"
+    owner: "{{ ping_exporter_container_user_result.uid }}"
+    group: "{{ ping_exporter_container_user_result.group }}"
+
+- name: Create pingexporter network Quadlet
+  containers.podman.podman_network:
+    name: pingexporter
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    internal: false
+    interface_name: podman-pingexporter
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for latency monitor role
+    - Restart pingexporter network
+
+- name: Flush handlers for pingexporter network
+  meta: flush_handlers
+
+- name: Start pingexporter network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: pingexporter-network
+    state: started
+    enabled: true
+
+- name: Copy ping_exporter.yaml configuration
+  ansible.builtin.copy:
+    content: |
+      targets:
+        - 8.8.8.8
+        - 1.1.1.1
+        - google.com
+
+      dns:
+        refresh: 2m15s
+        nameserver: 172.16.255.254
+
+      ping:
+        interval: 1s
+        timeout: 3s
+        history-size: 10
+        payload-size: 120
+
+    dest: /app/ping_exporter/ping_exporter.yaml
+    mode: "0640"
+    owner: "{{ ping_exporter_container_user_result.uid }}"
+    group: "{{ ping_exporter_container_user_result.group }}"
+  notify: Restart pingexporter service
+
+- name: Create pingexporter Quadlet
+  containers.podman.podman_container:
+    name: pingexporter
+    state: quadlet
+    image: czerwonk/ping_exporter:{{ pingexporter_version }}
+    command: ./ping_exporter --config.path /config/ping_exporter.yaml
+
+    recreate: true
+    network: pingexporter
+    volumes: "/app/ping_exporter:/config:ro"
+
+    uidmap:
+      - "0:{{ ping_exporter_container_user_result.uid }}:1"
+      - "1:4000000000:100000"
+
+    gidmap:
+      - "0:{{ ping_exporter_container_user_result.group }}:1"
+      - "1:4000000000:100000"
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.pingexporter.rule: Host(`pingexporter.{{ internal_domain }}`)
+      traefik.http.routers.pingexporter.entrypoints: websecure
+      traefik.http.routers.pingexporter.tls.certresolver: letsencrypt
+      traefik.http.routers.pingexporter.tls.domains[0].main: pingexporter.{{ internal_domain }}
+      traefik.http.services.pingexporter.loadbalancer.server.port: 9427
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+
+  notify:
+    - Reload systemd daemons for latency monitor role
+    - Restart pingexporter service
+
+- name: Trigger Handlers for pingexporter
+  ansible.builtin.meta: flush_handlers
+
+- name: Start pingexporter
+  ansible.builtin.systemd_service:
+    name: pingexporter
+    state: started
+    enabled: true
