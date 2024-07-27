@@ -53,7 +53,29 @@
             foldersFromFilesStructure: true
 
     dest: /app/grafana/conf/provisioning/dashboards/node_exporter.yaml
-    mode: 0644
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: Copy ping_exporter dashboard config
+  ansible.builtin.copy:
+    content: |
+      apiVersion: 1
+
+      providers:
+        - name: prometheus_ds
+          folder: 'system'
+          type: file
+          disableDeletion: true
+          # how often Grafana will scan for changed dashboards
+          updateIntervalSeconds: 10
+          allowUiUpdates: false
+          options:
+            path: /opt/grafana/conf/provisioning/dashboards/system/ping_exporter.json
+            foldersFromFilesStructure: true
+
+    dest: /app/grafana/conf/provisioning/dashboards/ping_exporter.yaml
+    mode: "0644"
     owner: root
     group: root
 
@@ -62,7 +84,15 @@
     # https://grafana.com/grafana/dashboards/1860-node-exporter-full/
     src: dashboards/node_exporter_full_1860_rev37.json
     dest: /app/grafana/conf/provisioning/dashboards/system/node_exporter_full.json
-    mode: 0644
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: Copy ping exporter dashboard
+  ansible.builtin.template:
+    src: network.json.j2
+    dest: /app/grafana/conf/provisioning/dashboards/system/ping_exporter.json
+    mode: "0644"
     owner: root
     group: root
 
