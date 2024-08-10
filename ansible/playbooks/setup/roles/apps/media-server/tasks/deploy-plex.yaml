@@ -67,7 +67,6 @@
   containers.podman.podman_container:
     name: plex
     state: quadlet
-    #image: plexinc/pms-docker:{{ plex_version }}
     image: lscr.io/linuxserver/plex:{{ plex_version }}
     env_file: "{{ plex_conf_dir }}/plex.env"
     recreate: true
