@@ -67,6 +67,11 @@
     name: podman=100:5.2.0-1
     state: present
 
+- name: Pin podman
+  ansible.builtin.dpkg_selections:
+    name: podman
+    selection: hold
+
 - name: Install podman-docker
   package:
     name: podman-docker
