@@ -63,8 +63,8 @@
     state: present
 
 - name: Install podman
-  package:
-    name: podman=100:5.1.1-1
+  ansible.builtin.package:
+    name: podman=100:5.2.0-1
     state: present
 
 - name: Install podman-docker
