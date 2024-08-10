@@ -1,64 +1,64 @@
 - name: Install apt key
-  apt_key:
+  ansible.builtin.apt_key:
     keyring: /etc/apt/trusted.gpg.d/home_alvistack.gpg
     url: http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key
     id: 789CFFDE0295B8A1F4E5690C4BECC97550D0B1FD
     state: present
 
 - name: Add apt repository
-  apt_repository:
+  ansible.builtin.apt_repository:
     filename: home:alvistack
     repo: deb http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /
     state: present
 
-- name: apt update
+- name: Update apt cache
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
 
 - name: Create /usr/libexec/podman directory
-  file:
+  ansible.builtin.file:
     path: /usr/libexec/podman
     state: directory
-    mode: 0755
+    mode: "0755"
 
 - name: Download netavark archive
-  get_url:
+  ansible.builtin.get_url:
     url: https://github.com/containers/netavark/releases/download/v1.11.0/netavark.gz
     dest: /tmp/netavark.gz
-    mode: 0644
+    mode: "0644"
 
 - name: Uncompress netavark
-  command:
+  ansible.builtin.command:
     cmd: gunzip -d -k -f /tmp/netavark.gz
 
 - name: Copy netavark executable
-  copy:
+  ansible.builtin.copy:
     src: /tmp/netavark
     dest: /usr/libexec/podman/netavark
-    remote_src: yes
-    mode: 0755
+    remote_src: true
+    mode: "0755"
 
 - name: Make netavark executable
-  file:
+  ansible.builtin.file:
     path: /usr/libexec/podman/netavark
-    mode: 0755
+    mode: "0755"
 
 # uidmap is required by podman for non root user
 - name: Install uidmap
-  package:
+  ansible.builtin.package:
     name: uidmap
     state: present
 
 # passt is required to install Pasta used by podman for non root user
 - name: Install Pasta
-  package:
+  ansible.builtin.package:
     name: passt
     state: present
 
 # Alternative option to Pasta. It seems that there are a few issues with some release of pasta
 # when working with rootless containers
 - name: Install slirp4netns
-  package:
+  ansible.builtin.package:
     name: slirp4netns
     state: present
 
@@ -73,37 +73,37 @@
     selection: hold
 
 - name: Install podman-docker
-  package:
+  ansible.builtin.package:
     name: podman-docker
     state: present
 
 - name: Install aardvark-dns
-  package:
+  ansible.builtin.package:
     name: aardvark-dns
     state: present
 
 - name: Create /etc/containers/nodocker
-  file:
+  ansible.builtin.file:
     path: /etc/containers/nodocker
     state: touch
-    mode: 0644
+    mode: "0644"
 
 - name: Create {{ container_storage_dir }} directory
-  file:
+  ansible.builtin.file:
     path: "{{ container_storage_dir }}"
     state: directory
-    mode: 0711
+    mode: "0711"
 
 - name: Create {{ container_temp_storage_dir }} directory
-  file:
+  ansible.builtin.file:
     path: "{{ container_temp_storage_dir }}"
     state: directory
-    mode: 0711
+    mode: "0711"
 
 # Reference https://github.com/containers/podman/blob/main/vendor/github.com/containers/storage/storage.conf
 - name: Create /etc/containers/storage.conf
-  copy:
-    dest: /etc/containers/storage.conf 
+  ansible.builtin.copy:
+    dest: /etc/containers/storage.conf
     content: |
       [storage]
       driver = "overlay"
@@ -113,7 +113,7 @@
 
       # Temporary storage location
       runroot = "{{ container_temp_storage_dir }}"
-    mode: 0640
+    mode: "0640"
 
 - name: Ensure group containters exists
   ansible.builtin.group:
@@ -123,7 +123,7 @@
 - name: Ensure podman.socket.d exists
   ansible.builtin.file:
     path: /etc/systemd/system/podman.socket.d
-    mode: 0740
+    mode: "0740"
     state: directory
 
 - name: Ensure Podman socket overrides are present
@@ -132,7 +132,7 @@
     content: |
       [Socket]
       SocketGroup=containers
-    mode: 0640
+    mode: "0640"
   notify:
     - Reload systemd daemon
     - Restart podman.socket service
@@ -141,5 +141,4 @@
   ansible.builtin.copy:
     # override /usr/lib/tmpfiles.d/podman-docker.conf
     dest: /etc/tmpfiles.d/podman-docker.conf
-    content:
-      L+  %t/docker.sock   -    root    containers     -   %t/podman/podman.sock
+    content: L+  %t/docker.sock   -    root    containers     -   %t/podman/podman.sock
