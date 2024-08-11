@@ -1,12 +1,12 @@
 - name: Install zsh
-  package:
+  ansible.builtin.package:
     name: zsh
     state: present
 
 - name: Set shell for users
-  include_tasks: set-shell.yaml
-  loop: "{{ ohmyzsh_users }}"
+  ansible.builtin.include_tasks: set-shell.yaml
+  loop: "{{ base_ohmyzsh_users }}"
 
 - name: Install omz
-  include_tasks: install-omz.yaml
-  loop: "{{ ohmyzsh_users }}"
+  ansible.builtin.include_tasks: install-omz.yaml
+  loop: "{{ base_ohmyzsh_users }}"
