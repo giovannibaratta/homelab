@@ -1,3 +1,4 @@
+---
 - name: Install apt key
   ansible.builtin.apt_key:
     keyring: /etc/apt/trusted.gpg.d/home_alvistack.gpg
@@ -88,15 +89,15 @@
     state: touch
     mode: "0644"
 
-- name: Create {{ system_containers_storage_dir }} directory
+- name: Create directory {{ containers_storage_dir }}
   ansible.builtin.file:
-    path: "{{ system_containers_storage_dir }}"
+    path: "{{ containers_storage_dir }}"
     state: directory
     mode: "0711"
 
-- name: Create {{ system_containers_ephemeral_dir }} directory
+- name: Create directory {{ containers_ephemeral_dir }}
   ansible.builtin.file:
-    path: "{{ system_containers_ephemeral_dir }}"
+    path: "{{ containers_ephemeral_dir }}"
     state: directory
     mode: "0711"
 
@@ -109,10 +110,10 @@
       driver = "overlay"
 
       # Primary Read/Write location of container storage
-      graphroot = "{{ system_containers_storage_dir }}"
+      graphroot = "{{ containers_storage_dir }}"
 
       # Temporary storage location
-      runroot = "{{ system_containers_ephemeral_dir }}"
+      runroot = "{{ containers_ephemeral_dir }}"
     mode: "0640"
 
 - name: Ensure group containters exists

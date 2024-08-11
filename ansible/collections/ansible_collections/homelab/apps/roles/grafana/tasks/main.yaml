@@ -1,3 +1,4 @@
+---
 - name: Create Grafana configuration directories
   ansible.builtin.file:
     path: "{{ item }}"
@@ -6,13 +7,13 @@
     owner: root
     group: root
   with_items:
-    - "/app/grafana/conf"
-    - "/app/grafana/conf/provisioning"
-    - "/app/grafana/conf/provisioning/datasources"
-    - "/app/grafana/conf/provisioning/dashboards"
-    - "/app/grafana/conf/provisioning/alerting"
-    - "/app/grafana/conf/provisioning/plugins"
-    - "/app/grafana/conf/provisioning/dashboards/system"
+    - /app/grafana/conf
+    - /app/grafana/conf/provisioning
+    - /app/grafana/conf/provisioning/datasources
+    - /app/grafana/conf/provisioning/dashboards
+    - /app/grafana/conf/provisioning/alerting
+    - /app/grafana/conf/provisioning/plugins
+    - /app/grafana/conf/provisioning/dashboards/system
 
 - name: Copy datasource file
   ansible.builtin.copy:

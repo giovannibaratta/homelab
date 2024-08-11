@@ -1,9 +1,13 @@
-namespace: "homelab"
-name: "system"
-version: "0.0.1"
-readme: "README.md"
+---
+namespace: homelab
+name: system
+version: 1.0.0
+readme: README.md
 authors:
-  - "Giovanni Baratta"
-dependencies: []
+  - Giovanni Baratta
+dependencies: {}
 license:
-  - "MIT"
+  - MIT
+tags:
+  - linux
+  - networking

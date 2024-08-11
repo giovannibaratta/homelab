@@ -1,3 +1,4 @@
+---
 # This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
 # two variables cannot be used at the same time.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
@@ -77,16 +78,16 @@
     # overseerr runs as the user indicated in the env file.
     # We map the container root user to the overseerr user running on the host
     uidmap:
-      - "0:{{ overseerr_container_user_result.uid }}:1"
-      - "1:4000000000:100000"
+      - 0:{{ overseerr_container_user_result.uid }}:1
+      - 1:4000000000:100000
 
     gidmap:
-      - "0:{{ overseerr_container_user_result.group }}:1"
-      - "1:4000000000:100000"
+      - 0:{{ overseerr_container_user_result.group }}:1
+      - 1:4000000000:100000
 
     labels:
       traefik.enable: true
-      traefik.http.routers.overseerr.rule: Host(`overseerr.{{ internal_domain}}`)
+      traefik.http.routers.overseerr.rule: Host(`overseerr.{{ internal_domain }}`)
       traefik.http.routers.overseerr.entrypoints: websecure
       traefik.http.routers.overseerr.tls.certresolver: letsencrypt
       traefik.http.routers.overseerr.tls.domains[0].main: overseerr.{{ internal_domain }}
@@ -122,16 +123,16 @@
   ansible.builtin.set_fact:
     overseerr_api_key: "{{ overseerr_settings.content | b64decode | from_json | community.general.json_query(jsme_query) }}"
   vars:
-    jsme_query: "main.apiKey"
+    jsme_query: main.apiKey
 
 - name: Ensure Overseerr is set as initialized
   ansible.builtin.replace:
     path: "{{ overseerr_work_dir }}/settings.json"
-    regexp: '^(.*)initialized(.*)false(.*)$'
-    replace: '\1initialized\2true\3'
+    regexp: ^(.*)initialized(.*)false(.*)$
+    replace: \1initialized\2true\3
     backup: true
   notify:
-  - Restart overseerr service
+    - Restart overseerr service
 
 - name: Trigger Handlers for overseerr network
   ansible.builtin.meta: flush_handlers

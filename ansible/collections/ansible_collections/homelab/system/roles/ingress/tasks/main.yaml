@@ -1,16 +1,17 @@
+---
 - name: Add {{ traefik_container_user }} user
   ansible.builtin.user:
     name: "{{ traefik_container_user }}"
     comment: User used to run Traefik
-    create_home: no
+    create_home: false
     shell: /usr/sbin/nologin
   register: traefik_container_user_result
 
 - name: Create Traefik directories
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: 0700
+    mode: "0700"
     owner: "{{ traefik_container_user }}"
     group: "{{ traefik_container_user }}"
     recurse: true
@@ -20,7 +21,7 @@
     - /app/traefik/work/certificates
 
 - name: Copy traefik.yaml configuration
-  copy:
+  ansible.builtin.copy:
     content: |
       global:
         checkNewVersion: true
@@ -58,30 +59,30 @@
               delayBeforeCheck: 60
 
     dest: /app/traefik/conf/traefik.yaml
-    mode: 0600
+    mode: "0600"
     owner: "{{ traefik_container_user }}"
     group: "{{ traefik_container_user }}"
   notify: Restart Traefik service
 
 - name: Copy traefik.env configuration
-  copy:
+  ansible.builtin.copy:
     content: |
       DESEC_TOKEN={{ desec_token }}
 
     dest: /app/traefik/conf/traefik.env
-    mode: 0600
+    mode: "0600"
     owner: "{{ traefik_container_user }}"
     group: "{{ traefik_container_user }}"
   notify: Restart Traefik service
 
 - name: Get the group ID of the 'containers' group
-  shell: |
+  ansible.builtin.shell: |
     getent group containers | cut -d: -f3
   register: containers_group_result
 
 # The gidmap is needed to give traefik access to the Docker socket.
 - name: Create traefik.service file
-  copy:
+  ansible.builtin.copy:
     content: |
       [Unit]
       Description=Podman container-traefik.service
@@ -127,16 +128,16 @@
       [Install]
       WantedBy=default.target
     dest: /etc/systemd/system/traefik.service
-    mode: 0644
+    mode: "0644"
   register: traefik_service_unit
 
 - name: Reload systemd daemons
-  systemd_service:
-    daemon_reload: yes
+  ansible.builtin.systemd_service:
+    daemon_reload: true
   when: traefik_service_unit.changed
 
 - name: Enable and start traefik service
-  systemd_service:
+  ansible.builtin.systemd_service:
     name: traefik.service
-    enabled: yes
+    enabled: true
     state: started

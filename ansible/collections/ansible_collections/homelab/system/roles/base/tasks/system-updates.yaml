@@ -1,6 +1,7 @@
+---
 - name: Create cron job for update and reboot
-  cron:
-    name: "update-reboot"
+  ansible.builtin.cron:
+    name: update-reboot
     job: >
       DEBIAN_FRONTEND=noninteractive apt update &&
       DEBIAN_FRONTEND=noninteractive apt upgrade -y &&

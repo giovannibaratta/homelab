@@ -1,9 +1,10 @@
+---
 - name: Restart NetworkManager service
-  service:
+  ansible.builtin.service:
     name: NetworkManager
     state: restarted
 
 - name: Restart DHCP service
-  service:
+  ansible.builtin.service:
     name: isc-dhcp-server
     state: restarted

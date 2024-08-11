@@ -1,5 +1,6 @@
+---
 - name: Copy sysctl flags
-  copy:
+  ansible.builtin.copy:
     content: |
       # Disable autoload of TTY line disciplines
       dev.tty.ldisc_autoload=0
@@ -17,7 +18,7 @@
       kernel.kptr_restrict=2
       kernel.perf_event_paranoid=3
       kernel.randomize_va_space=2
-      # Disable response to magical key combo 
+      # Disable response to magical key combo
       kernel.sysrq=0
       kernel.unprivileged_bpf_disabled=1
       kernel.yama.ptrace_scope=2
@@ -33,4 +34,4 @@
       # - https://docs.kernel.org/admin-guide/sysctl/fs.html#protected-fifos
       # - https://sysctl-explorer.net/kernel/
     dest: /etc/sysctl.d/99-kernel-hardening.conf
-    mode: 0644
+    mode: "0644"

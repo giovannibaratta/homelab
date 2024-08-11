@@ -4,9 +4,9 @@
 
   vars:
     # This group will be used to grant read access to media files between different applications
-    media_shared_group: "media"
+    media_shared_group: media
     # The directory is used to save finished media that can be served
-    media_data_dir: "/external/media"
+    media_data_dir: /external/media
 
   pre_tasks:
     - name: Ensure group exists with name {{ media_shared_group }}
@@ -29,7 +29,7 @@
   roles:
     - role: homelab.system.network
       become: true
-      tags: "system-network"
+      tags: system-network
 
     - role: homelab.system.base
       become: true
@@ -37,50 +37,50 @@
       base_ohmyzsh_users:
         - root
         - gbaratta
-      tags: "system-base"
+      tags: system-base
 
     - role: homelab.system.ingress
       become: true
-      tags: "ingress"
+      tags: ingress
 
     - role: homelab.system.containers
       become: true
-      system_containers_storage_dir: "/app/containers"
-      tags: "containers"
+      containers_storage_dir: /app/containers
+      tags: containers
 
     - role: homelab.system.latency_monitor
       become: true
-      tags: "monitoring"
+      tags: monitoring
 
     - role: homelab.apps.adguard
       become: true
-      tags: "adguard"
+      tags: adguard
 
     - role: homelab.apps.prometheus
       become: true
-      tags: "prometheus"
+      tags: prometheus
 
     - role: prometheus.prometheus.node_exporter
       become: true
-      node_exporter_web_listen_address: "172.16.255.254:9100"
-      tags: "prometheus"
+      node_exporter_web_listen_address: 172.16.255.254:9100
+      tags: prometheus
 
     - role: homelab.apps.grafana
       become: true
-      tags: "grafana"
+      tags: grafana
 
     - role: homelab.apps.coder
       become: true
-      tags: "coder"
+      tags: coder
 
     - role: homelab.apps.media_server
-      plex_media_dir: "{{ media_data_dir }}"
+      media_server_media_dir: "{{ media_data_dir }}"
       become: true
-      tags: "media-server"
+      tags: media-server
 
     - role: homelab.apps.p2p
       # The directory is used to stage downloaded and incomplete files
-      p2p_downloads_dir: "/external/torrent/downloads"
+      p2p_downloads_dir: /external/torrent/downloads
       p2p_sonarr_media_dir: "{{ media_data_dir }}/tv"
       become: true
-      tags: "p2p"
+      tags: p2p

@@ -1,3 +1,4 @@
+---
 - name: Ensure group exists with name {{ media_shared_group }}
   ansible.builtin.group:
     name: "{{ media_shared_group }}"

@@ -1,12 +1,12 @@
 # Source https://serverfault.com/questions/1001235/how-can-change-shell-for-a-user-via-ansible
 ---
 - name: Check that user exists
-  shell: "grep -q {{ item }} /etc/passwd"
+  ansible.builtin.command: grep -q {{ item }} /etc/passwd
   ignore_errors: true
   register: user_lookup
 
 - name: Set shell for user {{ item.username}}
-  user:
+  ansible.builtin.user:
     name: "{{ item }}"
     shell: "{{ custom_shell_path }}"
   when: user_lookup is succeeded

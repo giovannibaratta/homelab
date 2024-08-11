@@ -1,3 +1,4 @@
+---
 coder_database_dir: "{{ coder_work_dir }}/database"
 coder_db_user: coder
 coder_db_name: coder

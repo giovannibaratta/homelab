@@ -1,4 +1,9 @@
+---
+- name: Reload systemd daemons for adguard role
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
 - name: Restart AdGuard Home service
-  service:
+  ansible.builtin.service:
     name: adguardhome.service
     state: restarted

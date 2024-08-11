@@ -1,3 +1,4 @@
+---
 # Disabled until Bitwarden Secret manager will fix the bug to access
 # multiple variables in the same block.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
@@ -21,32 +22,32 @@
 - name: Ensure systemd-networkd-wait-online waits for the right interface
   ansible.builtin.lineinfile:
     path: /usr/lib/systemd/system/systemd-networkd-wait-online.service
-    regexp: '^ExecStart.+'
-    line: "/usr/lib/systemd/systemd-networkd-wait-online --interface={{ internal_interface }}"
+    regexp: ^ExecStart.+
+    line: /usr/lib/systemd/systemd-networkd-wait-online --interface={{ internal_interface }}
 
 - name: Create /etc/systemd/resolved.conf.d directory
-  file:
+  ansible.builtin.file:
     path: /etc/systemd/resolved.conf.d
     state: directory
-    mode: 0755
+    mode: "0755"
 
 - name: Disable DNSStubListener
-  copy:
+  ansible.builtin.copy:
     content: |
       [Resolve]
       DNSStubListener=no
     dest: /etc/systemd/resolved.conf.d/noresolved.conf
-    mode: 0644
+    mode: "0644"
   register: resolved_conf_file
 
 - name: Restart systemd-resolved
-  service:
+  ansible.builtin.service:
     name: systemd-resolved
     state: restarted
   when: resolved_conf_file.changed
 
 - name: Create VLAN config
-  copy:
+  ansible.builtin.copy:
     content: |
       [connection]
       id=vlan
@@ -70,19 +71,19 @@
 
       [proxy]
     dest: /etc/NetworkManager/system-connections/vlan.nmconnection
-    mode: 0600
+    mode: "0600"
 
 # This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
 # two variables cannot be used at the same time.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-- set_fact:
+- ansible.builtin.set_fact:
     pppoe_username: "{{ pppoe_username }}"
 
-- set_fact:
+- ansible.builtin.set_fact:
     pppoe_password: "{{ pppoe_password }}"
 
 - name: Create PPPOE connection config
-  copy:
+  ansible.builtin.copy:
     content: |
       [connection]
       id=pppoe-ftth
@@ -107,34 +108,34 @@
 
       [proxy]
     dest: /etc/NetworkManager/system-connections/pppoe.nmconnection
-    mode: 0600
+    mode: "0600"
 
 # Required for VLAN tagging
 - name: Load kernel module 8021q
-  modprobe:
+  community.general.modprobe:
     name: 8021q
     state: present
 
 - name: Create /etc/modules-load.d/8021q.conf
-  copy:
+  ansible.builtin.copy:
     content: 8021q
     dest: /etc/modules-load.d/8021q.conf
-    mode: 0644
+    mode: "0644"
 
 - name: Install iproute2
-  apt:
+  ansible.builtin.apt:
     name: iproute2
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Install network-manager
-  apt:
+  ansible.builtin.apt:
     name: network-manager
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Configure Network Manager
-  copy:
+  ansible.builtin.copy:
     content: |
       [main]
       plugins=ifupdown,keyfile
@@ -146,41 +147,41 @@
       [device]
       wifi.scan-rand-mac-address=no
     dest: /etc/NetworkManager/NetworkManager.conf
-    mode: 0644
+    mode: "0644"
   notify:
     - Restart NetworkManager service
 
 # Enable IP forwarding
 - name: Configure routing table
-  copy:
+  ansible.builtin.copy:
     content: |
       net.ipv4.ip_forward=1
     dest: /etc/sysctl.d/20-ip-forward.conf
-    mode: 0644
+    mode: "0644"
 
 - name: Enable IP forwarding
-  sysctl:
+  ansible.posix.sysctl:
     name: net.ipv4.ip_forward
     value: 1
     state: present
 
 - name: Install nftables
-  apt:
+  ansible.builtin.apt:
     name: nftables
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Install conntrack
-  apt:
+  ansible.builtin.apt:
     name: conntrack
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Configure NAT and firewall rules with nftables
-  blockinfile:
+  ansible.builtin.blockinfile:
     path: /etc/nftables.conf
-    backup: yes
-    create: yes
+    backup: true
+    create: true
     insertbefore: EOF
     block: |
       # Clean existing table and preserve docker tables
@@ -226,7 +227,7 @@
 
           iif lo accept comment "always accept loopback"
           iifname ftth jump public_traffic # ftth is the interface name
-          iifname {{ internal_interface}} jump internal_traffic
+          iifname {{ internal_interface }} jump internal_traffic
           iifname "podman*" jump container_traffic
           log prefix "Unmatched interface"
           reject
@@ -254,29 +255,28 @@
       }
 
 - name: Reload nftables
-  command: nft -f /etc/nftables.conf
-
+  ansible.builtin.command: nft -f /etc/nftables.conf
 - name: Enable nftables on boot
-  service:
+  ansible.builtin.service:
     name: nftables
     state: started
-    enabled: yes
+    enabled: true
 
 - name: Install Kea
-  apt:
+  ansible.builtin.apt:
     name: isc-dhcp-server
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Configure DHCP server interface
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/default/isc-dhcp-server
     line: INTERFACESv4="{{ internal_interface }}"
-    create: yes
-    regexp: "^INTERFACESv4="
+    create: true
+    regexp: ^INTERFACESv4=
 
 - name: Configure DHCP server
-  copy:
+  ansible.builtin.copy:
     content: |
       subnet {{ internal_network }} netmask {{ internal_network_netmask }} {
         range {{ internal_network_dhcp_start }} {{ internal_network_dhcp_end }};
@@ -285,15 +285,15 @@
         option domain-name-servers 172.16.255.254, 1.1.1.1, 8.8.8.8;
       }
     dest: /etc/dhcp/dhcpd.conf
-    mode: 0644
-    backup: yes
+    mode: "0644"
+    backup: true
   notify:
     - Restart DHCP service
 
 - name: Enable DHCP service
-  service:
+  ansible.builtin.service:
     name: isc-dhcp-server
-    enabled: yes
+    enabled: true
     state: started
 
-- import_tasks: hardening-ssh.yaml
+- ansible.builtin.import_tasks: hardening-ssh.yaml

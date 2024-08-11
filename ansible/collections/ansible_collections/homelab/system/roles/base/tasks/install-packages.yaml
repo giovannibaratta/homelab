@@ -1,5 +1,6 @@
+---
 # Used by Ansible when using unprivileged users
 - name: Install acl
-  package:
+  ansible.builtin.package:
     name: acl
     state: present

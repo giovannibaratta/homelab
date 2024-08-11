@@ -1,3 +1,4 @@
+---
 home:
   hosts:
     172.16.255.254:
@@ -31,4 +32,3 @@ home:
       sonarr_db_password: "{{ lookup('bitwarden.secrets.lookup', '97e77f61-cb02-4845-8c55-b1ae0110b056') }}"
       sonarr_api_key: "{{ lookup('bitwarden.secrets.lookup', '822bf760-4d47-43e0-99a7-b1ae0110d100') }}"
       plex_claim: "{{ lookup('bitwarden.secrets.lookup', '36cb7482-22ba-45de-bfac-b1af00b2f2db') }}"
-

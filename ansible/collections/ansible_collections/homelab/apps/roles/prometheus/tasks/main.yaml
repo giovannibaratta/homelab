@@ -1,3 +1,4 @@
+---
 # Prometheus and AlertManager run as nobody:nogroup
 
 - name: Create /app/prometheus/work directory

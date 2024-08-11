@@ -1,3 +1,4 @@
+---
 # This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
 # two variables cannot be used at the same time.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
@@ -5,28 +6,28 @@
   ansible.builtin.set_fact:
     internal_domain: "{{ internal_domain }}"
 
-- name: Add user {{ plex_container_user }}
+- name: Add user {{ media_server_plex_container_user }}
   ansible.builtin.user:
-    name: "{{ plex_container_user }}"
+    name: "{{ media_server_plex_container_user }}"
     comment: User used to run plex
     create_home: false
     shell: /usr/sbin/nologin
-  register: plex_container_user_result
+  register: media_server_plex_container_user_result
 
 - name: Create plex directories
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     mode: "0770"
-    owner: "{{ plex_container_user }}"
-    group: "{{ plex_container_user }}"
+    owner: "{{ media_server_plex_container_user }}"
+    group: "{{ media_server_plex_container_user }}"
   with_items:
-    - "{{ plex_conf_dir }}"
-    - "{{ plex_database_dir }}"
+    - "{{ media_server_plex_conf_dir }}"
+    - "{{ media_server_plex_database_dir }}"
 
-- name: Change ownership of {{ plex_database_dir }}
+- name: Change ownership of {{ media_server_plex_database_dir }}
   ansible.builtin.file:
-    path: "{{ plex_database_dir }}"
+    path: "{{ media_server_plex_database_dir }}"
     state: directory
     group: "{{ media_shared_group }}"
     mode: "0770"
@@ -64,7 +65,7 @@
 - name: Copy plex.env file
   ansible.builtin.template:
     src: plex.env.j2
-    dest: "{{ plex_conf_dir }}/plex.env"
+    dest: "{{ media_server_plex_conf_dir }}/plex.env"
     mode: "0640"
   notify:
     - Restart plex service
@@ -73,14 +74,14 @@
   containers.podman.podman_container:
     name: plex
     state: quadlet
-    image: lscr.io/linuxserver/plex:{{ plex_version }}
-    env_file: "{{ plex_conf_dir }}/plex.env"
+    image: lscr.io/linuxserver/plex:{{ media_server_plex_version }}
+    env_file: "{{ media_server_plex_conf_dir }}/plex.env"
     recreate: true
     network: plex
 
     volumes:
-      - "{{ plex_database_dir }}:/config"
-      - "{{ plex_media_dir }}:/data:ro"
+      - "{{ media_server_plex_database_dir }}:/config"
+      - "{{ media_server_media_dir }}:/data:ro"
 
     device:
       # HW acceleration
@@ -88,23 +89,23 @@
 
     # https://support.plex.tv/articles/201543147-what-network-ports-do-i-need-to-allow-through-my-firewall/
     ports:
-      - "1900:1900/udp"
-      - "5353:5353/udp"
-      - "32410:32410/udp"
-      - "32412:32412/udp"
-      - "32413:32413/udp"
-      - "32400:32400/tcp"
-      - "32414:32414/tcp"
-      - "32469:32469/tcp"
+      - 1900:1900/udp
+      - 5353:5353/udp
+      - 32410:32410/udp
+      - 32412:32412/udp
+      - 32413:32413/udp
+      - 32400:32400/tcp
+      - 32414:32414/tcp
+      - 32469:32469/tcp
 
     uidmap:
-      - "0:4000000000:1000"
-      - "1000:{{ plex_container_user_result.uid }}:1"
-      - "1001:4000001001:100000"
+      - 0:4000000000:1000
+      - 1000:{{ media_server_plex_container_user_result.uid }}:1
+      - 1001:4000001001:100000
 
     gidmap:
-      - "0:4000000000:100000"
-      - "+1000:@{{ media_gid }}:1"
+      - 0:4000000000:100000
+      - +1000:@{{ media_gid }}:1
 
     labels:
       traefik.enable: true

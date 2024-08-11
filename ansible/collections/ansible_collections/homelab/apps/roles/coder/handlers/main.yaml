@@ -1,6 +1,7 @@
+---
 - name: Reload systemd daemons
   ansible.builtin.systemd_service:
-    daemon_reload: yes
+    daemon_reload: true
 
 - name: Restart Coder network
   ansible.builtin.systemd_service:

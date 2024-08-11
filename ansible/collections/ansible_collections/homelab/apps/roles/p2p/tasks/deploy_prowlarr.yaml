@@ -1,3 +1,4 @@
+---
 # This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
 # two variables cannot be used at the same time.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
@@ -113,17 +114,17 @@
     # We map the root container user to the prowlarr-db user running on the host
     # to give access to configuration and database files
     uidmap:
-      - "0:4000000000:70"
-      - "70:{{ prowlarr_db_container_user_result.uid }}:1"
-      - "71:4000000071:100000"
+      - 0:4000000000:70
+      - 70:{{ prowlarr_db_container_user_result.uid }}:1
+      - 71:4000000071:100000
 
     gidmap:
-      - "0:4000000000:100000"
-      - "+70:@{{ prowlarr_db_container_user_result.group }}:1"
+      - 0:4000000000:100000
+      - +70:@{{ prowlarr_db_container_user_result.group }}:1
 
     recreate: true
 
-    healthcheck: "pg_isready -U {{ prowlarr_db_user }} -d {{ prowlarr_main_db_name }} && pg_isready -U {{ prowlarr_db_user }} -d {{ prowlarr_logs_db_name }}"
+    healthcheck: pg_isready -U {{ prowlarr_db_user }} -d {{ prowlarr_main_db_name }} && pg_isready -U {{ prowlarr_db_user }} -d {{ prowlarr_logs_db_name }}
     healthcheck_interval: 5s
     healthcheck_timeout: 5s
     healthcheck_retries: 5
@@ -179,17 +180,17 @@
     # prowlarr runs as the user indicated in the env file.
     # We map the container root user to the prowlarr user running on the host
     uidmap:
-      - "0:4000000000:1000"
-      - "1000:{{ prowlarr_container_user_result.uid }}:1"
-      - "1001:4000001001:100000"
+      - 0:4000000000:1000
+      - 1000:{{ prowlarr_container_user_result.uid }}:1
+      - 1001:4000001001:100000
 
     gidmap:
-      - "0:4000000000:100000"
-      - "+1000:@{{ prowlarr_container_user_result.group }}:1"
+      - 0:4000000000:100000
+      - +1000:@{{ prowlarr_container_user_result.group }}:1
 
     labels:
       traefik.enable: true
-      traefik.http.routers.prowlarr.rule: Host(`prowlarr.{{ internal_domain}}`)
+      traefik.http.routers.prowlarr.rule: Host(`prowlarr.{{ internal_domain }}`)
       traefik.http.routers.prowlarr.entrypoints: websecure
       traefik.http.routers.prowlarr.tls.certresolver: letsencrypt
       traefik.http.routers.prowlarr.tls.domains[0].main: prowlarr.{{ internal_domain }}

@@ -1,27 +1,29 @@
+---
 # This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
 # two variables cannot be used at the same time.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-- ansible.builtin.set_fact:
+- name: Set adguardhome_hashed_password
+  ansible.builtin.set_fact:
     adguardhome_hashed_password: "{{ adguardhome_hashed_password }}"
 
 - name: Create /app/adguardhome/work directory
-  file:
+  ansible.builtin.file:
     path: /app/adguardhome/work
     state: directory
-    mode: 0700
+    mode: "0700"
     owner: root
     group: root
 
 - name: Create /app/adguardhome/conf directory
-  file:
+  ansible.builtin.file:
     path: /app/adguardhome/conf
     state: directory
-    mode: 0700
+    mode: "0700"
     owner: root
     group: root
 
 - name: Copy AdGuardHome.yaml configuration
-  copy:
+  ansible.builtin.copy:
     content: |
       http:
         pprof:
@@ -205,13 +207,13 @@
         rlimit_nofile: 0
       schema_version: 28
     dest: /app/adguardhome/conf/AdGuardHome.yaml
-    mode: 0600
+    mode: "0600"
     owner: root
     group: root
   notify: Restart AdGuard Home service
 
 - name: Create adguardhome.service file
-  copy:
+  ansible.builtin.copy:
     content: |
       [Unit]
       Description=Podman container-adguardhome.service
@@ -237,7 +239,7 @@
               -p 172.16.255.254:53:53/tcp \
               -p 172.16.255.254:53:53/udp \
               --label="traefik.enable=true" \
-              --label="traefik.http.routers.adguard.rule=Host(`adguard.{{ internal_domain}}`)" \
+              --label="traefik.http.routers.adguard.rule=Host(`adguard.{{ internal_domain }}`)" \
               --label="traefik.http.routers.adguard.entrypoints=websecure" \
               --label="traefik.http.routers.adguard.tls.certresolver=letsencrypt" \
               --label="traefik.http.routers.adguard.tls.domains[0].main=adguard.{{ internal_domain }}" \
@@ -256,16 +258,12 @@
       [Install]
       WantedBy=default.target
     dest: /etc/systemd/system/adguardhome.service
-    mode: 0644
+    mode: "0644"
   register: adguardhome_service_unit
-
-- name: Reload systemd daemons
-  systemd_service:
-    daemon_reload: yes
-  when: adguardhome_service_unit.changed
+  notify: Reload systemd daemons for adguard role
 
 - name: Enable and start adguardhome service
-  systemd_service:
+  ansible.builtin.systemd_service:
     name: adguardhome.service
-    enabled: yes
+    enabled: true
     state: started

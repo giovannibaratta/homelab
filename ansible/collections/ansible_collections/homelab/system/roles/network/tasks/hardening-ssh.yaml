@@ -1,12 +1,13 @@
+---
 - name: Get internal interface IP address
-  set_fact:
+  ansible.builtin.set_fact:
     internal_interface_ip: "{{ ansible_facts[internal_interface]['ipv4']['address'] }}"
 
 - name: Create sshd_config.d file for internal interface
-  copy:
+  ansible.builtin.copy:
     dest: /etc/ssh/sshd_config.d/99-hardening.conf
     backup: true
-    mode: 0644
+    mode: "0644"
     owner: root
     group: root
     content: |
@@ -29,4 +30,3 @@
       AllowAgentForwarding no
       AllowTcpForwarding no
       PermitTunnel no
-

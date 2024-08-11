@@ -1,33 +1,36 @@
+---
 # This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
 # two variables cannot be used at the same time.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-- set_fact:
+- name: Set coder_db_password
+  ansible.builtin.set_fact:
     coder_db_password: "{{ coder_db_password }}"
 
-- set_fact:
+- name: Set internal_domain
+  ansible.builtin.set_fact:
     internal_domain: "{{ internal_domain }}"
 
 - name: Add {{ coder_container_user }} user
   ansible.builtin.user:
     name: "{{ coder_container_user }}"
     comment: User used to run Coder
-    create_home: no
+    create_home: false
     shell: /usr/sbin/nologin
   register: coder_container_user_result
 
-- name: Add {{ coder_db_container_user }} user
+- name: Add user {{ coder_db_container_user }}
   ansible.builtin.user:
     name: "{{ coder_db_container_user }}"
     comment: User used to run the PostgreSQL database for Coder
-    create_home: no
+    create_home: false
     shell: /usr/sbin/nologin
   register: coder_db_container_user_result
 
 - name: Create coder directories
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: 0770
+    mode: "0770"
     owner: "{{ coder_container_user }}"
     group: "{{ coder_container_user }}"
   with_items:
@@ -35,8 +38,8 @@
     - "{{ coder_work_dir }}"
     - "{{ coder_database_dir }}"
 
-- name: Change {{ coder_database_dir }} ownership
-  file:
+- name: Change ownership of {{ coder_database_dir }}
+  ansible.builtin.file:
     path: "{{ coder_database_dir }}"
     state: directory
     recurse: true
@@ -63,25 +66,24 @@
     - Reload systemd daemons
     - Restart Coder network
 
-- meta: flush_handlers
-
+- ansible.builtin.meta: flush_handlers
 - name: Start Coder network
-  systemd_service:
+  ansible.builtin.systemd_service:
     # The name is the name of the network + network suffix
     name: coder-network
     state: started
     enabled: true
 
 - name: Get the group ID of the 'containers' group
-  shell: |
+  ansible.builtin.shell: |
     getent group containers | cut -d: -f3
   register: containers_group_result
 
 - name: Copy coder-db.env file
-  template:
+  ansible.builtin.template:
     src: coder-db.env.j2
     dest: "{{ coder_conf_dir }}/coder-db.env"
-    mode: 0640
+    mode: "0640"
   notify:
     - Restart Coder DB service
 
@@ -100,17 +102,17 @@
     # We map the root container user to the coder-db user running on the host
     # to give access to configuration and database files
     uidmap:
-      - "0:4000000000:70"
-      - "70:{{ coder_db_container_user_result.uid }}:1"
-      - "71:4000000071:100000"
+      - 0:4000000000:70
+      - 70:{{ coder_db_container_user_result.uid }}:1
+      - 71:4000000071:100000
 
     gidmap:
-      - "0:4000000000:100000"
-      - "+70:@{{ coder_db_container_user_result.group }}:1"
+      - 0:4000000000:100000
+      - +70:@{{ coder_db_container_user_result.group }}:1
 
     recreate: true
 
-    healthcheck: "pg_isready -U {{ coder_db_user }} -d {{ coder_db_name }}"
+    healthcheck: pg_isready -U {{ coder_db_user }} -d {{ coder_db_name }}
     healthcheck_interval: 5s
     healthcheck_timeout: 5s
     healthcheck_retries: 5
@@ -124,13 +126,12 @@
     - Restart Coder DB service
     - Restart Coder service
 
-- meta: flush_handlers
-
+- ansible.builtin.meta: flush_handlers
 - name: Copy coder.env file
-  template:
+  ansible.builtin.template:
     src: coder.env.j2
     dest: "{{ coder_conf_dir }}/coder.env"
-    mode: 0640
+    mode: "0640"
   notify:
     - Restart Coder service
 
@@ -149,19 +150,19 @@
     # We map the coder container user to the coder user running on the host
     # to give access to configuration files
     uidmap:
-      - "0:4000000000:1000"
-      - "1000:{{ coder_container_user_result.uid }}:1"
-      - "1001:4000001000:100000"
+      - 0:4000000000:1000
+      - 1000:{{ coder_container_user_result.uid }}:1
+      - 1001:4000001000:100000
 
     # We map the coder group in the container to the containers group running on
     # the host to give access to the Docker socket.
     gidmap:
-      - "0:4000000000:100000"
-      - "+1000:@{{ containers_group_result.stdout }}:1"
+      - 0:4000000000:100000
+      - +1000:@{{ containers_group_result.stdout }}:1
 
     labels:
       traefik.enable: true
-      traefik.http.routers.coder.rule: Host(`coder.{{ internal_domain}}`)
+      traefik.http.routers.coder.rule: Host(`coder.{{ internal_domain }}`)
       traefik.http.routers.coder.entrypoints: websecure
       traefik.http.routers.coder.tls.certresolver: letsencrypt
       traefik.http.routers.coder.tls.domains[0].main: coder.{{ internal_domain }}
@@ -177,16 +178,15 @@
     - Reload systemd daemons
     - Restart Coder service
 
-- meta: flush_handlers
-
+- ansible.builtin.meta: flush_handlers
 - name: Start Coder DB
-  systemd_service:
+  ansible.builtin.systemd_service:
     name: coder-db
     state: started
     enabled: true
 
 - name: Start Coder
-  systemd_service:
+  ansible.builtin.systemd_service:
     name: coder
     state: started
     enabled: true

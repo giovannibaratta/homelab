@@ -1,3 +1,4 @@
+---
 # This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
 # two variables cannot be used at the same time.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
@@ -65,8 +66,7 @@
     - Reload systemd daemons for p2p role
     - Restart bitmagnet network
 
-- meta: flush_handlers
-
+- ansible.builtin.meta: flush_handlers
 - name: Start bitmagnet network
   ansible.builtin.systemd_service:
     # The name is the name of the network + network suffix
@@ -97,17 +97,17 @@
     # We map the root container user to the bitmagnet-db user running on the host
     # to give access to configuration and database files
     uidmap:
-      - "0:4000000000:70"
-      - "70:{{ bitmagnet_db_container_user_result.uid }}:1"
-      - "71:4000000071:100000"
+      - 0:4000000000:70
+      - 70:{{ bitmagnet_db_container_user_result.uid }}:1
+      - 71:4000000071:100000
 
     gidmap:
-      - "0:4000000000:100000"
-      - "+70:@{{ bitmagnet_db_container_user_result.group }}:1"
+      - 0:4000000000:100000
+      - +70:@{{ bitmagnet_db_container_user_result.group }}:1
 
     recreate: true
 
-    healthcheck: "pg_isready -U {{ bitmagnet_db_user }} -d {{ bitmagnet_db_name }}"
+    healthcheck: pg_isready -U {{ bitmagnet_db_user }} -d {{ bitmagnet_db_name }}
     healthcheck_interval: 5s
     healthcheck_timeout: 5s
     healthcheck_retries: 5
@@ -150,16 +150,16 @@
     # bitmagnet runs as root:root.
     # We map the container root user to the bitmagnet user running on the host
     uidmap:
-      - "0:{{ bitmagnet_container_user_result.uid }}:1"
-      - "1:4000000000:100000"
+      - 0:{{ bitmagnet_container_user_result.uid }}:1
+      - 1:4000000000:100000
 
     gidmap:
-      - "0:{{ bitmagnet_container_user_result.group }}:1"
-      - "1:4000000000:100000"
+      - 0:{{ bitmagnet_container_user_result.group }}:1
+      - 1:4000000000:100000
 
     labels:
       traefik.enable: true
-      traefik.http.routers.bitmagnet.rule: Host(`bitmagnet.{{ internal_domain}}`)
+      traefik.http.routers.bitmagnet.rule: Host(`bitmagnet.{{ internal_domain }}`)
       traefik.http.routers.bitmagnet.entrypoints: websecure
       traefik.http.routers.bitmagnet.tls.certresolver: letsencrypt
       traefik.http.routers.bitmagnet.tls.domains[0].main: bitmagnet.{{ internal_domain }}

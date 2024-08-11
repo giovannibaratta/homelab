@@ -1,3 +1,4 @@
+---
 - name: Add user {{ ping_exporter_container_user }}
   ansible.builtin.user:
     name: "{{ ping_exporter_container_user }}"
@@ -8,7 +9,7 @@
 
 - name: Create config directories
   ansible.builtin.file:
-    path: "/app/ping_exporter/conf"
+    path: /app/ping_exporter/conf
     state: directory
     mode: "0750"
     owner: "{{ ping_exporter_container_user_result.uid }}"
@@ -34,8 +35,7 @@
     - Restart pingexporter network
 
 - name: Flush handlers for pingexporter network
-  meta: flush_handlers
-
+  ansible.builtin.meta: flush_handlers
 - name: Start pingexporter network
   ansible.builtin.systemd_service:
     # The name is the name of the network + network suffix
@@ -76,15 +76,15 @@
 
     recreate: true
     network: pingexporter
-    volumes: "/app/ping_exporter:/config:ro"
+    volumes: /app/ping_exporter:/config:ro
 
     uidmap:
-      - "0:{{ ping_exporter_container_user_result.uid }}:1"
-      - "1:4000000000:100000"
+      - 0:{{ ping_exporter_container_user_result.uid }}:1
+      - 1:4000000000:100000
 
     gidmap:
-      - "0:{{ ping_exporter_container_user_result.group }}:1"
-      - "1:4000000000:100000"
+      - 0:{{ ping_exporter_container_user_result.group }}:1
+      - 1:4000000000:100000
 
     labels:
       traefik.enable: true

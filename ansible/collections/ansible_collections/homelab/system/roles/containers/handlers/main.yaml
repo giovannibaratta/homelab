@@ -1,6 +1,7 @@
+---
 - name: Reload systemd daemon
   ansible.builtin.systemd_service:
-    daemon_reload: yes
+    daemon_reload: true
 
 - name: Restart podman.socket service
   ansible.builtin.systemd_service:

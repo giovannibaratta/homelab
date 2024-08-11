@@ -1,5 +1,10 @@
-- ansible.builtin.import_tasks: kernel-hardening.yaml
-- ansible.builtin.import_tasks: system-updates.yaml
-- ansible.builtin.import_tasks: install-packages.yaml
-- ansible.builtin.import_tasks: customize-shell.yaml
+---
+- name: Kernel hardening
+  ansible.builtin.import_tasks: kernel-hardening.yaml
+- name: Configure system updates
+  ansible.builtin.import_tasks: system-updates.yaml
+- name: Install packages
+  ansible.builtin.import_tasks: install-packages.yaml
+- name: Customize shell
+  ansible.builtin.import_tasks: customize-shell.yaml
   when: base_ohmyzsh_install
