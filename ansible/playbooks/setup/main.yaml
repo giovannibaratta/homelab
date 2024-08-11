@@ -1,5 +1,6 @@
 ---
-- hosts: all
+- name: Configure home lab
+  hosts: all
 
   vars:
     # This group will be used to grant read access to media files between different applications
