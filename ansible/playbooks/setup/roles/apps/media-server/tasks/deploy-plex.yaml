@@ -22,7 +22,6 @@
     group: "{{ plex_container_user }}"
   with_items:
     - "{{ plex_conf_dir }}"
-    - "{{ plex_work_dir }}"
     - "{{ plex_database_dir }}"
 
 - name: Create plex network Quadlet

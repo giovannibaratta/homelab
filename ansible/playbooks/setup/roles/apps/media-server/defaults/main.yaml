@@ -1,5 +1,4 @@
 plex_version: 1.40.4.8679-424562606-ls223 #1.40.4.8679-424562606
 plex_conf_dir: /app/plex/conf
-plex_work_dir: /app/plex/work
 plex_database_dir: /app/plex/database
 plex_container_user: plex
