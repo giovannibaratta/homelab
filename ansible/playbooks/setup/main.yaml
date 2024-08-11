@@ -81,6 +81,6 @@
     - role: roles/apps/p2p
       # The directory is used to stage downloaded and incomplete files
       p2p_downloads_dir: "/external/torrent/downloads"
-      sonarr_data_dir: "{{ media_data_dir }}/tv"
+      p2p_sonarr_media_dir: "{{ media_data_dir }}/tv"
       become: true
       tags: "p2p"
