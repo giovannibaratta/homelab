@@ -1,0 +1,11 @@
+namespace: "homelab"
+name: "apps"
+version: "0.0.1"
+readme: "README.md"
+authors:
+  - "Giovanni Baratta"
+dependencies:
+  "containers.podman": ">=1.15.4"
+  "prometheus.prometheus": ">=0.16.3"
+license:
+  - "MIT"

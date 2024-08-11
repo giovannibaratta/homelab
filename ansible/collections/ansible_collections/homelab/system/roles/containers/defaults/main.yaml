@@ -1,0 +1,2 @@
+system_containers_storage_dir: /var/lib/containers/storage
+system_containers_ephemeral_dir: /run/containers/storage

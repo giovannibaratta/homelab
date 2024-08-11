@@ -88,15 +88,15 @@
     state: touch
     mode: "0644"
 
-- name: Create {{ container_storage_dir }} directory
+- name: Create {{ system_containers_storage_dir }} directory
   ansible.builtin.file:
-    path: "{{ container_storage_dir }}"
+    path: "{{ system_containers_storage_dir }}"
     state: directory
     mode: "0711"
 
-- name: Create {{ container_temp_storage_dir }} directory
+- name: Create {{ system_containers_ephemeral_dir }} directory
   ansible.builtin.file:
-    path: "{{ container_temp_storage_dir }}"
+    path: "{{ system_containers_ephemeral_dir }}"
     state: directory
     mode: "0711"
 
@@ -109,10 +109,10 @@
       driver = "overlay"
 
       # Primary Read/Write location of container storage
-      graphroot = "{{ container_storage_dir }}"
+      graphroot = "{{ system_containers_storage_dir }}"
 
       # Temporary storage location
-      runroot = "{{ container_temp_storage_dir }}"
+      runroot = "{{ system_containers_ephemeral_dir }}"
     mode: "0640"
 
 - name: Ensure group containters exists

@@ -12,20 +12,15 @@
 
 ## Run playbook
 
-1. Select the playbook that you want to run
-    ```bash
-    playbook="setup"
-    ```
-
 1. Install the requirements
 
     ```bash
-    ansible-galaxy install -r "playbooks/${playbook}/requirements.yaml"
+    ansible-galaxy install -r "requirements.yaml"
     ```
 
 1. Run the playbook
     ```bash
-    ansible-playbook "playbooks/${playbook}/main.yaml" -i inventory/home.yaml -v
+    ansible-playbook "setup_homelab.yaml" -i inventory/home.yaml -v
     ```
 
 ## Manual setup to enable Ansible

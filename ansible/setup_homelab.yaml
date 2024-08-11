@@ -27,36 +27,36 @@
         group: "{{ media_shared_group }}"
 
   roles:
-    - role: roles/system/network
+    - role: homelab.system.network
       become: true
       tags: "system-network"
 
-    - role: roles/system/base
+    - role: homelab.system.base
       become: true
-      ohmyzsh_install: true
-      ohmyzsh_users:
+      base_ohmyzsh_install: true
+      base_ohmyzsh_users:
         - root
         - gbaratta
       tags: "system-base"
 
-    - role: roles/system/ingress
+    - role: homelab.system.ingress
       become: true
       tags: "ingress"
 
-    - role: roles/system/containers
+    - role: homelab.system.containers
       become: true
-      container_storage_dir: "/app/containers"
+      system_containers_storage_dir: "/app/containers"
       tags: "containers"
 
-    - role: roles/system/latency_monitor
+    - role: homelab.system.latency_monitor
       become: true
       tags: "monitoring"
 
-    - role: roles/apps/adguard
+    - role: homelab.apps.adguard
       become: true
       tags: "adguard"
 
-    - role: roles/apps/prometheus
+    - role: homelab.apps.prometheus
       become: true
       tags: "prometheus"
 
@@ -65,20 +65,20 @@
       node_exporter_web_listen_address: "172.16.255.254:9100"
       tags: "prometheus"
 
-    - role: roles/apps/grafana
+    - role: homelab.apps.grafana
       become: true
       tags: "grafana"
 
-    - role: roles/apps/coder
+    - role: homelab.apps.coder
       become: true
       tags: "coder"
 
-    - role: roles/apps/media-server
+    - role: homelab.apps.media_server
       plex_media_dir: "{{ media_data_dir }}"
       become: true
       tags: "media-server"
 
-    - role: roles/apps/p2p
+    - role: homelab.apps.p2p
       # The directory is used to stage downloaded and incomplete files
       p2p_downloads_dir: "/external/torrent/downloads"
       p2p_sonarr_media_dir: "{{ media_data_dir }}/tv"
