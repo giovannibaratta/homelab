@@ -198,7 +198,7 @@
 
     labels:
       traefik.enable: true
-      traefik.http.routers.sonarr.rule: Host(`sonarr.{{ internal_domain}}`)
+      traefik.http.routers.sonarr.rule: Host(`sonarr.{{ internal_domain }}`)
       traefik.http.routers.sonarr.entrypoints: websecure
       traefik.http.routers.sonarr.tls.certresolver: letsencrypt
       traefik.http.routers.sonarr.tls.domains[0].main: sonarr.{{ internal_domain }}
