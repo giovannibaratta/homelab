@@ -31,10 +31,10 @@
 - name: Create directory {{ bittorrent_downloads_dir }}
   ansible.builtin.file:
     path: "{{ bittorrent_downloads_dir }}"
+    recurse: true
     state: directory
-    mode: "0774"
     owner: "{{ bittorrent_container_user }}"
-    group: "ptop"
+    group: "{{ media_shared_group }}"
 
 - name: Create bittorrent network Quadlet
   containers.podman.podman_network:
@@ -99,13 +99,14 @@
     # bittorrent runs as root:root.
     # We map the container root user to the bittorrent user running on the host
     uidmap:
-      - "0:{{ bittorrent_container_user_result.uid }}:1"
-      - "1:4000000000:100000"
+      - "0:4000000000:1000"
+      - "1000:{{ bittorrent_container_user_result.uid }}:1"
+      - "1001:4000001001:100000"
 
     gidmap:
       - "0:{{ bittorrent_container_user_result.group }}:1"
       - "1:4000000000:100000"
-      - "+1000:@{{ ptop_gid }}:1"
+      - "+1000:@{{ media_gid }}:1"
 
     labels:
       traefik.enable: true

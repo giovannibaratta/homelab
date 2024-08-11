@@ -98,7 +98,7 @@
 
     gidmap:
       - "0:4000000000:100000"
-      - "+1000:@{{ plex_container_user_result.group }}:1"
+      - "+1000:@{{ media_gid }}:1"
 
     labels:
       traefik.enable: true

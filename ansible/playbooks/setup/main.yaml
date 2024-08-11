@@ -1,6 +1,10 @@
 ---
 - hosts: all
 
+  vars:
+    # This group will be used to grant read access to media files between different applications
+    media_shared_group: "media"
+
   roles:
     - role: roles/system/network
       become: true

@@ -1,2 +1,12 @@
+- name: Ensure group exists with name {{ media_shared_group }}
+  ansible.builtin.group:
+    name: "{{ media_shared_group }}"
+    state: present
+  register: media_group_result
+
+- name: Set media_gid
+  ansible.builtin.set_fact:
+    media_gid: "{{ media_group_result.gid }}"
+
 - name: Deploy Plex
   ansible.builtin.import_tasks: deploy-plex.yaml

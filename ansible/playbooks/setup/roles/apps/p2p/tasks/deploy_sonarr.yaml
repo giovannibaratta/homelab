@@ -194,7 +194,7 @@
 
     gidmap:
       - "0:4000000000:100000"
-      - "+1000:@{{ ptop_gid }}:1"
+      - "+1000:@{{ media_gid }}:1"
 
     labels:
       traefik.enable: true

@@ -12,15 +12,15 @@
     sonarr_server_url: "https://sonarr.{{ internal_domain }}"
     overseerr_server_url: "https://overseerr.{{ internal_domain }}"
 
-- name: Ensure group ptop exists
+- name: Ensure group exists with name {{ media_shared_group }}
   ansible.builtin.group:
-    name: ptop
+    name: "{{ media_shared_group }}"
     state: present
-  register: ptop_group_result
+  register: media_group_result
 
-- name: Set ptop_gid
+- name: Set media_gid
   ansible.builtin.set_fact:
-    ptop_gid: "{{ ptop_group_result.gid }}"
+    media_gid: "{{ media_group_result.gid }}"
 
 - name: Deploy qBittorrent
   ansible.builtin.import_tasks: deploy_bittorrent.yaml
