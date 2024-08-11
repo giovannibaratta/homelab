@@ -24,6 +24,13 @@
     - "{{ plex_conf_dir }}"
     - "{{ plex_database_dir }}"
 
+- name: Change ownership of {{ plex_database_dir }}
+  ansible.builtin.file:
+    path: "{{ plex_database_dir }}"
+    state: directory
+    group: "{{ media_shared_group }}"
+    mode: "0770"
+
 - name: Create plex network Quadlet
   containers.podman.podman_network:
     name: plex

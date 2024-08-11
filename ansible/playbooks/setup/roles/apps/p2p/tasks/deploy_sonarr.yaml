@@ -40,7 +40,14 @@
     - "{{ sonarr_conf_dir }}"
     - "{{ sonarr_work_dir }}"
     - "{{ sonarr_database_dir }}"
-    - "{{ sonarr_data_dir }}"
+
+- name: Create sonarr data directory
+  ansible.builtin.file:
+    path: "{{ sonarr_data_dir }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ sonarr_container_user }}"
+    group: "{{ media_shared_group }}"
 
 - name: Change ownership for {{ sonarr_database_dir }}
   ansible.builtin.file:
@@ -49,12 +56,6 @@
     recurse: true
     owner: "{{ sonarr_db_container_user }}"
     group: "{{ sonarr_db_container_user }}"
-
-- name: Change mode for {{ sonarr_data_dir }}
-  ansible.builtin.file:
-    path: "{{ sonarr_data_dir }}"
-    state: directory
-    mode: "0777"
 
 - name: Create sonarr network Quadlet
   containers.podman.podman_network:
