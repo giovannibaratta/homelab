@@ -102,7 +102,7 @@
 
     labels:
       traefik.enable: true
-      traefik.http.routers.plex.rule: Host(`plex.{{ internal_domain}}`)
+      traefik.http.routers.plex.rule: Host(`plex.{{ internal_domain }}`)
       traefik.http.routers.plex.entrypoints: websecure
       traefik.http.routers.plex.tls.certresolver: letsencrypt
       traefik.http.routers.plex.tls.domains[0].main: plex.{{ internal_domain }}
