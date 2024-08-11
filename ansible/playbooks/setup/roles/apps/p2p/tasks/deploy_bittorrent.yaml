@@ -28,9 +28,9 @@
   with_items:
     - "{{ bittorrent_work_dir }}"
 
-- name: Create directory {{ bittorrent_downloads_dir }}
+- name: Create directory {{ p2p_downloads_dir }}
   ansible.builtin.file:
-    path: "{{ bittorrent_downloads_dir }}"
+    path: "{{ p2p_downloads_dir }}"
     recurse: true
     state: directory
     owner: "{{ bittorrent_container_user }}"
@@ -94,7 +94,7 @@
 
     volumes:
       - "{{ bittorrent_work_dir }}:/config"
-      - "{{ bittorrent_downloads_dir }}:/downloads"
+      - "{{ p2p_downloads_dir }}:/downloads"
 
     # bittorrent runs as root:root.
     # We map the container root user to the bittorrent user running on the host
