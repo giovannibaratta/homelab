@@ -74,7 +74,7 @@
 
     volumes:
       - "{{ plex_database_dir }}:/config"
-      - "{{ plex_media_dir }}:/data"
+      - "{{ plex_media_dir }}:/data:ro"
 
     device:
       # HW acceleration
