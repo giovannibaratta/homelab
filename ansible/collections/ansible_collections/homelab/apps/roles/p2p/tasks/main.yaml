@@ -35,6 +35,9 @@
 - name: Deploy Sonarr
   ansible.builtin.import_tasks: deploy_sonarr.yaml
 
+- name: Deploy Radarr
+  ansible.builtin.import_tasks: deploy_radarr.yaml
+
 - name: Deploy Overseerr
   ansible.builtin.import_tasks: deploy_overseerr.yaml
 

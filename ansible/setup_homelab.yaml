@@ -82,5 +82,6 @@
       # The directory is used to stage downloaded and incomplete files
       p2p_downloads_dir: /external/torrent/downloads
       p2p_sonarr_media_dir: "{{ media_data_dir }}/tv"
+      p2p_radarr_media_dir: "{{ media_data_dir }}/movies"
       become: true
       tags: p2p

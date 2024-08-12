@@ -1,0 +1,222 @@
+---
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for p2p_radarr_db_password
+  ansible.builtin.set_fact:
+    p2p_radarr_db_password: "{{ p2p_radarr_db_password }}"
+
+- name: Bitwarden workaround for p2p_radarr_api_key
+  ansible.builtin.set_fact:
+    p2p_radarr_api_key: "{{ p2p_radarr_api_key }}"
+
+- name: Add user {{ p2p_radarr_container_user }}
+  ansible.builtin.user:
+    name: "{{ p2p_radarr_container_user }}"
+    comment: User used to run radarr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: p2p_radarr_container_user_result
+
+- name: Add user {{ p2p_radarr_db_container_user }}
+  ansible.builtin.user:
+    name: "{{ p2p_radarr_db_container_user }}"
+    comment: User used to run the PostgreSQL database for radarr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: p2p_radarr_db_container_user_result
+
+- name: Create radarr directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ p2p_radarr_container_user }}"
+    group: "{{ p2p_radarr_container_user }}"
+  with_items:
+    - "{{ p2p_radarr_conf_dir }}"
+    - "{{ p2p_radarr_work_dir }}"
+    - "{{ p2p_radarr_database_dir }}"
+
+- name: Create directory {{ p2p_radarr_media_dir }}
+  ansible.builtin.file:
+    path: "{{ p2p_radarr_media_dir }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ p2p_radarr_container_user }}"
+    group: "{{ media_shared_group }}"
+
+- name: Change ownership for {{ p2p_radarr_database_dir }}
+  ansible.builtin.file:
+    path: "{{ p2p_radarr_database_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ p2p_radarr_db_container_user }}"
+    group: "{{ p2p_radarr_db_container_user }}"
+
+- name: Create radarr network Quadlet
+  containers.podman.podman_network:
+    name: radarr
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-radarr
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart radarr network
+
+- name: Trigger Handlers for radarr network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start radarr network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: radarr-network
+    state: started
+    enabled: true
+
+- name: Copy radarr-db.env file
+  ansible.builtin.template:
+    src: radarr-db.env.j2
+    dest: "{{ p2p_radarr_conf_dir }}/radarr-db.env"
+    mode: "0640"
+  notify:
+    - Restart radarr DB service
+
+# This file is executed only if the database directory is empty
+- name: Copy database init file
+  ansible.builtin.template:
+    src: radarr-logs-db.sql.j2
+    dest: "{{ p2p_radarr_conf_dir }}/radarr-logs-db.sql"
+    mode: "0640"
+    owner: "{{ p2p_radarr_db_container_user }}"
+    group: "{{ p2p_radarr_db_container_user }}"
+
+- name: Create radarr database Quadlet
+  containers.podman.podman_container:
+    name: radarr-db
+    image: docker.io/postgres:16.3-alpine
+    state: quadlet
+
+    volumes:
+      - "{{ p2p_radarr_database_dir }}:/var/lib/postgresql/data"
+      - "{{ p2p_radarr_conf_dir }}/radarr-logs-db.sql:/docker-entrypoint-initdb.d/init-logs-db.sql"
+    env_file: "{{ p2p_radarr_conf_dir }}/radarr-db.env"
+    network: radarr
+    delete_depend: true
+
+    # radarr-db runs as root:root but /var/lib/postgresql/data must be assigned to postgres (70:70)
+    # We map the root container user to the radarr-db user running on the host
+    # to give access to configuration and database files
+    uidmap:
+      - 0:4000000000:70
+      - 70:{{ p2p_radarr_db_container_user_result.uid }}:1
+      - 71:4000000071:100000
+
+    gidmap:
+      - 0:4000000000:100000
+      - +70:@{{ p2p_radarr_db_container_user_result.group }}:1
+
+    recreate: true
+
+    healthcheck: pg_isready -U {{ p2p_radarr_db_user }} -d {{ p2p_radarr_main_db_name }} && pg_isready -U {{ p2p_radarr_db_user }} -d {{ p2p_radarr_logs_db_name }}
+    healthcheck_interval: 5s
+    healthcheck_timeout: 5s
+    healthcheck_retries: 5
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart radarr DB service
+
+- name: Trigger Handlers for radarr DB
+  ansible.builtin.meta: flush_handlers
+
+- name: Start radarr DB
+  ansible.builtin.systemd_service:
+    name: radarr-db
+    state: started
+    enabled: true
+
+- name: Copy radarr.env file
+  ansible.builtin.template:
+    src: radarr.env.j2
+    dest: "{{ p2p_radarr_conf_dir }}/radarr.env"
+    mode: "0640"
+  notify:
+    - Restart radarr service
+
+- name: Copy config.xml file
+  ansible.builtin.template:
+    src: radarr-config.xml.j2
+    dest: "{{ p2p_radarr_work_dir }}/config.xml"
+    mode: "0640"
+    owner: "{{ p2p_radarr_container_user }}"
+    group: "{{ p2p_radarr_container_user }}"
+
+  notify:
+    - Restart radarr service
+
+- name: Create radarr Quadlet
+  containers.podman.podman_container:
+    name: radarr
+    state: quadlet
+    image: lscr.io/linuxserver/radarr:{{ p2p_radarr_version }}
+    env_file: "{{ p2p_radarr_conf_dir }}/radarr.env"
+    recreate: true
+    network: radarr
+
+    volumes:
+      - "{{ p2p_radarr_work_dir }}:/config"
+      - "{{ p2p_radarr_media_dir }}:{{ p2p_radarr_container_data_dir }}"
+      - "{{ p2p_downloads_dir }}:/downloads"
+
+    # radarr runs as the user indicated in the env file.
+    # We map the container root user to the radarr user running on the host
+    uidmap:
+      - 0:4000000000:1000
+      - 1000:{{ p2p_radarr_container_user_result.uid }}:1
+      - 1001:4000001001:100000
+
+    gidmap:
+      - 0:4000000000:100000
+      - +1000:@{{ media_gid }}:1
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.radarr.rule: Host(`radarr.{{ internal_domain }}`)
+      traefik.http.routers.radarr.entrypoints: websecure
+      traefik.http.routers.radarr.tls.certresolver: letsencrypt
+      traefik.http.routers.radarr.tls.domains[0].main: radarr.{{ internal_domain }}
+      traefik.http.services.radarr.loadbalancer.server.port: 7878
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=radarr-db.service
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart radarr service
+
+- name: Trigger Handlers for radarr
+  ansible.builtin.meta: flush_handlers
+
+- name: Start radarr
+  ansible.builtin.systemd_service:
+    name: radarr
+    state: started
+    enabled: true

@@ -1,0 +1,24 @@
+<Config>
+  <BindAddress>*</BindAddress>
+  <Port>7878</Port>
+  <SslPort>9898</SslPort>
+  <EnableSsl>False</EnableSsl>
+  <LaunchBrowser>False</LaunchBrowser>
+  <ApiKey>{{ p2p_radarr_api_key }}</ApiKey>
+  <AuthenticationMethod>External</AuthenticationMethod>
+  <AuthenticationRequired>Enabled</AuthenticationRequired>
+  <Branch>master</Branch>
+  <LogLevel>info</LogLevel>
+  <SslCertPath></SslCertPath>
+  <SslCertPassword></SslCertPassword>
+  <UrlBase></UrlBase>
+  <InstanceName>radarr</InstanceName>
+  <UpdateMechanism>Docker</UpdateMechanism>
+  <AnalyticsEnabled>False</AnalyticsEnabled>
+  <PostgresUser>{{ p2p_radarr_db_user }}</PostgresUser>
+  <PostgresPassword>{{ p2p_radarr_db_password }}</PostgresPassword>
+  <PostgresPort>5432</PostgresPort>
+  <PostgresHost>radarr-db</PostgresHost>
+  <PostgresMainDb>{{ p2p_radarr_main_db_name }}</PostgresMainDb>
+  <PostgresLogDb>{{ p2p_radarr_logs_db_name }}</PostgresLogDb>
+</Config>

@@ -15,3 +15,13 @@ sonar_container_data_dir: /data
 overseerr_version: 14cf43de26e44d5ef082806c2b97a88ce4bd6c84
 overseerr_conf_dir: /app/overseerr/conf
 overseerr_work_dir: /app/overseerr/work
+p2p_radarr_version: 5.8.3
+p2p_radarr_conf_dir: /app/radarr/conf
+p2p_radarr_work_dir: /app/radarr/work
+p2p_radarr_container_data_dir: /data
+p2p_radarr_database_dir: "{{ p2p_radarr_work_dir }}/database"
+p2p_radarr_db_user: radarr
+p2p_radarr_main_db_name: radarrmain
+p2p_radarr_logs_db_name: radarrlogs
+p2p_radarr_db_container_user: postgres_radarr
+p2p_radarr_container_user: radarr

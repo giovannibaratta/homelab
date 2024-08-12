@@ -58,6 +58,21 @@
     state: restarted
     name: sonarr
 
+- name: Restart radarr network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: radarr-network
+
+- name: Restart radarr DB service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: radarr-db
+
+- name: Restart radarr service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: radarr
+
 - name: Restart overseerr network
   ansible.builtin.systemd_service:
     state: restarted
