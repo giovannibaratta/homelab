@@ -1,0 +1,43 @@
+{
+  "syncLevel": "fullSync",
+  "fields": [
+    {
+      "name": "prowlarrUrl",
+      "value": "https://prowlarr.{{ internal_domain }}"
+    },
+    {
+      "name": "baseUrl",
+      "value": "https://radarr.{{ internal_domain }}"
+    },
+    {
+      "name": "apiKey",
+      "value": "{{ p2p_radarr_api_key }}"
+    },
+    {
+      "name": "syncCategories",
+      "value": [
+        2000,
+        2010,
+        2020,
+        2030,
+        2040,
+        2045,
+        2050,
+        2060,
+        2070,
+        2080,
+        2090
+      ]
+    },
+    {
+      "name": "syncRejectBlocklistedTorrentHashesWhileGrabbing",
+      "value": false
+    }
+  ],
+  "implementationName": "Radarr",
+  "implementation": "Radarr",
+  "configContract": "RadarrSettings",
+  "infoLink": "https://wiki.servarr.com/prowlarr/supported#radarr",
+  "tags": [],
+  "name": "radarr.{{ internal_domain }}"
+}
