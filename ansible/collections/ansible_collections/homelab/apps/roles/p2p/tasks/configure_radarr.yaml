@@ -55,7 +55,7 @@
         fields:
           - name: value
             value: 5
-  register: not_italian_custom_format
+  register: __radarr_not_italian_custom_format
 
 - name: Ensure quality profile High Quality - Italian exists
   devopsarr.radarr.radarr_quality_profile:
@@ -131,6 +131,7 @@
             source: tv
             resolution: 1080
     formats:
-      - id: "{{ not_italian_custom_format.id }}"
-        name: "{{ not_italian_custom_format.name }}"
+      - id: "{{ __radarr_not_italian_custom_format.id }}"
+        name: "{{ __radarr_not_italian_custom_format.name }}"
         score: -1000
+  register: _radarr_hd_italian_profile

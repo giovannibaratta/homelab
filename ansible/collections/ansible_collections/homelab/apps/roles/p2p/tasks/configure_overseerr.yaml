@@ -20,7 +20,7 @@
   ansible.builtin.set_fact:
     is_first_login_completed: "{{ overseerr_authme_api_response.status == 200 }}"
 
-- name: Let user completed first login
+- name: Let user complete first login
   when: not is_first_login_completed
   ansible.builtin.pause:
     prompt: Open overseerr.{{ internal_domain }} and complete login. When finished press enter
@@ -96,3 +96,36 @@
         status_code: [201]
         body: "{{ lookup('ansible.builtin.template', 'overseerr-add-sonarr-body-request.json.j2') }}"
         body_format: json
+
+- name: Retrieve Radarr settings from Overseerr
+  ansible.builtin.uri:
+    url: "{{ overseerr_server_url }}/api/v1/settings/radarr"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ overseerr_api_key }}"
+    status_code: [200]
+  register: overseerr_radarr_settings_api_response
+
+- name: Set radarr_count fact
+  ansible.builtin.set_fact:
+    _p2p_radarr_count: "{{ overseerr_radarr_settings_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
+  vars:
+    jsme_query: "[?contains(name, '{{ _p2p_radarr_fqdn }}' )] | length(@)"
+
+- name: Set radarr_exists fact
+  ansible.builtin.set_fact:
+    _p2p_radarr_exists: "{{ _p2p_radarr_count != '0' }}"
+
+- name: Configure Radarr in Overseerr
+  when: not _p2p_radarr_exists
+  ansible.builtin.uri:
+    url: "{{ overseerr_server_url }}/api/v1/settings/radarr"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ overseerr_api_key }}"
+    status_code: [201]
+    body: "{{ lookup('ansible.builtin.template', 'overseerr-add-radarr-body-request.json.j2') }}"
+    body_format: json

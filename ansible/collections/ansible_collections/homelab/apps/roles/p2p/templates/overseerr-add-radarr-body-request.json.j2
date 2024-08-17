@@ -1,0 +1,17 @@
+{
+  "name": "{{ _p2p_radarr_fqdn }}",
+  "hostname": "{{ _p2p_radarr_fqdn }}",
+  "port": 443,
+  "apiKey": "{{ p2p_radarr_api_key }}",
+  "useSsl": true,
+  "activeProfileId": {{ _radarr_hd_italian_profile.id }},
+  "activeProfileName": "{{ _radarr_hd_italian_profile.name }}",
+  "activeDirectory": "{{ p2p_radarr_container_data_dir }}",
+  "is4k": false,
+  "minimumAvailability": "released",
+  "tags": [],
+  "isDefault": true,
+  "syncEnabled": false,
+  "preventSearch": false,
+  "tagRequests": false
+}

@@ -11,6 +11,7 @@
     prowlarr_server_url: https://prowlarr.{{ internal_domain }}
     sonarr_fqdn: sonarr.{{ internal_domain }}
     sonarr_server_url: https://sonarr.{{ internal_domain }}
+    _p2p_radarr_fqdn: radarr.{{ internal_domain }}
     _p2p_radarr_server_url: https://radarr.{{ internal_domain }}
     overseerr_server_url: https://overseerr.{{ internal_domain }}
 
