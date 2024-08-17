@@ -11,6 +11,7 @@
     prowlarr_server_url: https://prowlarr.{{ internal_domain }}
     sonarr_fqdn: sonarr.{{ internal_domain }}
     sonarr_server_url: https://sonarr.{{ internal_domain }}
+    _p2p_radarr_server_url: https://radarr.{{ internal_domain }}
     overseerr_server_url: https://overseerr.{{ internal_domain }}
 
 - name: Ensure group exists with name {{ media_shared_group }}
@@ -43,6 +44,11 @@
 
 - name: Configure Sonarr
   ansible.builtin.import_tasks: configure_sonarr.yaml
+  delegate_to: localhost
+  become: false
+
+- name: Configure Radarr
+  ansible.builtin.import_tasks: configure_radarr.yaml
   delegate_to: localhost
   become: false
 
