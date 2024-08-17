@@ -9,6 +9,7 @@
     pip install bitwarden-sdk
     export BWS_ACCESS_TOKEN=""
     ```
+- `pip install radarr-py`
 
 ## Run playbook
 
@@ -16,6 +17,13 @@
 
     ```bash
     ansible-galaxy install -r "requirements.yaml"
+    ```
+
+1. Install the collections
+
+    ```bash
+    ansible-galaxy collection install collections/ansible_collections/homelab/system
+    ansible-galaxy collection install collections/ansible_collections/homelab/apps
     ```
 
 1. Run the playbook

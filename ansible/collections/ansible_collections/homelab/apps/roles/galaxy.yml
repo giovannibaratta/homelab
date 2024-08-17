@@ -8,6 +8,7 @@ authors:
 dependencies:
   containers.podman: ">=1.15.4"
   prometheus.prometheus: ">=0.16.3"
+  devopsarr.radarr: ">=1.1.0"
 license:
   - MIT
 tags:

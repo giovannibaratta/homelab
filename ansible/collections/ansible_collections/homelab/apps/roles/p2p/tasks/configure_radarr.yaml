@@ -6,81 +6,37 @@
   ansible.builtin.set_fact:
     p2p_radarr_api_key: "{{ p2p_radarr_api_key }}"
 
-- name: Check if bittorrent client exists
-  ansible.builtin.uri:
-    url: "{{ _p2p_radarr_server_url }}/api/v3/downloadclient"
-    method: GET
-    headers:
-      Accept: application/json
-      X-Api-Key: "{{ p2p_radarr_api_key }}"
-    status_code: [200]
-  register: p2p_radarr_client_api_response
-  # Is radarr is restarted, it might take a few seconds to become responsive
-  until: p2p_radarr_client_api_response.status == 200
-  retries: 60 # 60 * 1 seconds = 1min
-  delay: 1
+- name: Ensure root folder exists in Radarr
+  devopsarr.radarr.radarr_root_folder:
+    radarr_url: "{{ _p2p_radarr_server_url }}"
+    radarr_api_key: "{{ p2p_radarr_api_key }}"
+    path: "{{ p2p_radarr_container_data_dir }}"
 
-- name: Set bittorrent_url
-  ansible.builtin.set_fact:
-    bittorrent_url: bittorrent.{{ internal_domain }}
-
-- name: Set bittorrent_clients_count fact
-  ansible.builtin.set_fact:
-    bittorrent_clients_count: "{{ p2p_radarr_client_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
-  vars:
-    # Extract entries that have bittorrent_url in indexerUrls field, count the number of result
-    jsme_query: "[?contains(name, '{{ bittorrent_url }}' )] | length(@)"
-
-- name: Set bittorrent_client_exists fact
-  ansible.builtin.set_fact:
-    bittorrent_client_exists: "{{ bittorrent_clients_count != '0' }}"
-
-- name: Add bittorrent client
-  when: not bittorrent_client_exists
-  ansible.builtin.uri:
-    url: "{{ _p2p_radarr_server_url }}/api/v3/downloadclient"
-    method: POST
-    headers:
-      Accept: application/json
-      Content-Type: application/json
-      X-Api-Key: "{{ p2p_radarr_api_key }}"
-    status_code: [201]
-    body: "{{ lookup('ansible.builtin.template', 'radarr-add-new-client-body-request.json.j2') }}"
-    body_format: json
-
-- name: Check if root folder is set
-  ansible.builtin.uri:
-    url: "{{ _p2p_radarr_server_url }}/api/v3/rootFolder"
-    method: GET
-    headers:
-      Accept: application/json
-      X-Api-Key: "{{ p2p_radarr_api_key }}"
-    status_code: [200]
-  register: p2p_radarr_rootfolder_api_response
-  # Is radarr is restarted, it might take a few seconds to become responsive
-  until: p2p_radarr_rootfolder_api_response.status == 200
-  retries: 60 # 60 * 1 seconds = 1min
-  delay: 1
-
-- name: Set rootfolder_count fact
-  ansible.builtin.set_fact:
-    rootfolder_count: "{{ p2p_radarr_rootfolder_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
-  vars:
-    jsme_query: "[?contains(path, '{{ p2p_radarr_container_data_dir }}' )] | length(@)"
-
-- name: Set rootfolder_exists fact
-  ansible.builtin.set_fact:
-    rootfolder_exists: "{{ rootfolder_count != '0' }}"
-
-- name: Add rootfolder
-  when: not rootfolder_exists
-  ansible.builtin.uri:
-    url: "{{ _p2p_radarr_server_url }}/api/v3/rootFolder"
-    method: POST
-    headers:
-      Accept: application/json
-      Content-Type: application/json
-      X-Api-Key: "{{ p2p_radarr_api_key }}"
-    status_code: [201]
-    body: "{{ lookup('ansible.builtin.template', 'radarr-add-rootfolder-body-request.json.j2') }}"
-    body_format: json
+- name: Ensure download client exists in Radarr
+  devopsarr.radarr.radarr_download_client:
+    radarr_url: "{{ _p2p_radarr_server_url }}"
+    radarr_api_key: "{{ p2p_radarr_api_key }}"
+    remove_completed_downloads: true
+    remove_failed_downloads: true
+    enable: true
+    priority: 1
+    name: bittorrent.{{ internal_domain }}
+    fields:
+      - name: host
+        value: bittorrent.{{ internal_domain }}
+      - name: urlBase
+        value: ""
+      - name: port
+        value: 443
+      - name: category
+        value: movie-radarr
+      - name: username
+        value: admin
+      - name: password
+        value: "{{ bittorrent_webui_decoded_password }}"
+      - name: useSsl
+        value: true
+    protocol: torrent
+    config_contract: QBittorrentSettings
+    implementation: QBittorrent
+    tags: []
