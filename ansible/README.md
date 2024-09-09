@@ -10,6 +10,7 @@
     export BWS_ACCESS_TOKEN=""
     ```
 - `pip install radarr-py`
+- `pip install prowlarr-py`
 
 ## Run playbook
 

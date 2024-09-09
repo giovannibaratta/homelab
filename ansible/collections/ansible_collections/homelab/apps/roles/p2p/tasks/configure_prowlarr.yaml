@@ -6,47 +6,30 @@
   ansible.builtin.set_fact:
     prowlarr_api_key: "{{ prowlarr_api_key }}"
 
-- name: Check if indexer for Bitmagnet exists
-  ansible.builtin.uri:
-    url: "{{ prowlarr_server_url }}/api/v1/indexer"
-    method: GET
-    headers:
-      Accept: application/json
-      X-Api-Key: "{{ prowlarr_api_key }}"
-    status_code: [200]
-  register: prowlarr_indexers_api_response
-
-- name: Set bitmagnet_indexer_url
-  ansible.builtin.set_fact:
-    bitmagnet_indexer_url: https://bitmagnet.{{ internal_domain }}/torznab
-
-- name: Set bitmagnet_indexer_count fact
-  ansible.builtin.set_fact:
-    bitmagnet_indexer_count: "{{ prowlarr_indexers_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
-  vars:
-    # Extract entries that have bitmagnet_indexer_url in indexerUrls field, count the number of result
-    jsme_query: "[?contains(indexerUrls, '{{ bitmagnet_indexer_url }}' )] | length(@)"
-
-- name: Set bitmagnet_indexer_exists fact
-  ansible.builtin.set_fact:
-    bitmagnet_indexer_exists: "{{ bitmagnet_indexer_count != '0' }}"
-
-- name: Add Bitmagnet indexers
-  when: not bitmagnet_indexer_exists
-  ansible.builtin.uri:
-    url: "{{ prowlarr_server_url }}/api/v1/indexer"
-    method: POST
-    headers:
-      Accept: application/json
-      Content-Type: application/json
-      X-Api-Key: "{{ prowlarr_api_key }}"
-    status_code: [201]
-    body: "{{ lookup('ansible.builtin.template', 'prowlarr-add-new-indexer-body-request.json.j2') }}"
-    body_format: json
+- name: Create Bitmagnet indexer
+  devopsarr.prowlarr.prowlarr_indexer:
+    prowlarr_url: "{{ _p2p_prowlarr_server_url }}"
+    prowlarr_api_key: "{{ prowlarr_api_key }}"
+    name: "bitmagnet"
+    app_profile_id: 1
+    enable: true
+    priority: 25
+    config_contract: "TorznabSettings"
+    implementation: "Torznab"
+    protocol: "torrent"
+    fields:
+      - name: "baseUrl"
+        value: "https://bitmagnet.{{ internal_domain }}/torznab"
+      - name: "apiPath"
+        value: "/api"
+      - name: "apiKey"
+      - name: "baseSettings.limitsUnit"
+        value: 0
+    tags: []
 
 - name: Retrieve Prowlarr apps
   ansible.builtin.uri:
-    url: "{{ prowlarr_server_url }}/api/v1/applications"
+    url: "{{ _p2p_prowlarr_server_url }}/api/v1/applications"
     method: GET
     headers:
       Accept: application/json
@@ -71,7 +54,7 @@
 - name: Add Sonarr sync
   when: not sonar_sync_exists
   ansible.builtin.uri:
-    url: "{{ prowlarr_server_url }}/api/v1/applications"
+    url: "{{ _p2p_prowlarr_server_url }}/api/v1/applications"
     method: POST
     headers:
       Accept: application/json
@@ -98,7 +81,7 @@
 - name: Add radarr sync
   when: not radarr_sync_exists
   ansible.builtin.uri:
-    url: "{{ prowlarr_server_url }}/api/v1/applications"
+    url: "{{ _p2p_prowlarr_server_url }}/api/v1/applications"
     method: POST
     headers:
       Accept: application/json
