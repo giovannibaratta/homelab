@@ -1,5 +1,16 @@
 ---
-- name: Add {{ traefik_container_user }} user
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for ingress_porkbun_api_key
+  ansible.builtin.set_fact:
+    ingress_porkbun_api_key: "{{ ingress_porkbun_api_key }}"
+
+- name: Bitwarden workaround for ingress_porkbun_secret_key
+  ansible.builtin.set_fact:
+    ingress_porkbun_secret_key: "{{ ingress_porkbun_secret_key }}"
+
+- name: Add user {{ traefik_container_user }}
   ansible.builtin.user:
     name: "{{ traefik_container_user }}"
     comment: User used to run Traefik
@@ -55,8 +66,11 @@
             email: {{ acme_email }}
             storage: /app/traefik/work/certificates/acme.json
             dnsChallenge:
-              provider: desec
+              provider: porkbun
               delayBeforeCheck: 60
+
+      # Enable access logs
+      accessLog: {}
 
     dest: /app/traefik/conf/traefik.yaml
     mode: "0600"
@@ -67,7 +81,9 @@
 - name: Copy traefik.env configuration
   ansible.builtin.copy:
     content: |
-      DESEC_TOKEN={{ desec_token }}
+      PORKBUN_API_KEY={{ ingress_porkbun_api_key }}
+      PORKBUN_SECRET_API_KEY={{ ingress_porkbun_secret_key }}
+      LEGO_DISABLE_CNAME_SUPPORT=true
 
     dest: /app/traefik/conf/traefik.env
     mode: "0600"
@@ -80,61 +96,37 @@
     getent group containers | cut -d: -f3
   register: containers_group_result
 
-# The gidmap is needed to give traefik access to the Docker socket.
-- name: Create traefik.service file
-  ansible.builtin.copy:
-    content: |
-      [Unit]
-      Description=Podman container-traefik.service
-      Documentation=man:podman-generate-systemd(1)
-      Wants=network-online.target
-      After=network-online.target
-      RequiresMountsFor=%t/containers
+- name: Create Traefik Quadlet
+  containers.podman.podman_container:
+    name: traefik
+    state: quadlet
+    image: docker.io/traefik:v3.0.3
 
-      [Service]
-      Environment=PODMAN_SYSTEMD_UNIT=%n
-      Restart=on-failure
-      TimeoutStopSec=70
-      ExecStart=/usr/bin/podman run \
-              --cidfile=%t/%n.ctr-id \
-              --cgroups=no-conmon \
-              --rm \
-              --sdnotify=conmon \
-              --replace \
-              -d \
-              --name traefik \
-              --env-file=/app/traefik/conf/traefik.env \
-              -v /app/traefik/conf/traefik.yaml:/etc/traefik/traefik.yml:ro \
-              -v /app/traefik/work:/app/traefik/work \
-              -v /var/run/docker.sock:/var/run/docker.sock:ro \
-              -p 172.16.255.254:80:80/tcp \
-              -p 172.16.255.254:8080:8080/tcp \
-              -p 172.16.255.254:443:443/tcp \
-              --uidmap="0:{{ traefik_container_user_result.uid }}:1" \
-              --uidmap="1:4000000000:100000" \
-              --gidmap="0:{{ containers_group_result.stdout }}:1" \
-              --gidmap="1:4000000000:100000" \
-              docker.io/traefik:v3.0.3
-      ExecStop=/usr/bin/podman stop \
-              --ignore -t 10 \
-              --cidfile=%t/%n.ctr-id
-      ExecStopPost=/usr/bin/podman rm \
-              -f \
-              --ignore -t 10 \
-              --cidfile=%t/%n.ctr-id
-      Type=notify
-      NotifyAccess=all
+    env_file: /app/traefik/conf/traefik.env
+    recreate: true
+    network: host
 
-      [Install]
-      WantedBy=default.target
-    dest: /etc/systemd/system/traefik.service
-    mode: "0644"
-  register: traefik_service_unit
+    volumes:
+      - "/app/traefik/conf/traefik.yaml:/etc/traefik/traefik.yml:ro"
+      - "/app/traefik/work:/app/traefik/work"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
 
-- name: Reload systemd daemons
-  ansible.builtin.systemd_service:
-    daemon_reload: true
-  when: traefik_service_unit.changed
+    uidmap:
+      - 0:{{ traefik_container_user_result.uid }}:1
+      - 1:4000000000:100000
+
+    # The gidmap is needed to give traefik access to the Docker socket.
+    gidmap:
+      - 0:{{ containers_group_result.stdout }}:1
+      - 1:4000000000:100000
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for ingress role
+    - Restart Traefik service
 
 - name: Enable and start traefik service
   ansible.builtin.systemd_service:

@@ -16,6 +16,8 @@ home:
       internal_network_dhcp_end: 172.16.200.254
       grafana_password: "{{ lookup('bitwarden.secrets.lookup', '1733459e-a62e-41a2-8ada-b19600ee2a5b') }}"
       desec_token: "{{ lookup('bitwarden.secrets.lookup', '47a7f216-1255-46e2-ad18-b19600e95fa1') }}"
+      ingress_porkbun_api_key: "{{ lookup('bitwarden.secrets.lookup', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e') }}"
+      ingress_porkbun_secret_key: "{{ lookup('bitwarden.secrets.lookup', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5') }}"
       internal_domain: "{{ lookup('bitwarden.secrets.lookup', 'bb0bd8de-67bf-4afb-97f3-b19600eeec9a') }}"
       acme_email: "{{ lookup('bitwarden.secrets.lookup', '0f8cfc8a-1daa-4bea-9ace-b19600eebb2a') }}"
       alertmanager_receiver_email: "{{ lookup('bitwarden.secrets.lookup', '2ef318e4-be55-418f-a87b-b19700f42c73') }}"
