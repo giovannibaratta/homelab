@@ -1,0 +1,347 @@
+---
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for vpn_auth0_dashboard_client_id
+  ansible.builtin.set_fact:
+    vpn_auth0_dashboard_client_id: "{{ vpn_auth0_dashboard_client_id }}"
+
+- name: Bitwarden workaround for vpn_turn_password
+  ansible.builtin.set_fact:
+    vpn_turn_password: "{{ vpn_turn_password }}"
+
+- name: Bitwarden workaround for vpn_idp_mgmt_client_id
+  ansible.builtin.set_fact:
+    vpn_idp_mgmt_client_id: "{{ vpn_idp_mgmt_client_id }}"
+
+- name: Bitwarden workaround for vpn_idp_mgmt_client_secret
+  ansible.builtin.set_fact:
+    vpn_idp_mgmt_client_secret: "{{ vpn_idp_mgmt_client_secret }}"
+
+- name: Bitwarden workaround for vpn_device_auth_flow_client_id
+  ansible.builtin.set_fact:
+    vpn_device_auth_flow_client_id: "{{ vpn_device_auth_flow_client_id }}"
+
+- name: Bitwarden workaround for vpn_pkce_auth_flow_client_id
+  ansible.builtin.set_fact:
+    vpn_pkce_auth_flow_client_id: "{{ vpn_pkce_auth_flow_client_id }}"
+
+- name: Add user {{ vpn_netbird_dashboard_container_user }}
+  ansible.builtin.user:
+    name: "{{ vpn_netbird_dashboard_container_user }}"
+    comment: User used to run Netbird dashboard
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: vpn_netbird_dashboard_container_user_result
+
+- name: Add user {{ vpn_netbird_mgmt_container_user }}
+  ansible.builtin.user:
+    name: "{{ vpn_netbird_mgmt_container_user }}"
+    comment: User used to run Netbird mgmt
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: vpn_netbird_mgmt_container_user_result
+
+- name: Add user {{ vpn_netbird_signal_container_user }}
+  ansible.builtin.user:
+    name: "{{ vpn_netbird_signal_container_user }}"
+    comment: User used to run Netbird signal
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: vpn_netbird_signal_container_user_result
+
+- name: Add user {{ vpn_netbird_coturn_container_user }}
+  ansible.builtin.user:
+    name: "{{ vpn_netbird_coturn_container_user }}"
+    comment: User used to run Netbird coturn
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: vpn_netbird_coturn_container_user_result
+
+- name: Create Netbird dashboard directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ vpn_netbird_dashboard_container_user }}"
+    group: "{{ vpn_netbird_dashboard_container_user }}"
+  with_items:
+    - "{{ vpn_netbird_dashboard_conf_dir }}"
+
+- name: Create Netbird mgmt directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ vpn_netbird_mgmt_container_user }}"
+    group: "{{ vpn_netbird_mgmt_container_user }}"
+  with_items:
+    - "{{ vpn_netbird_mgmt_conf_dir }}"
+    - "{{ vpn_netbird_mgmt_work_dir }}"
+
+- name: Create Netbird signal directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ vpn_netbird_signal_container_user }}"
+    group: "{{ vpn_netbird_signal_container_user }}"
+  with_items:
+    - "{{ vpn_netbird_signal_work_dir }}"
+
+- name: Create Netbird coturn directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ vpn_netbird_coturn_container_user }}"
+    group: "{{ vpn_netbird_coturn_container_user }}"
+  with_items:
+    - "{{ vpn_netbird_coturn_conf_dir }}"
+
+- name: Create Netbird network Quadlet
+  containers.podman.podman_network:
+    name: netbird
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-netbird
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for vpn role
+    - Restart netbird network
+
+- name: Trigger Handlers for netbird network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start netbird network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: netbird-network
+    state: started
+    enabled: true
+
+- name: Copy netbird-dashboard.env file
+  ansible.builtin.template:
+    src: netbird-dashboard.env.j2
+    dest: "{{ vpn_netbird_dashboard_conf_dir }}/netbird-dashboard.env"
+    mode: "0600"
+  notify:
+    - Restart netbird-dashboard service
+
+- name: Create Netbird dashboard Quadlet
+  containers.podman.podman_container:
+    name: netbird-dashboard
+    state: quadlet
+    image: netbirdio/dashboard:{{ vpn_netbird_dashboard_version }}
+    env_file: "{{ vpn_netbird_dashboard_conf_dir }}/netbird-dashboard.env"
+    recreate: true
+    network: netbird
+
+    uidmap:
+      - 0:{{ vpn_netbird_dashboard_container_user_result.uid }}:1
+      - 1:4000000000:100000
+
+    gidmap:
+      - 0:{{ vpn_netbird_dashboard_container_user_result.group }}:1
+      - 1:4000000000:100000
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.netbird.rule: Host(`netbird.{{ internal_domain }}`)
+      traefik.http.routers.netbird.entrypoints: websecure,public-secure
+      traefik.http.routers.netbird.tls.certresolver: letsencrypt
+      traefik.http.routers.netbird.tls.domains[0].main: netbird.{{ internal_domain }}
+      traefik.http.services.netbird.loadbalancer.server.port: 80
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for vpn role
+    - Restart netbird-dashboard service
+
+- name: Trigger Handlers for netbird-dashboard
+  ansible.builtin.meta: flush_handlers
+
+- name: Start netbird-dashboard
+  ansible.builtin.systemd_service:
+    name: netbird-dashboard
+    state: started
+    enabled: true
+
+- name: Copy netbird-mgmt.env file
+  ansible.builtin.template:
+    src: netbird-mgmt.env.j2
+    dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
+    mode: "0600"
+  notify:
+    - Restart netbird-mgmt service
+
+- name: Copy netbird-mgmt.json file
+  ansible.builtin.template:
+    src: netbird-mgmt.json.j2
+    dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json"
+    mode: "0600"
+    owner: "{{ vpn_netbird_mgmt_container_user }}"
+    group: "{{ vpn_netbird_mgmt_container_user }}"
+  notify:
+    - Restart netbird-mgmt service
+
+- name: Create Netbird mgmt Quadlet
+  containers.podman.podman_container:
+    name: netbird-mgmt
+    state: quadlet
+    image: netbirdio/management:{{ vpn_netbird_mgmt_version }}
+    command: --port 8080 --log-file console --log-level info --disable-anonymous-metrics=true --single-account-mode-domain=netbird.{{ internal_domain }} --dns-domain=netbird.selfhosted
+    env_file: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
+    recreate: true
+    network: netbird
+
+    volumes:
+      - "{{ vpn_netbird_mgmt_work_dir }}:/var/lib/netbird"
+      - "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json:/etc/netbird/management.json"
+
+    uidmap:
+      - 0:{{ vpn_netbird_mgmt_container_user_result.uid }}:1
+      - 1:4000000000:100000
+
+    gidmap:
+      - 0:{{ vpn_netbird_mgmt_container_user_result.group }}:1
+      - 1:4000000000:100000
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.netbird-api.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/api`)"'
+      traefik.http.routers.netbird-api.service: netbird-api
+      traefik.http.services.netbird-api.loadbalancer.server.port: 8080
+      traefik.http.routers.netbird-api.entrypoints: websecure,public-secure
+      traefik.http.routers.netbird-api.tls.certresolver: letsencrypt
+      traefik.http.routers.netbird-management.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/management.ManagementService/`)"'
+      traefik.http.routers.netbird-management.service: netbird-management
+      traefik.http.services.netbird-management.loadbalancer.server.port: 8080
+      # gRPC scheme
+      traefik.http.services.netbird-management.loadbalancer.server.scheme: h2c
+      traefik.http.routers.netbird-management.entrypoints: websecure,public-secure
+      traefik.http.routers.netbird-management.tls.certresolver: letsencrypt
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=netbird-dashboard.service
+  notify:
+    - Reload systemd daemons for vpn role
+    - Restart netbird-mgmt service
+
+- name: Trigger Handlers for netbird-mgmt
+  ansible.builtin.meta: flush_handlers
+
+- name: Start netbird-mgmt
+  ansible.builtin.systemd_service:
+    name: netbird-mgmt
+    state: started
+    enabled: true
+
+- name: Create Netbird signal Quadlet
+  containers.podman.podman_container:
+    name: netbird-signal
+    state: quadlet
+    image: netbirdio/signal:{{ vpn_netbird_signal_version }}
+    recreate: true
+    network: netbird
+
+    volumes:
+      - "{{ vpn_netbird_signal_work_dir }}:/var/lib/netbird"
+
+    uidmap:
+      - 0:{{ vpn_netbird_signal_container_user_result.uid }}:1
+      - 1:4000000000:100000
+
+    gidmap:
+      - 0:{{ vpn_netbird_signal_container_user_result.group }}:1
+      - 1:4000000000:100000
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.netbird-signal.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/signalexchange.SignalExchange/`)"'
+      traefik.http.routers.netbird-signal.entrypoints: websecure,public-secure
+      traefik.http.routers.netbird-signal.tls.domains[0].main: netbird.{{ internal_domain }}
+      traefik.http.services.netbird-signal.loadbalancer.server.port: 80
+      # gRPC scheme
+      traefik.http.services.netbird-signal.loadbalancer.server.scheme: h2c
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for vpn role
+    - Restart netbird-signal service
+
+- name: Trigger Handlers for netbird-signal
+  ansible.builtin.meta: flush_handlers
+
+- name: Start netbird-signal
+  ansible.builtin.systemd_service:
+    name: netbird-signal
+    state: started
+    enabled: true
+
+- name: Copy netbird-turnserver.conf file
+  ansible.builtin.template:
+    src: netbird-turnserver.conf.j2
+    dest: "{{ vpn_netbird_coturn_conf_dir }}/netbird-turnserver.conf"
+    mode: "0600"
+    owner: "{{ vpn_netbird_coturn_container_user }}"
+    group: "{{ vpn_netbird_coturn_container_user }}"
+  notify:
+    - Restart netbird-coturn service
+
+- name: Create Netbird coturn Quadlet
+  containers.podman.podman_container:
+    name: netbird-coturn
+    state: quadlet
+    image: coturn/coturn:{{ vpn_netbird_coturn_version }}
+    command: -c /etc/turnserver.conf
+    recreate: true
+    network: host
+
+    volumes:
+      - "{{ vpn_netbird_coturn_conf_dir }}/netbird-turnserver.conf:/etc/turnserver.conf:ro"
+
+    uidmap:
+      - 0:4000000000:65534
+      - 65534:{{ vpn_netbird_coturn_container_user_result.uid }}:1
+      - 65535:4000065534:10000
+
+    gidmap:
+      - 0:4000000000:1
+      - +65534:@{{ vpn_netbird_coturn_container_user_result.group }}:1
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for vpn role
+    - Restart netbird-coturn service
+
+- name: Trigger Handlers for netbird-coturn
+  ansible.builtin.meta: flush_handlers
+
+- name: Start netbird-coturn
+  ansible.builtin.systemd_service:
+    name: netbird-coturn
+    state: started
+    enabled: true
