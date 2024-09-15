@@ -35,13 +35,13 @@
         - job_name: 'homelab-01'
           scrape_interval: 10s
           static_configs:
-            - targets: ['172.16.255.254:9100']
+            - targets: ['{{ internal_gateway }}:9100']
 
         - job_name: 'pingexporter'
           scrape_interval: 1s
           scheme: https
           static_configs:
-            - targets: ['pingexporter.gkube.it']
+            - targets: ['pingexporter.{{ internal_domain }}']
 
       rule_files:
         - /opt/prometheus/conf/rules/*.yaml
