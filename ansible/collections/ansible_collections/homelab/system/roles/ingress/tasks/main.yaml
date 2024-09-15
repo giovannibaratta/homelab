@@ -39,11 +39,18 @@
         sendAnonymousUsage: false
 
       entryPoints:
+
+        public-insecure:
+          address: :9080
+
+        public-secure:
+          address: :9443
+
         web:
-          address: :80
+          address: :8081
 
         websecure:
-          address: :443
+          address: :8443
 
       api:
         # Dashboard is served on port 8080
