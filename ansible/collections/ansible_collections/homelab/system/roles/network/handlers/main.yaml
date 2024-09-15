@@ -8,3 +8,17 @@
   ansible.builtin.service:
     name: isc-dhcp-server
     state: restarted
+
+- name: Reload systemd daemons for network role
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart ddclient network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: ddclient-network
+
+- name: Restart ddclient service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: ddclient

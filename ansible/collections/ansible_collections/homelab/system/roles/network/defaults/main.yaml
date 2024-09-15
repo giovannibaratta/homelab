@@ -1,0 +1,4 @@
+ddclient_version: 3.11.2
+ddclient_container_user: ddclient
+ddclient_conf_dir: /app/ddclient/conf
+ddclient_work_dir: /app/ddclient/work

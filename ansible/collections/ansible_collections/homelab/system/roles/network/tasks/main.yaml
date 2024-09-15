@@ -306,4 +306,8 @@
     enabled: true
     state: started
 
-- ansible.builtin.import_tasks: hardening-ssh.yaml
+- name: SSH hardening
+  ansible.builtin.import_tasks: hardening-ssh.yaml
+
+- name: Dynamic DNS
+  ansible.builtin.import_tasks: configure-dyn-dns.yaml

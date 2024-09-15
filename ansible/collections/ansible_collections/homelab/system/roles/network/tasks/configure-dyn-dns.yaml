@@ -1,0 +1,120 @@
+---
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for internal_domain
+  ansible.builtin.set_fact:
+    internal_domain: "{{ internal_domain }}"
+
+- name: Bitwarden workaround for network_porkbun_api_key
+  ansible.builtin.set_fact:
+    network_porkbun_api_key: "{{ network_porkbun_api_key }}"
+
+- name: Bitwarden workaround for network_porkbun_secret_key
+  ansible.builtin.set_fact:
+    network_porkbun_secret_key: "{{ network_porkbun_secret_key }}"
+
+- name: Add {{ ddclient_container_user }} user
+  ansible.builtin.user:
+    name: "{{ ddclient_container_user }}"
+    comment: User used to run ddclient
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: ddclient_container_user_result
+
+- name: Create ddclient directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ ddclient_container_user }}"
+    group: "{{ ddclient_container_user }}"
+  with_items:
+    - "{{ ddclient_conf_dir }}"
+    - "{{ ddclient_work_dir }}"
+
+- name: Create ddclient network Quadlet
+  containers.podman.podman_network:
+    name: ddclient
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-ddclient
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for network role
+    - Restart ddclient network
+
+- ansible.builtin.meta: flush_handlers
+
+- name: Start ddclient network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: ddclient-network
+    state: started
+    enabled: true
+
+- name: Copy ddclient.conf file
+  ansible.builtin.template:
+    src: ddclient.conf.j2
+    dest: "{{ ddclient_work_dir }}/ddclient.conf"
+    mode: "0600"
+    owner: "{{ ddclient_container_user }}"
+    group: "{{ ddclient_container_user }}"
+  notify:
+    - Restart ddclient service
+
+- name: Copy ddclient.env file
+  ansible.builtin.template:
+    src: ddclient.env.j2
+    dest: "{{ ddclient_conf_dir }}/ddclient.env"
+    mode: "0640"
+  notify:
+    - Restart ddclient service
+
+- name: Create ddclient Quadlet
+  containers.podman.podman_container:
+    name: ddclient
+    state: quadlet
+    image: linuxserver/ddclient:{{ ddclient_version }}
+    env_file: "{{ ddclient_conf_dir }}/ddclient.env"
+    recreate: true
+    network: ddclient
+
+    volumes:
+      "{{ ddclient_work_dir }}:/config"
+
+    uidmap:
+      - 0:4000000000:1000
+      - 1000:{{ ddclient_container_user_result.uid }}:1
+      - 1001:4000001001:100000
+
+    gidmap:
+      - 0:4000000000:100000
+      - +1000:@{{ ddclient_container_user_result.group }}:1
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+
+  notify:
+    - Reload systemd daemons for network role
+    - Restart ddclient service
+
+- name: Trigger Handlers for ddclient
+  ansible.builtin.meta: flush_handlers
+
+- name: Start ddclient
+  ansible.builtin.systemd_service:
+    name: ddclient
+    state: started
+    enabled: true
