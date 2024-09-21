@@ -43,5 +43,8 @@ home:
       vpn_idp_mgmt_client_secret: "{{ lookup('bitwarden.secrets.lookup', 'd35138bc-4ea3-4949-8e45-b1ec0126abdd') }}"
       vpn_device_auth_flow_client_id: "{{ lookup('bitwarden.secrets.lookup', '3962eec5-9c4b-4e2b-acbc-b1ec0126c09e') }}"
       vpn_pkce_auth_flow_client_id: "{{ lookup('bitwarden.secrets.lookup', 'de179326-ca50-484e-9017-b1ec0126cd6f') }}"
+      vpn_porkbun_api_key: "{{ lookup('bitwarden.secrets.lookup', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e') }}"
+      vpn_porkbun_secret_key: "{{ lookup('bitwarden.secrets.lookup', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5') }}"
+      vpn_acme_email: "{{ lookup('bitwarden.secrets.lookup', '0232eb36-1bb2-4842-83b7-b1f2011fa2f2') }}"
       network_porkbun_api_key: "{{ lookup('bitwarden.secrets.lookup', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e') }}"
       network_porkbun_secret_key: "{{ lookup('bitwarden.secrets.lookup', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5') }}"

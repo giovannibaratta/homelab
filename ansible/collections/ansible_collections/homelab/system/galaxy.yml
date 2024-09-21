@@ -5,7 +5,8 @@ version: 1.0.0
 readme: README.md
 authors:
   - Giovanni Baratta
-dependencies: {}
+dependencies:
+  sdorra.porkbun: ">=1.0.0"
 license:
   - MIT
 tags:
