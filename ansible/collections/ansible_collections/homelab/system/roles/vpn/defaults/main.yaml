@@ -11,6 +11,9 @@ vpn_netbird_signal_work_dir: /app/netbird-signal/work
 vpn_netbird_coturn_version: 4.6.2-r12
 vpn_netbird_coturn_container_user: netbirdcoturn
 vpn_netbird_coturn_conf_dir: /app/netbird-coturn/conf
+vpn_netbird_client_version: 0.29.4
+vpn_netbird_exit_node_conf_dir: /app/netbird-exit-node/conf
+vpn_netbird_exit_node_container_user: netbirdexitnode
 vpn_netbird_relay_version: 0.29.4
 vpn_netbird_relay_conf_dir: /app/netbird-relay/conf
 vpn_netbird_relay_container_user: netbirdrelay

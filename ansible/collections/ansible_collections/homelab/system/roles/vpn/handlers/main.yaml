@@ -32,3 +32,8 @@
   ansible.builtin.systemd_service:
     state: restarted
     name: netbird-relay
+
+- name: Restart netbird-exit-node service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: netbird-exit-node

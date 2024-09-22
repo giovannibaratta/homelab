@@ -42,6 +42,10 @@
   ansible.builtin.set_fact:
     vpn_relay_secret: "{{ vpn_relay_secret }}"
 
+- name: Bitwarden workaround for vpn_exit_node_setup_key
+  ansible.builtin.set_fact:
+    vpn_exit_node_setup_key: "{{ vpn_exit_node_setup_key }}"
+
 - name: Add user {{ vpn_netbird_dashboard_container_user }}
   ansible.builtin.user:
     name: "{{ vpn_netbird_dashboard_container_user }}"
@@ -81,6 +85,14 @@
     create_home: false
     shell: /usr/sbin/nologin
   register: vpn_netbird_relay_container_user_result
+
+- name: Add user {{ vpn_netbird_exit_node_container_user }}
+  ansible.builtin.user:
+    name: "{{ vpn_netbird_exit_node_container_user }}"
+    comment: User used to run Netbird exit node
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: vpn_netbird_exit_node_container_user_result
 
 - name: Create Netbird dashboard directories
   ansible.builtin.file:
@@ -132,6 +144,16 @@
     group: "{{ vpn_netbird_relay_container_user }}"
   with_items:
     - "{{ vpn_netbird_relay_conf_dir }}"
+
+- name: Create Netbird exit node directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ vpn_netbird_exit_node_container_user }}"
+    group: "{{ vpn_netbird_exit_node_container_user }}"
+  with_items:
+    - "{{ vpn_netbird_exit_node_conf_dir }}"
 
 - name: Create Netbird network Quadlet
   containers.podman.podman_network:
@@ -543,3 +565,64 @@
     state: started
     enabled: true
 
+- name: Copy netbird-exit-node.env file
+  ansible.builtin.template:
+    src: netbird-exit-node.env.j2
+    dest: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node.env"
+    mode: "0600"
+  notify:
+    - Restart netbird-exit-node service
+
+- name: Copy netbird-exit-node-config.json file
+  ansible.builtin.template:
+    src: netbird-exit-node-config.json.j2
+    dest: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node-config.json"
+    mode: "0600"
+    owner: "{{ vpn_netbird_exit_node_container_user }}"
+    group: "{{ vpn_netbird_exit_node_container_user }}"
+  notify:
+    - Restart netbird-exit-node service
+
+- name: Create Netbird exit node
+  containers.podman.podman_container:
+    name: netbird-exit-node
+    state: quadlet
+    image: netbirdio/netbird:{{ vpn_netbird_client_version }}
+    env_file: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node.env"
+    recreate: true
+    network: netbird
+    # The hostname is used by the Netbird client when registering in the mgmt plane
+    hostname: netbird-exit-node
+
+    cap_add:
+      - "NET_ADMIN"
+      - "SYS_ADMIN"
+      - "SYS_RESOURCE"
+
+    uidmap:
+      - 0:{{ vpn_netbird_exit_node_container_user_result.uid }}:1
+      - 1:4000000000:10000
+
+    gidmap:
+      - 0:{{ vpn_netbird_exit_node_container_user_result.group }}:1
+      - 1:4000000000:10000
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=netbird-mgmt.service
+
+  notify:
+    - Reload systemd daemons for vpn role
+    - Restart netbird-exit-node service
+
+- name: Trigger Handlers for netbird-exit-node
+  ansible.builtin.meta: flush_handlers
+
+- name: Start netbird-exit-node
+  ansible.builtin.systemd_service:
+    name: netbird-exit-node
+    state: started
+    enabled: true
