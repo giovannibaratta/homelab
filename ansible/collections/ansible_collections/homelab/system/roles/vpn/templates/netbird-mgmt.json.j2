@@ -90,5 +90,10 @@
       ],
       "UseIDToken": false
     }
+  },
+  "Relay": {
+    "Addresses": ["rels://netbird.{{ internal_domain }}:443/relay"],
+    "CredentialsTTL": "24h",
+    "Secret": "{{ vpn_relay_secret }}"
   }
 }

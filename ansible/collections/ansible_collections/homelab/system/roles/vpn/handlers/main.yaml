@@ -27,3 +27,8 @@
   ansible.builtin.systemd_service:
     state: restarted
     name: netbird-coturn
+
+- name: Restart netbird-relay service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: netbird-relay
