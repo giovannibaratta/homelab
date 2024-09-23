@@ -48,6 +48,10 @@
       containers_storage_dir: /app/containers
       tags: containers
 
+    - role: homelab.system.idp
+      become: true
+      tags: idp
+
     - role: homelab.system.vpn
       become: true
       tags: vpn

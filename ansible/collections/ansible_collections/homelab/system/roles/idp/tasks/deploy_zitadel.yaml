@@ -1,0 +1,212 @@
+---
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+- name: Bitwarden workaround for idp_zitadel_db_admin_password
+  ansible.builtin.set_fact:
+    idp_zitadel_db_admin_password: "{{ idp_zitadel_db_admin_password }}"
+
+- name: Bitwarden workaround for idp_zitadel_db_password
+  ansible.builtin.set_fact:
+    idp_zitadel_db_password: "{{ idp_zitadel_db_password }}"
+
+- name: Bitwarden workaround for idp_zitadel_admin_password
+  ansible.builtin.set_fact:
+    idp_zitadel_admin_password: "{{ idp_zitadel_admin_password }}"
+
+- name: Add user {{ idp_zitadel_db_container_user }}
+  ansible.builtin.user:
+    name: "{{ idp_zitadel_db_container_user }}"
+    comment: User used to run zitadel database
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: idp_zitadel_db_container_user_result
+
+- name: Add user {{ idp_zitadel_container_user }}
+  ansible.builtin.user:
+    name: "{{ idp_zitadel_container_user }}"
+    comment: User used to run zitadel
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: idp_zitadel_container_user_result
+
+- name: Create zitadel db directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ idp_zitadel_db_container_user }}"
+    group: "{{ idp_zitadel_db_container_user }}"
+  with_items:
+    - "{{ idp_zitadel_db_conf_dir }}"
+    - "{{ idp_zitadel_db_work_dir }}"
+
+- name: Create zitadel directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ idp_zitadel_container_user }}"
+    group: "{{ idp_zitadel_container_user }}"
+  with_items:
+    - "{{ idp_zitadel_conf_dir }}"
+    - "{{ idp_zitadel_conf_dir }}/machinekey"
+
+- name: Create zitadel network Quadlet
+  containers.podman.podman_network:
+    name: zitadel
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-zitadel
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for idp role
+    - Restart zitadel network
+
+- name: Trigger Handlers for zitadel network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start zitadel network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: zitadel-network
+    state: started
+    enabled: true
+
+- name: Copy zitadel-db.env file
+  ansible.builtin.template:
+    src: zitadel-db.env.j2
+    dest: "{{ idp_zitadel_db_conf_dir }}/zitadel-db.env"
+    mode: "0600"
+  notify:
+    - Restart zitadel database service
+
+- name: Create zitadel database Quadlet
+  containers.podman.podman_container:
+    name: zitadel-db
+    image: docker.io/postgres:16.3-alpine
+    state: quadlet
+    env_file: "{{ idp_zitadel_db_conf_dir }}/zitadel-db.env"
+    network: zitadel
+
+    volumes:
+      - "{{ idp_zitadel_db_work_dir }}:/var/lib/postgresql/data"
+
+    # zitadel-db runs as root:root but /var/lib/postgresql/data must be assigned to postgres (70:70)
+    # We map the root container user to the zitadel-db user running on the host
+    # to give access to configuration and database files
+    uidmap:
+      - 0:4000000000:70
+      - 70:{{ idp_zitadel_db_container_user_result.uid }}:1
+      - 71:4000000071:100000
+
+    gidmap:
+      - 0:4000000000:100000
+      - +70:@{{ idp_zitadel_db_container_user_result.group }}:1
+
+    recreate: true
+
+    healthcheck: pg_isready -U {{ __idp_zitadel_db_admin_user }} -d {{ __idp_zitadel_db_admin_name }}
+    healthcheck_interval: 5s
+    healthcheck_timeout: 5s
+    healthcheck_retries: 5
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for idp role
+    - Restart zitadel database service
+
+- name: Trigger Handlers for zitadel database
+  ansible.builtin.meta: flush_handlers
+
+- name: Start zitadel-db
+  ansible.builtin.systemd_service:
+    name: zitadel-db
+    state: started
+    enabled: true
+
+- name: Copy zitadel.env file
+  ansible.builtin.template:
+    src: zitadel.env.j2
+    dest: "{{ idp_zitadel_conf_dir }}/zitadel.env"
+    mode: "0600"
+  notify:
+    - Restart zitadel service
+
+- name: Check if master key exists
+  ansible.builtin.stat:
+    path: "{{ idp_zitadel_conf_dir }}/zitadel.masterkey"
+  register: master_key_stat_result
+
+- name: Create file with random string if it doesn't exist
+  when: master_key_stat_result.stat.exists == false
+  ansible.builtin.copy:
+    dest: "{{ idp_zitadel_conf_dir }}/zitadel.masterkey"
+    content: "{{ lookup('community.general.random_string', length=32, special=false) }}"
+    mode: "0600"
+    owner: "{{ idp_zitadel_container_user }}"
+    group: "{{ idp_zitadel_container_user }}"
+    backup: true
+
+- name: Create zitadel Quadlet
+  containers.podman.podman_container:
+    name: zitadel
+    state: quadlet
+    image: ghcr.io/zitadel/zitadel:{{ idp_zitadel_version }}
+    command: "start-from-init --masterkeyFile /zitadel.masterkey"
+    env_file: "{{ idp_zitadel_conf_dir }}/zitadel.env"
+    recreate: true
+    network: zitadel
+
+    volumes:
+      - "{{ idp_zitadel_conf_dir }}/machinekey:/machinekey"
+      - "{{ idp_zitadel_conf_dir }}/zitadel.masterkey:/zitadel.masterkey:ro"
+
+    uidmap:
+      - 0:4000000000:1000
+      - 1000:{{ idp_zitadel_container_user_result.uid }}:1
+      - 1001:4000001000:100000
+
+    gidmap:
+      - 0:4000000000:100000
+      - +1000:@{{ idp_zitadel_container_user_result.group }}:1
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.zitadel.rule: '"Host(`idp.{{ internal_domain }}`)"'
+      traefik.http.routers.zitadel.service: zitadel
+      traefik.http.services.zitadel.loadbalancer.server.port: 8080
+      traefik.http.routers.zitadel.entrypoints: websecure,public-secure
+      traefik.http.routers.zitadel.tls.certresolver: letsencrypt
+      traefik.http.services.zitadel.loadbalancer.server.scheme: h2c
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=zitadel-db.service
+  notify:
+    - Reload systemd daemons for idp role
+    - Restart zitadel service
+
+- name: Trigger Handlers for zitadel
+  ansible.builtin.meta: flush_handlers
+
+- name: Start zitadel
+  ansible.builtin.systemd_service:
+    name: zitadel
+    state: started
+    enabled: true

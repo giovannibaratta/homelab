@@ -1,0 +1,10 @@
+idp_zitadel_version: v2.57.5
+idp_zitadel_container_user: zitadel
+idp_zitadel_conf_dir: /app/zitadel/conf
+idp_zitadel_db_version: 16.3-alpine
+idp_zitadel_db_container_user: zitadeldb
+idp_zitadel_db_conf_dir: /app/zitadeldb/conf
+idp_zitadel_db_work_dir: /app/zitadeldb/work
+__idp_zitadel_db_user: zitadeldata
+__idp_zitadel_db_admin_name: zitadeladmin
+__idp_zitadel_db_admin_user: zitadeladmin
