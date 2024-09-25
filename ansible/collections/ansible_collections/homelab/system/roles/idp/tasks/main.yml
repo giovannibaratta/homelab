@@ -5,5 +5,11 @@
   ansible.builtin.set_fact:
     internal_domain: "{{ internal_domain }}"
 
+- name: Install Terraform
+  ansible.builtin.import_tasks: install_terraform.yaml
+
 - name: Deploy Zitadel
   ansible.builtin.import_tasks: deploy_zitadel.yaml
+
+- name: Configure Zitadel
+  ansible.builtin.import_tasks: configure_zitadel.yaml

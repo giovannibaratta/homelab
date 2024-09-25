@@ -1,0 +1,22 @@
+---
+- name: Install hashicorp apt key
+  ansible.builtin.apt_key:
+    keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+    url: https://apt.releases.hashicorp.com/gpg
+    id: 798AEC654E5C15428C8E42EEAA16FCBCA621E701
+    state: present
+
+- name: Add hashicorp apt repository
+  ansible.builtin.apt_repository:
+    filename: hashicorp
+    repo: deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com noble main
+    state: present
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Install Terraform
+  ansible.builtin.package:
+    name: terraform
+    state: present

@@ -11,6 +11,7 @@
     ```
 - `pip install radarr-py`
 - `pip install prowlarr-py`
+- Terraform
 
 ## Run playbook
 

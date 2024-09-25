@@ -8,7 +8,7 @@
     # The directory is used to save finished media that can be served
     media_data_dir: /external/media
 
-  pre_tasks:
+  tasks:
     - name: Ensure group exists with name {{ media_shared_group }}
       ansible.builtin.group:
         name: "{{ media_shared_group }}"
@@ -26,70 +26,94 @@
         mode: "0770"
         group: "{{ media_shared_group }}"
 
-  roles:
-    - role: homelab.system.network
+    - ansible.builtin.import_role:
+        name: homelab.system.network
       become: true
       tags: system-network
 
-    - role: homelab.system.base
+    - ansible.builtin.import_role:
+        name: homelab.system.base
       become: true
-      base_ohmyzsh_install: true
-      base_ohmyzsh_users:
-        - root
-        - gbaratta
+      vars:
+        base_ohmyzsh_install: true
+        base_ohmyzsh_users:
+          - root
+          - gbaratta
       tags: system-base
 
-    - role: homelab.system.ingress
+    - ansible.builtin.import_role:
+        name: homelab.system.ingress
       become: true
       tags: ingress
 
-    - role: homelab.system.containers
+    - ansible.builtin.import_role:
+        name: homelab.system.containers
       become: true
-      containers_storage_dir: /app/containers
+      vars:
+        containers_storage_dir: /app/containers
       tags: containers
 
-    - role: homelab.system.idp
+    - ansible.builtin.import_role:
+        name: homelab.system.idp
       become: true
       tags: idp
 
-    - role: homelab.system.vpn
+    - name: Set fact from idp terraform output
+      ansible.builtin.set_fact:
+        vpn_netbird_idp_client_id: "{{ idp_zitadel_terraform_output.outputs.netbird_client_id.value }}"
+        vpn_netbird_idp_client_secret: "{{ idp_zitadel_terraform_output.outputs.netbird_client_secret.value }}"
+      tags: idp
+
+    - ansible.builtin.import_role:
+        name: homelab.system.vpn
       become: true
       tags: vpn
 
-    - role: homelab.system.latency_monitor
+    - ansible.builtin.import_role:
+        name: homelab.system.latency_monitor
       become: true
       tags: monitoring
 
-    - role: homelab.apps.adguard
+    - ansible.builtin.import_role:
+        name: homelab.apps.adguard
       become: true
       tags: adguard
 
-    - role: homelab.apps.prometheus
+    - ansible.builtin.import_role:
+        name: homelab.apps.prometheus
       become: true
       tags: prometheus
 
-    - role: prometheus.prometheus.node_exporter
+    - ansible.builtin.import_role:
+        name: prometheus.prometheus.node_exporter
       become: true
-      node_exporter_web_listen_address: 172.16.255.254:9100
+      vars:
+        node_exporter_web_listen_address: 172.16.255.254:9100
       tags: prometheus
 
-    - role: homelab.apps.grafana
+    - ansible.builtin.import_role:
+        name: homelab.apps.grafana
       become: true
       tags: grafana
 
-    - role: homelab.apps.coder
+    - ansible.builtin.import_role:
+        name: homelab.apps.coder
       become: true
       tags: coder
 
-    - role: homelab.apps.media_server
-      media_server_media_dir: "{{ media_data_dir }}"
+    - ansible.builtin.import_role:
+        name: homelab.apps.media_server
+      vars:
+        media_server_media_dir: "{{ media_data_dir }}"
       become: true
       tags: media-server
 
-    - role: homelab.apps.p2p
-      # The directory is used to stage downloaded and incomplete files
-      p2p_downloads_dir: /external/torrent/downloads
-      p2p_sonarr_media_dir: "{{ media_data_dir }}/tv"
-      p2p_radarr_media_dir: "{{ media_data_dir }}/movies"
+    - ansible.builtin.import_role:
+        name: homelab.apps.p2p
+      vars:
+        # The directory is used to stage downloaded and incomplete files
+        p2p_downloads_dir: /external/torrent/downloads
+        p2p_sonarr_media_dir: "{{ media_data_dir }}/tv"
+        p2p_radarr_media_dir: "{{ media_data_dir }}/movies"
       become: true
       tags: p2p

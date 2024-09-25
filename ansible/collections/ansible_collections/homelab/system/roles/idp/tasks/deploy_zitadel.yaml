@@ -59,6 +59,7 @@
   with_items:
     - "{{ idp_zitadel_conf_dir }}"
     - "{{ idp_zitadel_conf_dir }}/machinekey"
+    - "{{ idp_zitadel_conf_dir }}/terraform"
 
 - name: Create zitadel network Quadlet
   containers.podman.podman_network:

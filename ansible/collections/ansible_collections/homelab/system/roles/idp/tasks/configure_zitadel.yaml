@@ -1,0 +1,31 @@
+---
+- name: Copy Terraform module
+  ansible.posix.synchronize:
+    src: files/terraform/
+    dest: "{{ idp_zitadel_conf_dir }}/terraform/"
+    delete: true
+    group: false
+    owner: false
+    rsync_opts:
+      - "--no-motd"
+      - "--exclude='.terraform'"
+      - "--exclude='terraform.tfstate'"
+      - "--exclude='terraform.tfstate.backup'"
+      - "--exclude='terraform.tfvars'"
+
+- name: Apply Terraform to configure Zitadel
+  community.general.terraform:
+    project_path: "{{ idp_zitadel_conf_dir }}/terraform/"
+    check_destroy: true
+    state: present
+    complex_vars: true
+    force_init: true
+    variables:
+      app_domain: "{{ internal_domain }}"
+      zitadel_instance:
+        host: "idp.{{ internal_domain }}"
+        # Port is 8443 because traffic is generated from the remote host to itself and the NAT
+        # is not applied
+        port: "8443"
+        jwt_path: "{{ idp_zitadel_conf_dir }}/machinekey/zitadel-admin-sa.json"
+  register: idp_zitadel_terraform_output

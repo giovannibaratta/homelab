@@ -1,6 +1,6 @@
 ---
-# Used by Ansible when using unprivileged users
 - name: Install acl
   ansible.builtin.package:
-    name: acl
+    name: "{{ item }}"
     state: present
+  with_items: "{{ __base_packages_to_install }}"

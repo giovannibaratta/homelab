@@ -40,26 +40,26 @@
   },
   "HttpConfig": {
     "Address": "0.0.0.0:443",
-    "AuthIssuer": "https://{{ vpn_auth0_domain }}/",
-    "AuthAudience": "https://netbird.{{ internal_domain }}",
-    "AuthKeysLocation": "https://{{ vpn_auth0_domain }}/.well-known/jwks.json",
+    "AuthIssuer": "https://idp.{{ internal_domain }}",
+    "AuthAudience": "{{ vpn_netbird_idp_client_id }}",
+    "AuthKeysLocation": "https://idp.{{ internal_domain }}/oauth/v2/keys",
     "AuthUserIDClaim": "",
     "CertFile": "",
     "CertKey": "",
-    "IdpSignKeyRefreshEnabled": false,
-    "OIDCConfigEndpoint": "https://{{ vpn_auth0_domain }}/.well-known/openid-configuration"
+    "IdpSignKeyRefreshEnabled": true,
+    "OIDCConfigEndpoint": "https://idp.{{ internal_domain }}/.well-known/openid-configuration"
   },
   "IdpManagerConfig": {
-    "ManagerType": "auth0",
+    "ManagerType": "zitadel",
     "ClientConfig": {
-      "Issuer": "https://{{ vpn_auth0_domain }}/",
-      "TokenEndpoint": "https://{{ vpn_auth0_domain }}/oauth/token",
-      "ClientID": "{{ vpn_idp_mgmt_client_id }}",
-      "ClientSecret": "{{ vpn_idp_mgmt_client_secret }}",
+      "Issuer": "https://idp.{{ internal_domain }}",
+      "TokenEndpoint": "https://idp.{{ internal_domain }}/oauth/v2/token",
+      "ClientID": "netbird",
+      "ClientSecret": "{{ vpn_netbird_idp_client_secret }}",
       "GrantType": "client_credentials"
     },
     "ExtraConfig": {
-      "Audience": "https://{{ vpn_auth0_domain }}/api/v2/"
+      "ManagementEndpoint": "https://idp.{{ internal_domain }}/management/v1"
     },
     "Auth0ClientCredentials": null,
     "AzureClientCredentials": null,
@@ -69,22 +69,27 @@
   "DeviceAuthorizationFlow": {
     "Provider": "hosted",
     "ProviderConfig": {
-      "Audience": "https://{{ vpn_auth0_domain }}/api/v2/",
-      "Domain": "{{ vpn_auth0_domain }}",
-      "ClientID": "{{ vpn_device_auth_flow_client_id }}",
-      "TokenEndpoint": "https://{{ vpn_auth0_domain }}/oauth/token",
-      "DeviceAuthEndpoint": "https://{{ vpn_auth0_domain }}/oauth/device/code"
+      "Audience": "{{ vpn_netbird_idp_client_id }}",
+      "AuthorizationEndpoint": "",
+      "Domain": "",
+      "ClientID": "{{ vpn_netbird_idp_client_id }}",
+      "ClientSecret": "",
+      "TokenEndpoint": "https://idp.{{ internal_domain }}/oauth/v2/token",
+      "DeviceAuthEndpoint": "https://idp.{{ internal_domain }}/oauth/v2/device_authorization",
+      "Scope": "openid",
+      "UseIDToken": false,
+      "RedirectURLs": null
     }
   },
   "PKCEAuthorizationFlow": {
     "ProviderConfig": {
-      "Audience": "https://{{ vpn_auth0_domain }}/api/v2/",
-      "ClientID": "{{ vpn_pkce_auth_flow_client_id }}",
+      "Audience": "{{ vpn_netbird_idp_client_id }}",
+      "ClientID": "{{ vpn_netbird_idp_client_id }}",
       "ClientSecret": "",
       "Domain": "",
-      "AuthorizationEndpoint": "https://{{ vpn_auth0_domain }}/authorize",
-      "TokenEndpoint": "https://{{ vpn_auth0_domain }}/oauth/token",
-      "Scope": "openid profile email offline_access",
+      "AuthorizationEndpoint": "https://idp.{{ internal_domain }}/oauth/v2/authorize",
+      "TokenEndpoint": "https://idp.{{ internal_domain }}/oauth/v2/token",
+      "Scope": "openid profile email offline_access api",
       "RedirectURLs": [
         "http://localhost:53000"
       ],

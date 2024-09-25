@@ -2,3 +2,8 @@
 base_ohmyzsh_install: false
 base_ohmyzsh_users: []
 custom_shell_path: /usr/bin/zsh
+__base_packages_to_install:
+  - acl # Used by Ansible when using unprivileged users
+  - unzip
+  - gnupg # Apt keyring
+  - software-properties-common # Apt keyring

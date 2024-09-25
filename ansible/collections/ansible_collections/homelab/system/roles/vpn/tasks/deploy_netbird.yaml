@@ -6,29 +6,9 @@
   ansible.builtin.set_fact:
     internal_domain: "{{ internal_domain }}"
 
-- name: Bitwarden workaround for vpn_auth0_dashboard_client_id
-  ansible.builtin.set_fact:
-    vpn_auth0_dashboard_client_id: "{{ vpn_auth0_dashboard_client_id }}"
-
 - name: Bitwarden workaround for vpn_turn_password
   ansible.builtin.set_fact:
     vpn_turn_password: "{{ vpn_turn_password }}"
-
-- name: Bitwarden workaround for vpn_idp_mgmt_client_id
-  ansible.builtin.set_fact:
-    vpn_idp_mgmt_client_id: "{{ vpn_idp_mgmt_client_id }}"
-
-- name: Bitwarden workaround for vpn_idp_mgmt_client_secret
-  ansible.builtin.set_fact:
-    vpn_idp_mgmt_client_secret: "{{ vpn_idp_mgmt_client_secret }}"
-
-- name: Bitwarden workaround for vpn_device_auth_flow_client_id
-  ansible.builtin.set_fact:
-    vpn_device_auth_flow_client_id: "{{ vpn_device_auth_flow_client_id }}"
-
-- name: Bitwarden workaround for vpn_pkce_auth_flow_client_id
-  ansible.builtin.set_fact:
-    vpn_pkce_auth_flow_client_id: "{{ vpn_pkce_auth_flow_client_id }}"
 
 - name: Bitwarden workaround for vpn_porkbun_api_key
   ansible.builtin.set_fact:
