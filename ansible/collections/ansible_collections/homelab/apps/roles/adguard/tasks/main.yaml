@@ -244,7 +244,7 @@
               --label="traefik.http.routers.adguard.tls.certresolver=letsencrypt" \
               --label="traefik.http.routers.adguard.tls.domains[0].main=adguard.{{ internal_domain }}" \
               --label="traefik.http.services.adguard.loadbalancer.server.port=3000" \
-              docker.io/adguard/adguardhome:v0.107.51
+              docker.io/adguard/adguardhome:{{ adguard_version }}
       ExecStop=/usr/bin/podman stop \
               --ignore -t 10 \
               --cidfile=%t/%n.ctr-id
