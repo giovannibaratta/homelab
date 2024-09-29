@@ -74,6 +74,7 @@
     network: protonvpn
     restart_policy: on-failure
     init: true
+    delete_depend: true
 
     cap_add:
       - "NET_ADMIN"
