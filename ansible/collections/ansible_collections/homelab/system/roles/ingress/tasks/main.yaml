@@ -107,7 +107,7 @@
   containers.podman.podman_container:
     name: traefik
     state: quadlet
-    image: docker.io/traefik:v3.0.3
+    image: docker.io/traefik:{{ ingress_traefik_version }}
 
     env_file: /app/traefik/conf/traefik.env
     recreate: true
