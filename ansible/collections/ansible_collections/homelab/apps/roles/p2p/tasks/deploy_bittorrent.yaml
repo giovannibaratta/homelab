@@ -91,7 +91,7 @@
 
     env_file: "{{ bittorrent_work_dir }}/bittorrent.env"
     recreate: true
-    network: bittorrent
+    network: container:protonvpn
 
     volumes:
       - "{{ bittorrent_work_dir }}:/config"
@@ -121,6 +121,8 @@
       - |
         [Install]
         WantedBy=default.target
+        [Unit]
+        Requires=protonvpn.service
   notify:
     - Reload systemd daemons for p2p role
     - Restart bittorrent service
