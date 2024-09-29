@@ -6,7 +6,7 @@
 - name: Restart netbird network
   ansible.builtin.systemd_service:
     state: restarted
-    name: netbird
+    name: netbird-network
 
 - name: Restart netbird-dashboard service
   ansible.builtin.systemd_service:
