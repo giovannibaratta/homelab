@@ -1,0 +1,118 @@
+---
+- name: Add user {{ vpn_protonvpn_container_user }}
+  ansible.builtin.user:
+    name: "{{ vpn_protonvpn_container_user }}"
+    comment: User used to run protonvpn
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: vpn_protonvpn_container_user_result
+
+- name: Create protonvpn directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ vpn_protonvpn_container_user }}"
+    group: "{{ vpn_protonvpn_container_user }}"
+  with_items:
+    - "{{ vpn_protonvpn_conf_dir }}"
+
+- name: Create protonvpn network Quadlet
+  containers.podman.podman_network:
+    name: protonvpn
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    internal: false
+    interface_name: podman-protonvpn
+    opt:
+      isolate: True
+  notify:
+    - Reload systemd daemons for vpn role
+    - Restart protonvpn network
+
+- name: Trigger Handlers for protonvpn network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start protonvpn network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: protonvpn-network
+    state: started
+    enabled: true
+
+- name: Copy protonvpn.env file
+  ansible.builtin.template:
+    src: protonvpn.env.j2
+    dest: "{{ vpn_protonvpn_conf_dir }}/protonvpn.env"
+    mode: "0600"
+  notify:
+    - Restart protonvpn service
+
+- name: Copy protonvpn private key
+  ansible.builtin.template:
+    src: protonvpn.privatekey.j2
+    dest: "{{ vpn_protonvpn_conf_dir }}/protonvpn.privatekey"
+    mode: "0600"
+    owner: "{{ vpn_protonvpn_container_user }}"
+    group: "{{ vpn_protonvpn_container_user }}"
+  notify:
+    - Restart protonvpn service
+
+- name: Create protonvpn Quadlet
+  containers.podman.podman_container:
+    name: protonvpn
+    state: quadlet
+    image: ghcr.io/tprasadtp/protonwire:{{ vpn_protonvpn_version }}
+    env_file: "{{ vpn_protonvpn_conf_dir }}/protonvpn.env"
+    recreate: true
+    network: protonvpn
+    restart_policy: on-failure
+    init: true
+
+    cap_add:
+      - "NET_ADMIN"
+
+    sysctl:
+      net.ipv4.conf.all.rp_filter: 2
+      net.ipv6.conf.all.disable_ipv6: 1
+
+    healthcheck: protonwire check --service-status-file --silent
+    healthcheck_failure_action: stop
+    healthcheck_interval: 120s
+    healthcheck_start_period: 20s
+
+    volumes:
+      - "{{ vpn_protonvpn_conf_dir}}/protonvpn.privatekey:/etc/protonwire/private-key:ro"
+
+    # For more info on the flags used https://github.com/tprasadtp/protonvpn-docker?tab=readme-ov-file#podman
+
+    uidmap:
+      - 0:{{ vpn_protonvpn_container_user_result.uid }}:1
+      - 1:4000000000:100000
+
+    gidmap:
+      - 0:{{ vpn_protonvpn_container_user_result.group }}:1
+      - 1:4000000000:100000
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for vpn role
+    - Restart protonvpn service
+
+- name: Trigger Handlers for protonvpn
+  ansible.builtin.meta: flush_handlers
+
+- name: Start protonvpn
+  ansible.builtin.systemd_service:
+    name: protonvpn
+    state: started
+    enabled: true

@@ -7,3 +7,6 @@
 
 - name: Deploy Netbird
   ansible.builtin.import_tasks: deploy_netbird.yaml
+
+- name: Deploy ProtonVPN
+  ansible.builtin.import_tasks: deploy_proton_vpn.yaml

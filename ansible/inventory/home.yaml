@@ -42,6 +42,7 @@ home:
       vpn_porkbun_api_key: "{{ lookup('bitwarden.secrets.lookup', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e') }}"
       vpn_porkbun_secret_key: "{{ lookup('bitwarden.secrets.lookup', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5') }}"
       vpn_acme_email: "{{ lookup('bitwarden.secrets.lookup', '0232eb36-1bb2-4842-83b7-b1f2011fa2f2') }}"
+      vpn_protonvpn_wireguard_privatekey: "{{ lookup('bitwarden.secrets.lookup', 'f677b4d3-2534-4c7e-a689-b1fa0149c2aa') }}"
       network_porkbun_api_key: "{{ lookup('bitwarden.secrets.lookup', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e') }}"
       network_porkbun_secret_key: "{{ lookup('bitwarden.secrets.lookup', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5') }}"
       idp_zitadel_db_admin_password: "{{ lookup('bitwarden.secrets.lookup', '2b05dc90-5fbb-4879-b901-b1f400ed722b') }}"
