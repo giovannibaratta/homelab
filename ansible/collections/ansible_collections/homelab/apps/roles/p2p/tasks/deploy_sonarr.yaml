@@ -184,7 +184,7 @@
 
     volumes:
       - "{{ sonarr_work_dir }}:/config"
-      - "{{ p2p_sonarr_media_dir }}:{{ sonar_container_data_dir }}"
+      - "{{ p2p_sonarr_media_dir }}:{{ p2p_sonarr_container_data_dir }}"
       - "{{ p2p_downloads_dir }}:/downloads"
 
     # sonarr runs as the user indicated in the env file.
