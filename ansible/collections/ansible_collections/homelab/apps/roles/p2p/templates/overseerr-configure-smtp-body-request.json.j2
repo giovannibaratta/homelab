@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "options": {
+    "emailFrom": "{{ p2p_smtp_sender }}",
+    "senderName": "Overseerr",
+    "smtpHost": "smtp.sendgrid.net",
+    "smtpPort": 587,
+    "secure": false,
+    "ignoreTls": false,
+    "requireTls": true,
+    "authUser": "apikey",
+    "authPass": "{{ p2p_smtp_api_key }}",
+    "allowSelfSigned": false
+  }
+}
+
