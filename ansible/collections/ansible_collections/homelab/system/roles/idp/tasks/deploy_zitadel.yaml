@@ -133,6 +133,11 @@
       - |
         [Install]
         WantedBy=default.target
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
   notify:
     - Reload systemd daemons for idp role
     - Restart zitadel database service
@@ -207,6 +212,10 @@
         WantedBy=default.target
         [Unit]
         Requires=zitadel-db.service
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
   notify:
     - Reload systemd daemons for idp role
     - Restart zitadel service

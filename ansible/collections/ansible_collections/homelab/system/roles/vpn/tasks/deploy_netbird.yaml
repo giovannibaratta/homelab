@@ -198,6 +198,11 @@
       - |
         [Install]
         WantedBy=default.target
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
   notify:
     - Reload systemd daemons for vpn role
     - Restart netbird-dashboard service
@@ -272,6 +277,10 @@
         WantedBy=default.target
         [Unit]
         Requires=netbird-dashboard.service
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
   notify:
     - Reload systemd daemons for vpn role
     - Restart netbird-mgmt service
@@ -317,6 +326,11 @@
       - |
         [Install]
         WantedBy=default.target
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
   notify:
     - Reload systemd daemons for vpn role
     - Restart netbird-signal service
@@ -478,6 +492,11 @@
       - |
         [Install]
         WantedBy=default.target
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
   notify:
     - Reload systemd daemons for vpn role
     - Restart netbird-coturn service
@@ -527,6 +546,11 @@
       - |
         [Install]
         WantedBy=default.target
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
 
   notify:
     - Reload systemd daemons for vpn role
@@ -589,6 +613,10 @@
         WantedBy=default.target
         [Unit]
         Requires=netbird-mgmt.service
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
 
   notify:
     - Reload systemd daemons for vpn role
