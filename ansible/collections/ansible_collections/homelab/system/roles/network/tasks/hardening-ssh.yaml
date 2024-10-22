@@ -19,8 +19,8 @@
       # Max time to complete a connection
       LoginGraceTime 20
       PermitEmptyPasswords no
-      # Allow all users from the internal network
-      AllowUsers *@{{ (internal_network + '/' + internal_network_netmask) | ansible.utils.ipaddr('network/prefix') }}
+      # Allow all users from the internal network and podman networks
+      AllowUsers *@{{ (internal_network + '/' + internal_network_netmask) | ansible.utils.ipaddr('network/prefix') }} *@10.0.0.0/8
       # Not used in this specific Environment
       ChallengeResponseAuthentication no
       PasswordAuthentication no
