@@ -1,0 +1,32 @@
+{
+  "agent": {
+    "metrics_collection_interval": 300,
+    "region": "us-east-1",
+    "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/syslog",
+            "log_group_name": "homelab",
+            "log_stream_name": "syslog",
+            "retention_in_days": 7,
+            "timezone": "UTC",
+            "filters": [
+              {
+                "type": "exclude",
+                "expression": "traefik\\[\\d+\\]"
+              },
+              {
+                "type": "exclude",
+                "expression": "podman.+GET.+HTTP"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

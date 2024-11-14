@@ -1,0 +1,66 @@
+---
+# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
+# two variables cannot be used at the same time.
+# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
+
+- name: Bitwarden workaround for logging_aws_cloud_watch_access_key
+  ansible.builtin.set_fact:
+    logging_aws_cloud_watch_access_key: "{{ logging_aws_cloud_watch_access_key }}"
+
+- name: Bitwarden workaround for logging_aws_cloud_watch_secret_key
+  ansible.builtin.set_fact:
+    logging_aws_cloud_watch_secret_key: "{{ logging_aws_cloud_watch_secret_key }}"
+
+- name: Download CloudWatch Agent deb
+  ansible.builtin.get_url:
+    url: https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+    dest: /tmp/amazon-cloudwatch-agent.deb
+
+- name: Install CloudWatch Agent
+  ansible.builtin.apt:
+    deb: /tmp/amazon-cloudwatch-agent.deb
+    state: present
+  notify:
+    - Restart AWS Cloud Watch agent
+
+- name: Copy AWS Cloud Watch configuration file
+  ansible.builtin.template:
+    src: aws_cloud_watch_common_config.toml.j2
+    dest: /opt/aws/amazon-cloudwatch-agent/etc/common-config.toml
+    owner: root
+    group: root
+    mode: "0400"
+  notify:
+    - Restart AWS Cloud Watch agent
+
+- name: Create /logging directory
+  ansible.builtin.file:
+    path: "/logging"
+    state: directory
+    mode: "0700"
+
+- name: Copy AWS Cloud Watch agent config
+  ansible.builtin.template:
+    src: aws_cloud_watch_agent_config.json.j2
+    dest: /logging/amazon-cloudwatch-agent.json
+    owner: root
+    group: root
+    mode: "0400"
+  notify:
+    - Reload AWS configuration file
+
+- name: Create aws_creds configuration file
+  ansible.builtin.template:
+    src: aws_credentials.j2
+    dest: /logging/aws_credentials
+    owner: root
+    group: root
+    mode: "0400"
+  notify:
+    - Restart AWS Cloud Watch agent
+
+- name: Enable and start AWS Cloud Watch
+  ansible.builtin.systemd_service:
+    name: amazon-cloudwatch-agent
+    state: started
+    enabled: true

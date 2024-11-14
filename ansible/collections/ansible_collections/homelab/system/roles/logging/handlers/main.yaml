@@ -1,0 +1,14 @@
+- name: Reload systemd daemons for logging role
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart AWS Cloud Watch agent
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: amazon-cloudwatch-agent
+
+# AWS package installs a systemd service. The following command is used to
+# interact with the service (e.g. to reload a configuration file)
+- name: Reload AWS configuration file
+  ansible.builtin.command:
+    cmd: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m onPremise -s -c file:/logging/amazon-cloudwatch-agent.json

@@ -42,6 +42,13 @@
       tags: system-base
 
     - ansible.builtin.import_role:
+        name: homelab.system.logging
+      become: true
+      vars:
+        logging_enable_aws_cloudwatch: true
+      tags: system-logging
+
+    - ansible.builtin.import_role:
         name: homelab.system.ingress
       become: true
       tags: ingress

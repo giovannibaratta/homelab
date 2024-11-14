@@ -1,0 +1,4 @@
+---
+- name: Install AWS CloudWatch
+  ansible.builtin.import_tasks: install_aws_cloudwatch.yaml
+  when: logging_enable_aws_cloudwatch

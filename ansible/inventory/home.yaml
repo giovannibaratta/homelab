@@ -53,4 +53,5 @@ home:
       p2p_requestor_user_email: "{{ lookup('bitwarden.secrets.lookup', 'c7f467b8-5262-4bc1-842f-b1fb00e89eef') }}"
       p2p_smtp_sender: "{{ lookup('bitwarden.secrets.lookup', '5f0b56df-cbe5-4dd6-aab5-b1f501199bbd') }}"
       p2p_smtp_api_key: "{{ lookup('bitwarden.secrets.lookup', 'e284d18a-f488-4dde-b887-b19700f3aea3') }}"
-
+      logging_aws_cloud_watch_access_key: "{{ lookup('bitwarden.secrets.lookup', '98b22309-34ba-48ec-8025-b228014a9294') }}"
+      logging_aws_cloud_watch_secret_key: "{{ lookup('bitwarden.secrets.lookup', '2e0329dc-7f83-42ab-a22c-b228014ab2ad') }}"
