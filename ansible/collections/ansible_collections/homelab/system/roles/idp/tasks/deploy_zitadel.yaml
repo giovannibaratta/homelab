@@ -1,27 +1,4 @@
 ---
-# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
-# two variables cannot be used at the same time.
-# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-- name: Bitwarden workaround for idp_zitadel_db_admin_password
-  ansible.builtin.set_fact:
-    idp_zitadel_db_admin_password: "{{ idp_zitadel_db_admin_password }}"
-
-- name: Bitwarden workaround for idp_zitadel_db_password
-  ansible.builtin.set_fact:
-    idp_zitadel_db_password: "{{ idp_zitadel_db_password }}"
-
-- name: Bitwarden workaround for idp_zitadel_admin_password
-  ansible.builtin.set_fact:
-    idp_zitadel_admin_password: "{{ idp_zitadel_admin_password }}"
-
-- name: Bitwarden workaround for idp_zitadel_smtp_from
-  ansible.builtin.set_fact:
-    idp_zitadel_smtp_from: "{{ idp_zitadel_smtp_from }}"
-
-- name: Bitwarden workaround for idp_sendgrid_api_key
-  ansible.builtin.set_fact:
-    idp_sendgrid_api_key: "{{ idp_sendgrid_api_key }}"
-
 - name: Add user {{ idp_zitadel_db_container_user }}
   ansible.builtin.user:
     name: "{{ idp_zitadel_db_container_user }}"

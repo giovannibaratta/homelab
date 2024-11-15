@@ -6,7 +6,7 @@
 - (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK and configure an access token.
 
     ```bash
-    pip install bitwarden-sdk
+    pip install 'bitwarden-sdk>=1.0.0'
     export BWS_ACCESS_TOKEN=""
     ```
 - `pip install radarr-py`

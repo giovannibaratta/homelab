@@ -1,23 +1,7 @@
 ---
 # There is no easy way to fully initialize the server since a login with a Plex account is required
-# If the first login has not happend yet, the script will pause to let the user
+# If the first login has not happened yet, the script will pause to let the user
 # complete the first login
-
-# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
-# two variables cannot be used at the same time.
-# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-
-- name: Bitwarden workaround for p2p_smtp_sender
-  ansible.builtin.set_fact:
-    p2p_smtp_sender: "{{ p2p_smtp_sender }}"
-
-- name: Bitwarden workaround for p2p_requestor_user_email
-  ansible.builtin.set_fact:
-    p2p_requestor_user_email: "{{ p2p_requestor_user_email }}"
-
-- name: Bitwarden workaround for p2p_smtp_api_key
-  ansible.builtin.set_fact:
-    p2p_smtp_api_key: "{{ p2p_smtp_api_key }}"
 
 - name: Retrieve auth me from Overseerr
   ansible.builtin.uri:

@@ -67,21 +67,6 @@
     group: nogroup
   notify: Restart Prometheus service
 
-# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
-# two variables cannot be used at the same time.
-# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-- name: Bitwarden workaround for alermanager_sender
-  ansible.builtin.set_fact:
-    alertmanager_sender: "{{ alertmanager_sender }}"
-
-- name: Bitwarden workaround for alertmanager_smtp_auth_password
-  ansible.builtin.set_fact:
-    alertmanager_smtp_auth_password: "{{ alertmanager_smtp_auth_password }}"
-
-- name: Bitwarden workaround for alertmanager_receiver_email
-  ansible.builtin.set_fact:
-    alertmanager_receiver_email: "{{ alertmanager_receiver_email }}"
-
 - name: Copy alertmanager.yaml configuration
   ansible.builtin.copy:
     content: |

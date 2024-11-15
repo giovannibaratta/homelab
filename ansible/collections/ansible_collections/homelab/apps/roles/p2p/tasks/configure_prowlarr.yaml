@@ -1,11 +1,4 @@
 ---
-# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
-# two variables cannot be used at the same time.
-# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-- name: Bitwarden workaround for prowlarr_api_key
-  ansible.builtin.set_fact:
-    prowlarr_api_key: "{{ prowlarr_api_key }}"
-
 - name: Create Bitmagnet indexer
   devopsarr.prowlarr.prowlarr_indexer:
     prowlarr_url: "{{ _p2p_prowlarr_server_url }}"

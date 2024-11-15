@@ -73,15 +73,6 @@
     dest: /etc/NetworkManager/system-connections/vlan.nmconnection
     mode: "0600"
 
-# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
-# two variables cannot be used at the same time.
-# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-- ansible.builtin.set_fact:
-    pppoe_username: "{{ pppoe_username }}"
-
-- ansible.builtin.set_fact:
-    pppoe_password: "{{ pppoe_password }}"
-
 - name: Create PPPOE connection config
   ansible.builtin.copy:
     content: |

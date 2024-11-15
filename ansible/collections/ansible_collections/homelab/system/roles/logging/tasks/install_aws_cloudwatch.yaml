@@ -1,16 +1,4 @@
 ---
-# This workaround is needed because the current release of Bitwarden Secret Manager is bugged and
-# two variables cannot be used at the same time.
-# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-
-- name: Bitwarden workaround for logging_aws_cloud_watch_access_key
-  ansible.builtin.set_fact:
-    logging_aws_cloud_watch_access_key: "{{ logging_aws_cloud_watch_access_key }}"
-
-- name: Bitwarden workaround for logging_aws_cloud_watch_secret_key
-  ansible.builtin.set_fact:
-    logging_aws_cloud_watch_secret_key: "{{ logging_aws_cloud_watch_secret_key }}"
-
 - name: Download CloudWatch Agent deb
   ansible.builtin.get_url:
     url: https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
