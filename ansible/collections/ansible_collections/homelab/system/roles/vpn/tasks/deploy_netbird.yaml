@@ -143,6 +143,7 @@
     src: netbird-dashboard.env.j2
     dest: "{{ vpn_netbird_dashboard_conf_dir }}/netbird-dashboard.env"
     mode: "0600"
+    backup: true
   notify:
     - Restart netbird-dashboard service
 
@@ -198,18 +199,18 @@
     src: netbird-mgmt.env.j2
     dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
     mode: "0600"
-  notify:
-    - Restart netbird-mgmt service
+    backup: true
+  register: __vpn_copy_netbird_mgmt_env_file
 
 - name: Copy netbird-mgmt.json file
   ansible.builtin.template:
     src: netbird-mgmt.json.j2
     dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json"
     mode: "0600"
+    backup: true
     owner: "{{ vpn_netbird_mgmt_container_user }}"
     group: "{{ vpn_netbird_mgmt_container_user }}"
-  notify:
-    - Restart netbird-mgmt service
+  register: __vpn_copy_netbird_mgmt_conf_file
 
 - name: Create Netbird mgmt Quadlet
   containers.podman.podman_container:
@@ -260,10 +261,29 @@
         RestartSec=60s
   notify:
     - Reload systemd daemons for vpn role
-    - Restart netbird-mgmt service
+  register: __vpn_copy_netbird_mgmt_quadlet
 
 - name: Trigger Handlers for netbird-mgmt
   ansible.builtin.meta: flush_handlers
+
+# The restart will cause the connection to drop and Ansible will remained
+# blocked on this step, hence the need to run it asynchronously
+- name: Restart Netbird management service
+  when: __vpn_copy_netbird_mgmt_env_file.changed or __vpn_copy_netbird_mgmt_conf_file.changed or __vpn_copy_netbird_mgmt_quadlet.changed
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: netbird-mgmt
+  async: 300
+  poll: 0
+  register: __vpn_netbird_mgmt_service_restart
+
+- name: Check on Netbird mgmt service restart
+  async_status:
+    jid: "{{ __vpn_netbird_mgmt_service_restart.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 100
+  delay: 10
 
 - name: Start netbird-mgmt
   ansible.builtin.systemd_service:
@@ -328,6 +348,7 @@
     mode: "0600"
     owner: "{{ vpn_netbird_coturn_container_user }}"
     group: "{{ vpn_netbird_coturn_container_user }}"
+    backup: true
   notify:
     - Restart netbird-coturn service
 
@@ -492,6 +513,7 @@
     src: netbird-relay.env.j2
     dest: "{{ vpn_netbird_relay_conf_dir }}/netbird-relay.env"
     mode: "0600"
+    backup: true
   notify:
     - Restart netbird-relay service
 
@@ -547,8 +569,8 @@
     src: netbird-exit-node.env.j2
     dest: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node.env"
     mode: "0600"
-  notify:
-    - Restart netbird-exit-node service
+    backup: true
+  register: __vpn_copy_netbird_exit_node_env_file
 
 - name: Copy netbird-exit-node-config.json file
   ansible.builtin.template:
@@ -557,8 +579,8 @@
     mode: "0600"
     owner: "{{ vpn_netbird_exit_node_container_user }}"
     group: "{{ vpn_netbird_exit_node_container_user }}"
-  notify:
-    - Restart netbird-exit-node service
+    backup: true
+  register: __vpn_copy_netbird_exit_node_conf_file
 
 - name: Create Netbird exit node
   containers.podman.podman_container:
@@ -597,10 +619,29 @@
 
   notify:
     - Reload systemd daemons for vpn role
-    - Restart netbird-exit-node service
+  register: __vpn_copy_netbird_exit_node_quadlet
 
 - name: Trigger Handlers for netbird-exit-node
   ansible.builtin.meta: flush_handlers
+
+# The restart will cause the connection to drop and Ansible will remained
+# blocked on this step, hence the need to run it asynchronously
+- name: Restart Netbird exit node service
+  when: __vpn_copy_netbird_exit_node_env_file.changed or __vpn_copy_netbird_exit_node_conf_file.changed or __vpn_copy_netbird_exit_node_quadlet.changed
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: netbird-exit-node
+  async: 300
+  poll: 0
+  register: __vpn_netbird_exit_node_service_restart
+
+- name: Check on Netbird exit-node service restart
+  async_status:
+    jid: "{{ __vpn_netbird_exit_node_service_restart.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 100
+  delay: 10
 
 - name: Start netbird-exit-node
   ansible.builtin.systemd_service:
