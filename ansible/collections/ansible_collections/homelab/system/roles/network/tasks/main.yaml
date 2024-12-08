@@ -168,6 +168,30 @@
     state: present
     update_cache: true
 
+- name: Create /app/nftables-geoip
+  ansible.builtin.file:
+    path: /app/nftables-geoip
+    state: directory
+    mode: "0700"
+
+- name: Create /app/nftables-geoip/ip-lists
+  ansible.builtin.file:
+    path: /app/nftables-geoip/ip-lists
+    state: directory
+    mode: "0700"
+
+- name: Clone nftables-geoip
+  ansible.builtin.git:
+    repo: https://github.com/pvxe/nftables-geoip.git
+    dest: /app/nftables-geoip/repo
+    single_branch: yes
+    version: master
+    force: true
+
+- name: Generate list of allowed IPs
+  ansible.builtin.shell: |
+    /app/nftables-geoip/repo/nft_geoip.py --download -c es,fr,pt,it,de,ie,gb,ch,se,no --output-dir /app/nftables-geoip/ip-lists --file-location /app/nftables-geoip/repo/location.csv
+
 - name: Configure NAT and firewall rules with nftables
   ansible.builtin.blockinfile:
     path: /etc/nftables.conf
@@ -219,9 +243,12 @@
 
       table ip firewall {
 
+        include "/app/nftables-geoip/ip-lists/geoip-def-all.nft"
+        include "/app/nftables-geoip/ip-lists/geoip-ipv4-interesting.nft"
+        define ALLOWED_COUNTRIES = { $IT, $IE }
+
         chain dispatcher {
           type filter hook input priority 1000;
-
           iif lo accept comment "always accept loopback"
           iifname ftth jump public_traffic # ftth is the interface name
           iifname {{ internal_interface }} jump internal_traffic
@@ -232,13 +259,18 @@
 
         # Drop all traffic from internet if not initiated from internal network
         chain public_traffic {
+          meta mark set ip saddr map @geoip4
           ct state {established,related} accept
           ct state invalid log drop
+          # Filter packet not coming from allowed countries checking the meta mark
+          # set by geoip4. Geoblocking must be performed after the connection tracker
+          # state to avoid blocking legit traffic
+          meta mark != $ALLOWED_COUNTRIES log prefix "Banned country " drop
           # Accept traffic to system ingress
           ip daddr 172.16.255.254 tcp dport { 9080, 9443 } accept
           # TURN server used by Netbird
           udp dport { 3478, 49152-65535 } accept
-          log prefix "Public unknown traffic" drop
+          log prefix "Public unknown traffic " drop
         }
 
         chain internal_traffic {
