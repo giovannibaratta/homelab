@@ -1,2 +1,3 @@
 ---
-ingress_traefik_version: v3.1.4
+# Available versions https://hub.docker.com/_/traefik/tags
+ingress_traefik_version: v3.2.1
