@@ -1,0 +1,7 @@
+[Unit]
+Requires=local-fs.target
+After=local-fs.target
+
+[Service]
+Restart=on-failure
+RestartSec=5s
