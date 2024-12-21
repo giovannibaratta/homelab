@@ -31,15 +31,35 @@
 
         public-insecure:
           address: :9080
+          transport:
+            respondingTimeouts:
+              readTimeout: 600
+              writeTimeout: 600
+              idleTimeout: 600
 
         public-secure:
           address: :9443
+          transport:
+            respondingTimeouts:
+              readTimeout: 600
+              writeTimeout: 600
+              idleTimeout: 600
 
         web:
           address: :8081
+          transport:
+            respondingTimeouts:
+              readTimeout: 0
+              writeTimeout: 0
+              idleTimeout: 0
 
         websecure:
           address: :8443
+          transport:
+            respondingTimeouts:
+              readTimeout: 0
+              writeTimeout: 0
+              idleTimeout: 0
 
       api:
         # Dashboard is served on port 8080
