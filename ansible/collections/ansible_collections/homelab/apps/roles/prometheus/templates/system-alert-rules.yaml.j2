@@ -21,3 +21,33 @@ groups:
     annotations:
       summary: Host has low free disk space (instance {{ '{{' }} $labels.job {{ '}}' }})
       description: "Host {{ '{{' }} $labels.job {{ '}}' }} has {{ '{{' }}  $value {{ '}}' }} remaining free disk space for {{ '{{' }} $labels.mountpoint {{ '}}' }}"
+  - alert: FilesystemNotAvailable-external
+    expr: absent(node_filesystem_size_bytes{mountpoint="/external"}) == 1
+    for: 30m
+    annotations:
+      summary: "Filesystem {{ '{{' }} $labels.mountpoint {{ '}}' }} is down"
+      description: "Filesystem {{ '{{' }} $labels.mountpoint {{ '}}' }} is not responding. Check the mount and underlying storage."
+  - alert: FilesystemNotAvailable-external-tmp
+    expr: absent(node_filesystem_size_bytes{mountpoint="/external-tmp"}) == 1
+    for: 30m
+    annotations:
+      summary: "Filesystem {{ '{{' }} $labels.mountpoint {{ '}}' }} is down"
+      description: "Filesystem {{ '{{' }} $labels.mountpoint {{ '}}' }} is not responding. Check the mount and underlying storage."
+  - alert: FilesystemReadOnly
+    expr: node_filesystem_readonly{mountpoint=~"^/external.*"} == 1
+    for: 30m
+    annotations:
+      summary: "Filesystem {{ '{{' }} $labels.mountpoint {{ '}}' }} is read-only"
+      description: "Filesystem {{ '{{' }} $labels.mountpoint {{ '}}' }} has been mounted as read-only. Check for disk errors or remount issues."
+  - alert: TargetDown
+    expr: up == 0
+    for: 30m
+    annotations:
+      summary: "Target {{ '{{' }} $labels.instance {{ '}}' }} is down"
+      description: "Target {{ '{{' }} $labels.instance {{ '}}' }} of job {{ '{{' }} $labels.job {{ '}}' }} has been down for more than 30 minutes."
+  - alert: SystemdUnitFailed
+    expr: node_systemd_unit_state{state="failed"} == 1
+    for: 30m
+    annotations:
+      summary: "Systemd unit {{ '{{' }} $labels.name {{ '}}' }} failed"
+      description: "Systemd unit {{ '{{' }} $labels.name {{ '}}' }} is in failed state for over 30 minutes."
