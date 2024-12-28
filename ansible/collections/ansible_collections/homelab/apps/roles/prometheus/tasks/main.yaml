@@ -43,6 +43,13 @@
           static_configs:
             - targets: ['pingexporter.{{ internal_domain }}']
 
+        - job_name: 'idp'
+          scrape_interval: 1s
+          scheme: https
+          metrics_path: "/debug/metrics"
+          static_configs:
+            - targets: ['idp.{{ internal_domain }}']
+
       rule_files:
         - /opt/prometheus/conf/rules/*.yaml
 
@@ -73,7 +80,7 @@
       global:
         smtp_from: {{ alertmanager_sender }}
         smtp_smarthost: smtp.sendgrid.net:587
-        smtp_auth_username: 'apikey'
+        smtp_auth_username: apikey
         smtp_auth_password: {{ alertmanager_smtp_auth_password }}
       route:
         receiver: 'me'
