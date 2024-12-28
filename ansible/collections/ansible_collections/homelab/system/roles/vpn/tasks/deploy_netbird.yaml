@@ -23,14 +23,6 @@
     shell: /usr/sbin/nologin
   register: vpn_netbird_signal_container_user_result
 
-- name: Add user {{ vpn_netbird_coturn_container_user }}
-  ansible.builtin.user:
-    name: "{{ vpn_netbird_coturn_container_user }}"
-    comment: User used to run Netbird coturn
-    create_home: false
-    shell: /usr/sbin/nologin
-  register: vpn_netbird_coturn_container_user_result
-
 - name: Add user {{ vpn_netbird_relay_container_user }}
   ansible.builtin.user:
     name: "{{ vpn_netbird_relay_container_user }}"
@@ -77,16 +69,6 @@
     group: "{{ vpn_netbird_signal_container_user }}"
   with_items:
     - "{{ vpn_netbird_signal_work_dir }}"
-
-- name: Create Netbird coturn directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0770"
-    owner: "{{ vpn_netbird_coturn_container_user }}"
-    group: "{{ vpn_netbird_coturn_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_coturn_conf_dir }}"
 
 - name: Create Netbird relay directories
   ansible.builtin.file:
@@ -341,173 +323,6 @@
     state: started
     enabled: true
 
-- name: Copy netbird-turnserver.conf file
-  ansible.builtin.template:
-    src: netbird-turnserver.conf.j2
-    dest: "{{ vpn_netbird_coturn_conf_dir }}/netbird-turnserver.conf"
-    mode: "0600"
-    owner: "{{ vpn_netbird_coturn_container_user }}"
-    group: "{{ vpn_netbird_coturn_container_user }}"
-    backup: true
-  notify:
-    - Restart netbird-coturn service
-
-- name: Generate letsencrypt account key
-  community.crypto.openssl_privatekey:
-    path: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.account.private.pem"
-
-- name: Generate certificate private key
-  community.crypto.openssl_privatekey:
-    path: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.private.pem"
-
-- name: Generate OpenSSL Certificate Signing Request for netbird.{{ internal_domain }}
-  community.crypto.openssl_csr:
-    path: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.csr"
-    privatekey_path: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.private.pem"
-    common_name: netbird.{{ internal_domain }}
-
-- name: Ensure letsencrypt account exists
-  acme_account:
-    account_key_src: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.account.private.pem"
-    state: present
-    terms_agreed: yes
-    acme_version: 2
-    acme_directory: https://acme-v02.api.letsencrypt.org/directory
-    contact:
-      - "mailto:{{ acme_email }}"
-
-- name: Create a challenge for netbird.{{ internal_domain }}
-  acme_certificate:
-    account_key_src: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.account.private.pem"
-    account_email: "{{ vpn_acme_email }}"
-    src: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.csr"
-    cert: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.crt"
-    challenge: dns-01
-    acme_directory: https://acme-v02.api.letsencrypt.org/directory
-    acme_version: 2
-    # Renew if the certificate is at least 30 days old
-    remaining_days: 30
-  register: netbird_coturn_challenge
-  retries: 3
-  delay: 20
-
-- block:
-  - name: Set dns challenge record name
-    ansible.builtin.set_fact:
-      dns_challenge_lookup_key: "netbird.{{ internal_domain }}"
-      dns_challenge_record_name: "_acme-challenge.netbird"
-
-  - name: Set dns challenge record value
-    ansible.builtin.set_fact:
-      dns_challenge_record_value: "{{ netbird_coturn_challenge.challenge_data[dns_challenge_lookup_key]['dns-01'].resource_value }}"
-
-  # Register the record
-  - name: Create DNS challenge record
-    sdorra.porkbun.porkbun_record:
-      state: present
-      domain: "{{ internal_domain }}"
-      record_type: TXT
-      name: "{{ dns_challenge_record_name }}"
-      content: "{{ dns_challenge_record_value }}"
-      api_key: "{{ vpn_porkbun_api_key }}"
-      secret_api_key: "{{ vpn_porkbun_secret_key }}"
-      ttl: 0
-
-  - name: Wait for DNS propagation
-    ansible.builtin.wait_for:
-      timeout: 300
-
-  - name: Validate the challenge for netbird.{{ internal_domain }}
-    acme_certificate:
-      account_key_src: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.account.private.pem"
-      account_email: "{{ vpn_acme_email }}"
-      src: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.csr"
-      cert: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.crt"
-      fullchain: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.full-chain.crt"
-      chain: "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.intermediate.crt"
-      challenge: dns-01
-      acme_directory: https://acme-v02.api.letsencrypt.org/directory
-      acme_version: 2
-      remaining_days: 30
-      data: "{{ netbird_coturn_challenge }}"
-    retries: 5
-    delay: 60
-    ignore_errors: true
-    register: validation_result
-
-  - name: Delete DNS challenge record
-    sdorra.porkbun.porkbun_record:
-      state: absent
-      domain: "{{ internal_domain }}"
-      record_type: TXT
-      name: "{{ dns_challenge_record_name }}"
-      content: "{{ dns_challenge_record_value }}"
-      api_key: "{{ vpn_porkbun_api_key }}"
-      secret_api_key: "{{ vpn_porkbun_secret_key }}"
-      ttl: 0
-
-  - name: letsencrypt certificate validation failed
-    ansible.builtin.fail:
-      msg: The validation of the certification failed
-    when: validation_result is failed
-  when: netbird_coturn_challenge is changed
-
-- name: Change ownership of SSL artifacts
-  ansible.builtin.file:
-    path: "{{ item }}"
-    owner: "{{ vpn_netbird_coturn_container_user }}"
-    group: "{{ vpn_netbird_coturn_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.crt"
-    - "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.private.pem"
-  notify:
-    - Restart netbird-coturn service
-
-- name: Create Netbird coturn Quadlet
-  containers.podman.podman_container:
-    name: netbird-coturn
-    state: quadlet
-    image: coturn/coturn:{{ vpn_netbird_coturn_version }}
-    command: -c /etc/turnserver.conf
-    recreate: true
-    network: host
-
-    volumes:
-      - "{{ vpn_netbird_coturn_conf_dir }}/netbird-turnserver.conf:/etc/turnserver.conf:ro"
-      - "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.private.pem:/etc/coturn/private/privkey.pem:ro"
-      - "{{ vpn_netbird_coturn_conf_dir }}/netbird.{{ internal_domain }}.crt:/etc/coturn/certs/cert.pem:ro"
-
-    uidmap:
-      - 0:4000000000:65534
-      - 65534:{{ vpn_netbird_coturn_container_user_result.uid }}:1
-      - 65535:4000065534:10000
-
-    gidmap:
-      - 0:4000000000:1
-      - +65534:@{{ vpn_netbird_coturn_container_user_result.group }}:1
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-  notify:
-    - Reload systemd daemons for vpn role
-    - Restart netbird-coturn service
-
-- name: Trigger Handlers for netbird-coturn
-  ansible.builtin.meta: flush_handlers
-
-- name: Start netbird-coturn
-  ansible.builtin.systemd_service:
-    name: netbird-coturn
-    state: started
-    enabled: true
-
 - name: Copy netbird-relay.env file
   ansible.builtin.template:
     src: netbird-relay.env.j2
@@ -636,6 +451,7 @@
   register: __vpn_netbird_exit_node_service_restart
 
 - name: Check on Netbird exit-node service restart
+  when: __vpn_netbird_exit_node_service_restart.changed
   async_status:
     jid: "{{ __vpn_netbird_exit_node_service_restart.ansible_job_id }}"
   register: job_result

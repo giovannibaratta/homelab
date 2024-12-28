@@ -36,7 +36,6 @@ home:
       plex_claim: "{{ lookup('community.general.bitwarden_secrets_manager', '36cb7482-22ba-45de-bfac-b1af00b2f2db').value }}"
       p2p_radarr_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '8cd45a28-9440-4286-8e92-b1ca010b258e').value }}"
       p2p_radarr_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '9457148c-0f5f-4154-ae18-b1ca010b53eb').value }}"
-      vpn_turn_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'c659f2f6-1096-4b6d-b690-b1ec01268975').value }}"
       vpn_relay_secret: "{{ lookup('community.general.bitwarden_secrets_manager', 'db0e1fc9-d134-48d6-badb-b1f30120aa22').value }}"
       vpn_exit_node_setup_key: "{{ lookup('community.general.bitwarden_secrets_manager', '9222ee78-1f5d-48e0-a97b-b1f30122184c').value }}"
       vpn_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"

@@ -278,8 +278,6 @@
           meta mark != $ALLOWED_COUNTRIES log prefix "Banned country " drop
           # Accept traffic to system ingress
           ip daddr 172.16.255.254 tcp dport { 9080, 9443 } accept
-          # TURN server used by Netbird
-          udp dport { 3478, 49152-65535 } accept
           log prefix "Public unknown traffic " drop
         }
 
@@ -339,6 +337,12 @@
     name: isc-dhcp-server
     enabled: true
     state: started
+
+- name: Disable DHCP6 service
+  ansible.builtin.service:
+    name: isc-dhcp-server6
+    enabled: false
+    state: stopped
 
 - name: SSH hardening
   ansible.builtin.import_tasks: hardening-ssh.yaml

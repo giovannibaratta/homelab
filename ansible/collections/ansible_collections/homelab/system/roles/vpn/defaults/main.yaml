@@ -11,9 +11,6 @@ vpn_netbird_mgmt_work_dir: /app/netbird-mgmt/work
 vpn_netbird_signal_version: 0.34.1
 vpn_netbird_signal_container_user: netbirdsignal
 vpn_netbird_signal_work_dir: /app/netbird-signal/work
-vpn_netbird_coturn_version: 4.6.2-r12
-vpn_netbird_coturn_container_user: netbirdcoturn
-vpn_netbird_coturn_conf_dir: /app/netbird-coturn/conf
 # Available versions https://hub.docker.com/r/netbirdio/netbird/tags
 vpn_netbird_client_version: 0.34.1
 vpn_netbird_exit_node_conf_dir: /app/netbird-exit-node/conf
