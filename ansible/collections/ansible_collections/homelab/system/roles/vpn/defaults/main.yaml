@@ -3,22 +3,22 @@ vpn_netbird_dashboard_version: v2.7.1
 vpn_netbird_dashboard_container_user: netbirddashboard
 vpn_netbird_dashboard_conf_dir: /app/netbird-dashboard/conf
 # Available versions https://hub.docker.com/r/netbirdio/management/tags
-vpn_netbird_mgmt_version: 0.34.1
+vpn_netbird_mgmt_version: 0.35.2
 vpn_netbird_mgmt_container_user: netbirdmgmt
 vpn_netbird_mgmt_conf_dir: /app/netbird-mgmt/conf
 vpn_netbird_mgmt_work_dir: /app/netbird-mgmt/work
 # Available versions https://hub.docker.com/r/netbirdio/signal/tags
-vpn_netbird_signal_version: 0.34.1
+vpn_netbird_signal_version: 0.35.2
 vpn_netbird_signal_container_user: netbirdsignal
 vpn_netbird_signal_work_dir: /app/netbird-signal/work
 # Available versions https://hub.docker.com/r/netbirdio/netbird/tags
-vpn_netbird_client_version: 0.34.1
+vpn_netbird_client_version: 0.35.2
 vpn_netbird_exit_node_conf_dir: /app/netbird-exit-node/conf
 vpn_netbird_exit_node_container_user: netbirdexitnode
 vpn_netbird_jump_node_conf_dir: /app/netbird-jump-node/conf
 vpn_netbird_jump_node_container_user: netbirdjumpnode
 # Available versions https://hub.docker.com/r/netbirdio/relay/tags
-vpn_netbird_relay_version: 0.34.1
+vpn_netbird_relay_version: 0.35.2
 vpn_netbird_relay_conf_dir: /app/netbird-relay/conf
 vpn_netbird_relay_container_user: netbirdrelay
 vpn_protonvpn_container_user: protonvpn
