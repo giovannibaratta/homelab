@@ -90,7 +90,11 @@
       - |
         [Install]
         WantedBy=default.target
-
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
   notify:
     - Reload systemd daemons for network role
     - Restart ddclient service
