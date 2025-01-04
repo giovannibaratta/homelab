@@ -25,26 +25,8 @@
     regexp: ^ExecStart.+
     line: /usr/lib/systemd/systemd-networkd-wait-online --interface={{ internal_interface }}
 
-- name: Create /etc/systemd/resolved.conf.d directory
-  ansible.builtin.file:
-    path: /etc/systemd/resolved.conf.d
-    state: directory
-    mode: "0755"
-
-- name: Disable DNSStubListener
-  ansible.builtin.copy:
-    content: |
-      [Resolve]
-      DNSStubListener=no
-    dest: /etc/systemd/resolved.conf.d/noresolved.conf
-    mode: "0644"
-  register: resolved_conf_file
-
-- name: Restart systemd-resolved
-  ansible.builtin.service:
-    name: systemd-resolved
-    state: restarted
-  when: resolved_conf_file.changed
+- name: Configure DNS
+  ansible.builtin.import_tasks: configure-dns.yaml
 
 - name: Create VLAN config
   ansible.builtin.copy:
