@@ -192,8 +192,8 @@
     insertbefore: EOF
     block: |
       # Clean existing table and preserve docker tables
-      table ip ftth_nat
-      delete table ip ftth_nat
+      table ip custom_nat
+      delete table ip custom_nat
 
       table ip firewall
       delete table ip firewall
@@ -204,7 +204,7 @@
       # The source IP for masquerading will be automagically infered based on the
       # output interface
       # table ip affects only IPv4
-      table ip ftth_nat {
+      table ip custom_nat {
         chain nat_prerouting {
           type nat hook prerouting priority 0; policy accept;
           # Forward external traffic to host ingress (Traefik)
@@ -217,9 +217,16 @@
 
         # for all packets to WAN, after routing,
         # replace source address with primary IP of WAN interface
-        chain ftth_postrouting {
+        chain nat_postrouting {
           type nat hook postrouting priority 100; policy accept;
           oifname ftth masquerade # ftth is the interface name
+        }
+
+        # port-forward traffic originated by the router itself
+        chain nat_output {
+          type nat hook output priority filter; policy accept;
+          ip saddr 172.16.255.254 ip daddr 172.16.255.254 tcp dport { http } redirect to 8081
+          ip saddr 172.16.255.254 ip daddr 172.16.255.254 tcp dport { https } redirect to 8443
         }
       }
 
@@ -245,7 +252,7 @@
           iifname ftth jump public_traffic # ftth is the interface name
           iifname {{ internal_interface }} jump internal_traffic
           iifname "podman*" jump container_traffic
-          log prefix "Unmatched interface"
+          log prefix "Unmatched interface "
           reject
         }
 
