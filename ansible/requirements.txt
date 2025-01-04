@@ -1,0 +1,6 @@
+netaddr
+requests
+jmespath
+bitwarden-sdk>=1.0.0
+radarr-py
+prowlarr-py

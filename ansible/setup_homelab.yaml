@@ -42,6 +42,11 @@
       tags: system-base
 
     - ansible.builtin.import_role:
+        name: homelab.system.auto_remediation
+      become: true
+      tags: auto-remediation
+
+    - ansible.builtin.import_role:
         name: homelab.system.logging
       become: true
       vars:

@@ -7,3 +7,5 @@ __base_packages_to_install:
   - unzip
   - gnupg # Apt keyring
   - software-properties-common # Apt keyring
+  - python3-pip # Run Ansible within auto-remediation
+  - python3-venv # Run Ansible within auto-remediation

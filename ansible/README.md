@@ -2,15 +2,17 @@
 
 ## Prerequisites
 
-- `pip install netaddr`
-- (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK and configure an access token.
 
+#TODO remove  this and use requirements
+
+- Install Python packages
     ```bash
-    pip install 'bitwarden-sdk>=1.0.0'
+    pip install -r requirements.txt
+    ```
+- (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK and configure an access token.
+    ```bash
     export BWS_ACCESS_TOKEN=""
     ```
-- `pip install radarr-py`
-- `pip install prowlarr-py`
 - Terraform
 
 ## Run playbook

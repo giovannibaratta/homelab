@@ -1,0 +1,2 @@
+- name: Auto Ansible
+  ansible.builtin.import_tasks: auto_ansible.yaml

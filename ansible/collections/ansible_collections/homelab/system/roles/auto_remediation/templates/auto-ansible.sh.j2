@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+ROOT_DIR="/app/auto-ansible"
+
+source "${ROOT_DIR}/python-env/bin/activate"
+
+BWS_TOKEN=$(cat "${ROOT_DIR}/config/bws_access_token")
+BWS_ACCESS_TOKEN="${BWS_TOKEN}" ansible-playbook --connection=local --inventory "172.16.255.254," --limit "172.16.255.254" "${ROOT_DIR}/repo/ansible/setup_homelab.yaml" -i "${ROOT_DIR}/repo/ansible/inventory/home.yaml" -v

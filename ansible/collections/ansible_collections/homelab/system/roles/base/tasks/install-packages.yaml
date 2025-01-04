@@ -1,5 +1,5 @@
 ---
-- name: Install acl
+- name: Install packages
   ansible.builtin.package:
     name: "{{ item }}"
     state: present

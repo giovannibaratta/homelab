@@ -1,0 +1,103 @@
+---
+- name: Create /app/auto-ansible
+  ansible.builtin.file:
+    path: /app/auto-ansible
+    state: directory
+    mode: "0700"
+
+- name: Create /app/auto-ansible directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  with_items:
+    - "/app/auto-ansible"
+    - "/app/auto-ansible/repo"
+    - "/app/auto-ansible/artifacts"
+    - "/app/auto-ansible/python-env"
+    - "/app/auto-ansible/config"
+
+- name: Clone homelab repository
+  ansible.builtin.git:
+    repo: https://github.com/giovannibaratta/homelab.git
+    dest: /app/auto-ansible/repo
+    single_branch: yes
+    version: main
+    force: true
+
+- name: Download bws-x86_64-unknown-linux-gnu-1.0.0.zip
+  ansible.builtin.get_url:
+    url: https://github.com/bitwarden/sdk-sm/releases/download/bws-v1.0.0/bws-x86_64-unknown-linux-gnu-1.0.0.zip
+    dest: /app/auto-ansible/artifacts/bws-x86_64-unknown-linux-gnu-1.0.0.zip
+
+- name: Extract bws-x86_64-unknown-linux-gnu-1.0.0.zip
+  unarchive:
+    src: /app/auto-ansible/artifacts/bws-x86_64-unknown-linux-gnu-1.0.0.zip
+    dest: /app/auto-ansible/artifacts
+    remote_src: yes
+
+- name: Copy extracted files to /usr/bin
+  copy:
+    src: /app/auto-ansible/artifacts/bws
+    dest: /usr/bin
+    mode: 0755
+    remote_src: yes
+
+- name: Download terraform_1.10.3_linux_amd64.zip
+  ansible.builtin.get_url:
+    url: https://releases.hashicorp.com/terraform/1.10.3/terraform_1.10.3_linux_amd64.zip
+    dest: /app/auto-ansible/artifacts/terraform_1.10.3_linux_amd64.zip
+
+- name: Extract terraform_1.10.3_linux_amd64.zip
+  unarchive:
+    src: /app/auto-ansible/artifacts/terraform_1.10.3_linux_amd64.zip
+    dest: /app/auto-ansible/artifacts
+    remote_src: yes
+
+- name: Copy extracted files to /usr/bin
+  copy:
+    src: /app/auto-ansible/artifacts/terraform
+    dest: /usr/bin
+    mode: 0755
+    remote_src: yes
+
+- name: Install python requirements
+  ansible.builtin.pip:
+    requirements: "{{ item }}"
+    virtualenv: /app/auto-ansible/python-env
+    virtualenv_command: /usr/bin/python3 -m venv
+  with_items:
+    - /app/auto-ansible/repo/ansible/requirements.txt
+    - /app/auto-ansible/repo/ansible/auto_ansible_requirements.txt
+
+- name: Activate virtualenv and install ansible dependencies
+  ansible.builtin.shell: |
+    source /app/auto-ansible/python-env/bin/activate
+    ansible-galaxy collection install -r /app/auto-ansible/repo/ansible/requirements.yml
+    ansible-galaxy collection install collections/ansible_collections/homelab/system
+    ansible-galaxy collection install collections/ansible_collections/homelab/apps
+  args:
+    chdir: /app/auto-ansible/repo/ansible
+    executable: /bin/bash
+
+- name: Copy bws access token to config dir
+  ansible.builtin.copy:
+    content : "{{ auto_remediation_bws_access_token }}"
+    dest: /app/auto-ansible/config/bws_access_token
+    mode: 0400
+    backup: yes
+
+- name: Copy auto-ansible.sh script
+  ansible.builtin.template:
+    src: auto-ansible.sh.j2
+    dest: "/app/auto-ansible/artifacts/auto-ansible.sh"
+    mode: "0700"
+
+- name: Ensure cron job for auto-ansible.sh exists
+  ansible.builtin.cron:
+    name: auto-ansible
+    job: /app/auto-ansible/artifacts/auto-ansible.sh
+    hour: "04"
+    minute: "30"
+    state: present
+    user: root
