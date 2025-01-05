@@ -8,6 +8,7 @@
       DEBIAN_FRONTEND=noninteractive apt autoremove -y &&
       DEBIAN_FRONTEND=noninteractive apt autoclean -y &&
       reboot
+    minute: "00"
     hour: "03"
     weekday: "6"
     state: present
