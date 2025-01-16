@@ -69,7 +69,7 @@
   containers.podman.podman_container:
     name: ddclient
     state: quadlet
-    image: linuxserver/ddclient:{{ ddclient_version }}
+    image: giovannibaratta/ddclient:{{ ddclient_version }}
     env_file: "{{ ddclient_conf_dir }}/ddclient.env"
     recreate: true
     network: ddclient

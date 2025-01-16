@@ -1,4 +1,5 @@
-ddclient_version: 3.11.2
+# Available versions https://hub.docker.com/repository/docker/giovannibaratta/ddclient/tags
+ddclient_version: v4.0.0-rc.1
 ddclient_container_user: ddclient
 ddclient_conf_dir: /app/ddclient/conf
 ddclient_work_dir: /app/ddclient/work
