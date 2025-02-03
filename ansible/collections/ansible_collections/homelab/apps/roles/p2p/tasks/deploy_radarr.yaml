@@ -197,6 +197,10 @@
         WantedBy=default.target
         [Unit]
         Requires=radarr-db.service
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
   notify:
     - Reload systemd daemons for p2p role
     - Restart radarr service
