@@ -18,6 +18,16 @@
     state: restarted
     name: bitmagnet
 
+- name: Restart flaresolverr network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: flaresolverr-network
+
+- name: Restart flaresolverr service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: flaresolverr
+
 - name: Restart prowlarr network
   ansible.builtin.systemd_service:
     state: restarted

@@ -25,3 +25,5 @@ p2p_radarr_main_db_name: radarrmain
 p2p_radarr_logs_db_name: radarrlogs
 p2p_radarr_db_container_user: postgres_radarr
 p2p_radarr_container_user: radarr
+p2p_flaresolverr_container_user: flaresolverr
+p2p_flaresolverr_image: 21hsmw/flaresolverr:nodrivertest

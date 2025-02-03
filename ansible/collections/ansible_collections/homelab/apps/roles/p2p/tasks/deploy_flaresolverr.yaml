@@ -1,0 +1,83 @@
+---
+- name: Add user {{ p2p_flaresolverr_container_user }}
+  ansible.builtin.user:
+    name: "{{ p2p_flaresolverr_container_user }}"
+    comment: User used to run flaresolverr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: p2p_flaresolverr_container_user_result
+
+- name: Create flaresolverr network Quadlet
+  containers.podman.podman_network:
+    name: flaresolverr
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-flaresolverr
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart flaresolverr network
+
+- name: Trigger Handlers for flaresolverr network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start flaresolverr network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: flaresolverr-network
+    state: started
+    enabled: true
+
+- name: Create flaresolverr Quadlet
+  containers.podman.podman_container:
+    name: flaresolverr
+    state: quadlet
+    image: "{{ p2p_flaresolverr_image }}"
+    recreate: true
+    network: flaresolverr
+
+    uidmap:
+      - 0:4000000000:1000
+      - 1000:{{ p2p_flaresolverr_container_user_result.uid }}:1
+      - 1001:4000001001:100000
+
+    gidmap:
+      - 0:4000000000:100000
+      - +1000:@{{ p2p_flaresolverr_container_user_result.group }}:1
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.flaresolverr.rule: Host(`{{ _p2p_flaresolverr_fqdn }}`)
+      traefik.http.routers.flaresolverr.entrypoints: web
+      traefik.http.services.flaresolverr.loadbalancer.server.port: 8191
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart flaresolverr service
+
+- name: Trigger Handlers for flaresolverr
+  ansible.builtin.meta: flush_handlers
+
+- name: Start flaresolverr
+  ansible.builtin.systemd_service:
+    name: flaresolverr
+    state: started
+    enabled: true
