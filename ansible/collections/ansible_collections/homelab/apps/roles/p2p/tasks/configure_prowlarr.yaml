@@ -20,6 +20,26 @@
         value: 0
     tags: []
 
+- name: Create a flaresolverr tag
+  devopsarr.prowlarr.prowlarr_tag:
+    prowlarr_url: "{{ _p2p_prowlarr_server_url }}"
+    prowlarr_api_key: "{{ prowlarr_api_key }}"
+    # The indexer must specify this tag to use the proxy
+    label: flaresolverr
+  register: _p2p_flaresolverr_tag_response
+
+- name: Create FlareSolverr proxy
+  devopsarr.prowlarr.prowlarr_indexer_proxy:
+    prowlarr_url: "{{ _p2p_prowlarr_server_url }}"
+    prowlarr_api_key: "{{ prowlarr_api_key }}"
+    name: FlareSolverr
+    config_contract: FlareSolverrSettings
+    implementation: FlareSolverr
+    fields:
+      - name: host
+        value: "http://{{_p2p_flaresolverr_fqdn}}"
+    tags: [ "{{ _p2p_flaresolverr_tag_response.id }}" ]
+
 - name: Retrieve Prowlarr apps
   ansible.builtin.uri:
     url: "{{ _p2p_prowlarr_server_url }}/api/v1/applications"
