@@ -260,7 +260,7 @@
         chain public_traffic {
           meta mark set ip saddr map @geoip4
           ct state {established,related} accept
-          ct state invalid log drop
+          ct state invalid log prefix "Invalid state " drop
           # Filter packet not coming from allowed countries checking the meta mark
           # set by geoip4. Geoblocking must be performed after the connection tracker
           # state to avoid blocking legit traffic
