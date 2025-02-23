@@ -2,9 +2,6 @@
 
 ## Prerequisites
 
-
-#TODO remove  this and use requirements
-
 - Install Python packages
     ```bash
     pip install -r requirements.txt
