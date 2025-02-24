@@ -1,5 +1,5 @@
 ---
-- name: Add {{ coder_container_user }} user
+- name: Add user {{ coder_container_user }}
   ansible.builtin.user:
     name: "{{ coder_container_user }}"
     comment: User used to run Coder
@@ -26,6 +26,7 @@
     - "{{ coder_conf_dir }}"
     - "{{ coder_work_dir }}"
     - "{{ coder_database_dir }}"
+    - "{{ coder_conf_dir }}/terraform"
 
 - name: Change ownership of {{ coder_database_dir }}
   ansible.builtin.file:
@@ -55,7 +56,9 @@
     - Reload systemd daemons
     - Restart Coder network
 
-- ansible.builtin.meta: flush_handlers
+- name: Flush handlers for Coder network
+  ansible.builtin.meta: flush_handlers
+
 - name: Start Coder network
   ansible.builtin.systemd_service:
     # The name is the name of the network + network suffix
@@ -115,7 +118,9 @@
     - Restart Coder DB service
     - Restart Coder service
 
-- ansible.builtin.meta: flush_handlers
+- name: Flush handlers for Coder
+  ansible.builtin.meta: flush_handlers
+
 - name: Copy coder.env file
   ansible.builtin.template:
     src: coder.env.j2
@@ -167,7 +172,9 @@
     - Reload systemd daemons
     - Restart Coder service
 
-- ansible.builtin.meta: flush_handlers
+- name: Flush handlers for Coder DB
+  ansible.builtin.meta: flush_handlers
+
 - name: Start Coder DB
   ansible.builtin.systemd_service:
     name: coder-db

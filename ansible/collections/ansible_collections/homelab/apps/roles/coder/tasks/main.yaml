@@ -1,2 +1,10 @@
 ---
-- ansible.builtin.import_tasks: deploy_coder.yaml
+- name: Set server URLs
+  ansible.builtin.set_fact:
+    _coder_fqdn: "https://coder.{{ internal_domain }}"
+
+- name: "Deploy Coder"
+  ansible.builtin.import_tasks: deploy_coder.yaml
+
+- name: "Configure Coder"
+  ansible.builtin.import_tasks: configure_coder.yaml

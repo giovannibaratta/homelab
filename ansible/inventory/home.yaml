@@ -56,3 +56,6 @@ home:
       logging_aws_cloud_watch_access_key: "{{ lookup('community.general.bitwarden_secrets_manager', '98b22309-34ba-48ec-8025-b228014a9294').value }}"
       logging_aws_cloud_watch_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '2e0329dc-7f83-42ab-a22c-b228014ab2ad').value }}"
       auto_remediation_bws_access_token: "{{ lookup('community.general.bitwarden_secrets_manager', 'fa2de49e-d606-44d5-8314-b25b00d440cc').value }}"
+
+      coder_admin_user_email: "{{ lookup('community.general.bitwarden_secrets_manager', '5c14666c-e754-427c-9ea0-b28d0183fcb9').value }}"
+      coder_admin_user_password: "{{ lookup('community.general.bitwarden_secrets_manager', '4beb759e-3bd1-4b23-a56b-b28d018441d4').value }}"

@@ -74,6 +74,8 @@
       ansible.builtin.set_fact:
         vpn_netbird_idp_client_id: "{{ idp_zitadel_terraform_output.outputs.netbird_client_id.value }}"
         vpn_netbird_idp_client_secret: "{{ idp_zitadel_terraform_output.outputs.netbird_client_secret.value }}"
+        coder_idp_client_id: "{{ idp_zitadel_terraform_output.outputs.coder_client_id.value }}"
+        coder_idp_client_secret: "{{ idp_zitadel_terraform_output.outputs.coder_client_secret.value }}"
       tags: idp
 
     - ansible.builtin.import_role:
