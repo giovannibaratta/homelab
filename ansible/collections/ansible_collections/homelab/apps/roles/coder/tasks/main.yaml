@@ -8,3 +8,8 @@
 
 - name: "Configure Coder"
   ansible.builtin.import_tasks: configure_coder.yaml
+
+- name: "Deploy template"
+  ansible.builtin.import_tasks: configure_templates.yaml
+  delegate_to: localhost
+  become: false

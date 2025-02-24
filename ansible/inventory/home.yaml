@@ -60,4 +60,4 @@ home:
       coder_admin_user_email: "{{ lookup('community.general.bitwarden_secrets_manager', '5c14666c-e754-427c-9ea0-b28d0183fcb9').value }}"
       coder_admin_user_password: "{{ lookup('community.general.bitwarden_secrets_manager', '4beb759e-3bd1-4b23-a56b-b28d018441d4').value }}"
       # Disable the variable because it seems that the API endpoints of coder are not working correctly
-      # coder_template_src_dir: "{{lookup('pipe', 'pwd')}}/../../../coder/templates"
+      coder_template_src_dir: "{{lookup('pipe', 'pwd')}}/../coder/templates"

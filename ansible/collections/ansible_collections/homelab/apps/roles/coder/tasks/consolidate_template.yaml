@@ -11,10 +11,10 @@
 
 - name: Check if remote template exist with name {{ template_name }}
   ansible.builtin.uri:
-    url: "{{ coder_server_url }}/api/v2/organizations/{{ organization_id }}/templates/{{ template_name }}"
+    url: "{{ _coder_fqdn }}/api/v2/organizations/{{ organization_id }}/templates/{{ template_name }}"
     method: GET
     headers:
-      Coder-Session-Token: "{{ coder_api_token }}"
+      Coder-Session-Token: "{{ _coder_api_token }}"
       Accept: application/json
     status_code: [200, 404]
   register: remote_template_result
@@ -27,17 +27,17 @@
     matching_remote_template_version_id: ""
 
 # Coder does not allow to create two template versions for a template with the same name. Hence we
-# first check if a version with the local name exsits, then if it is not the active version we
+# first check if a version with the local name exists, then if it is not the active version we
 # update it. Instead if the version can not be found, we will create a new one.
 - name: Check if a remote version already exist with name {{ template_local_version }}
   when: remote_template_id
   block:
     - name: Retrieve template version id matching local version name {{ template_local_version }}
       ansible.builtin.uri:
-        url: "{{ coder_server_url }}/api/v2/organizations/{{ organization_id }}/templates/{{ template_name }}/versions/{{ template_local_version }}"
+        url: "{{ _coder_fqdn }}/api/v2/organizations/{{ organization_id }}/templates/{{ template_name }}/versions/{{ template_local_version }}"
         method: GET
         headers:
-          Coder-Session-Token: "{{ coder_api_token }}"
+          Coder-Session-Token: "{{ _coder_api_token }}"
           Accept: application/json
         status_code: [200, 404]
       register: remote_template_version_matching_local_result
@@ -45,21 +45,21 @@
       ansible.builtin.set_fact:
         matching_remote_template_version_id: "{{ remote_template_version_matching_local_result.json.id if remote_template_version_matching_local_result.status == 200 else '' }}"
 
-- name: Set upload_local_version fact
+- name: Set _coder_template_upload_local_version fact
   ansible.builtin.set_fact:
     # Upload a new artifact only if we have a commit (sanity check) and we haven't found a remote
     # template with the same name of the local one.
-    upload_local_version: "{{ template_local_version and not matching_remote_template_version_id }}"
+    _coder_template_upload_local_version: "{{ template_local_version and not matching_remote_template_version_id }}"
 
 - name: Upload local version
-  when: upload_local_version
+  when: _coder_template_upload_local_version
   block:
     - name: Create temporary directory for {{ template_name }}
       ansible.builtin.tempfile:
         state: directory
         suffix: archive
       register: temp_dir
-    - name: Compress tempalate {{ template_name }}
+    - name: Compress template {{ template_name }}
       community.general.archive:
         path: "{{ template_dir }}/*"
         dest: "{{ temp_dir.path }}/{{ template_name }}.zip"
@@ -70,11 +70,11 @@
         mode: "0644"
     - name: Upload new version artifact for {{ template_name }}
       ansible.builtin.uri:
-        url: "{{ coder_server_url }}/api/v2/files"
+        url: "{{ _coder_fqdn }}/api/v2/files"
         method: POST
         src: "{{ temp_dir.path }}/{{ template_name }}.zip"
         headers:
-          Coder-Session-Token: "{{ coder_api_token }}"
+          Coder-Session-Token: "{{ _coder_api_token }}"
           Accept: application/json
           Content-Type: application/zip
         status_code: [200, 201]
@@ -86,10 +86,10 @@
     # template is not mandatory. Hence we first create the version and the template only if needed.
     - name: Create new template version for {{ template_name }}
       ansible.builtin.uri:
-        url: "{{ coder_server_url }}/api/v2/organizations/{{ organization_id }}/templateversions"
+        url: "{{ _coder_fqdn }}/api/v2/organizations/{{ organization_id }}/templateversions"
         method: POST
         headers:
-          Coder-Session-Token: "{{ coder_api_token }}"
+          Coder-Session-Token: "{{ _coder_api_token }}"
           Accept: application/json
           Content-Type: application/json
         status_code: [200, 201]
@@ -105,10 +105,10 @@
   block:
     - name: Create the template
       ansible.builtin.uri:
-        url: "{{ coder_server_url }}/api/v2/organizations/{{ organization_id }}/templates"
+        url: "{{ _coder_fqdn }}/api/v2/organizations/{{ organization_id }}/templates"
         method: POST
         headers:
-          Coder-Session-Token: "{{ coder_api_token }}"
+          Coder-Session-Token: "{{ _coder_api_token }}"
           Accept: application/json
           Content-Type: application/json
         status_code: [200, 201]
@@ -123,10 +123,10 @@
 - name: Set active template for {{ template_name }}
   when: remote_active_version_id != matching_remote_template_version_id
   ansible.builtin.uri:
-    url: "{{ coder_server_url }}/api/v2/templates/{{ remote_template_id }}/versions"
+    url: "{{ _coder_fqdn }}/api/v2/templates/{{ remote_template_id }}/versions"
     method: PATCH
     headers:
-      Coder-Session-Token: "{{ coder_api_token }}"
+      Coder-Session-Token: "{{ _coder_api_token }}"
       Accept: application/json
       Content-Type: application/json
     status_code: [200]

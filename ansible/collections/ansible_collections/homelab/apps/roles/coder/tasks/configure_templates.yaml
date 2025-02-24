@@ -1,22 +1,23 @@
 - name: Get all directories in {{ coder_template_src_dir }}
-  find:
+  ansible.builtin.find:
     paths: "{{ coder_template_src_dir }}"
-    patterns: '*'
+    patterns: "*"
     depth: 1
     file_type: directory
-    excludes: '.,..'
+    excludes: ".,.."
   register: templates_find_result
 
 - name: Get user organization ID
-  uri:
-    url: "{{ coder_server_url }}/api/v2/users/me/organizations"
+  ansible.builtin.uri:
+    url: "{{ _coder_fqdn }}/api/v2/users/me/organizations"
     method: GET
     headers:
-      Coder-Session-Token: "{{ coder_api_token }}"
+      Coder-Session-Token: "{{ _coder_api_token }}"
       Accept: application/json
   register: user_organization_id_result
 
-- include_tasks: consolidate-template.yaml
+- name: "Consolidate templates"
+  ansible.builtin.include_tasks: consolidate_template.yaml
   loop: "{{ templates_find_result.files }}"
   vars:
     template_dir: "{{ item.path }}"
