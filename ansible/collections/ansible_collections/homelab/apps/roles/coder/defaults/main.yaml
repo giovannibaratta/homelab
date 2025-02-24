@@ -1,4 +1,5 @@
 ---
-coder_version: v2.12.2
+# Available versions https://github.com/coder/coder/pkgs/container/coder
+coder_version: v2.19.0
 coder_conf_dir: /app/coder/conf
 coder_work_dir: /app/coder/work
