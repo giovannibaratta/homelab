@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Temporary fix to restore access via VPN
-sed -i 's/.*DataStoreEncryptionKey.*/\"DataStoreEncryptionKey\": \"\",/g' /app/netbird-mgmt/conf/netbird-mgmt.json
-
 ROOT_DIR="/app/auto-ansible"
 
 source "${ROOT_DIR}/python-env/bin/activate"
