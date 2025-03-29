@@ -8,6 +8,7 @@ RUN apt-get update \
 	sudo \
 	vim \
 	wget \
+	gpg \
 	&& rm -rf /var/lib/apt/lists/*
 
 ARG USER=coder
