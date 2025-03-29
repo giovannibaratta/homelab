@@ -109,6 +109,9 @@
         [Service]
         Restart=always
         RestartSec=120s
+        ExecStop=/usr/bin/podman rm -v -f -i --cidfile=%t/%N.cid --depend
+        ExecStopPost=-/usr/bin/podman rm -v -f -i --cidfile=%t/%N.cid --depend
+
   notify:
     - Reload systemd daemons for vpn role
     - Restart protonvpn service
