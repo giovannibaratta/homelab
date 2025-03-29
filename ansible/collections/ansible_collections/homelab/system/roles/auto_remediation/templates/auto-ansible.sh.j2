@@ -1,12 +1,84 @@
 #!/usr/bin/env bash
 
+TARGET_USER="ansible"
+# Window in which the user must not be detected
+USER_DETECTION_WINDOW_IN_SECONDS=10
+# How frequently to check for the user
+USER_DETECTION_INTERVAL_IN_SECONDS=1
+DETECTED_USER_SLEEP_IN_SECONDS=300
+MAX_SLEEP_TIME_IN_SECONDS=$((2 * 60 * 60)) # 2 hours
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $@"
+}
+
+
+# Checks if the target user is connected within a given duration.
+# Returns:
+#   0 if the user IS FOUND during the check period.
+#   1 if the user IS NOT FOUND
+detect_user() {
+    local target_user="$1"
+    local check_duration="$2"
+    local check_interval="$3"
+    local i
+
+    log "Performing initial check for '$target_user' for $check_duration seconds (interval: $check_interval second)..."
+    for (( i=0; i < check_duration; i+=check_interval )); do
+        # -w: match whole word
+        if who | grep -qw "$target_user"; then
+            log "User '$target_user' detected"
+            return 0
+        fi
+
+        sleep "$check_interval"
+    done
+
+    log "User '$target_user' not detected"
+    return 1
+}
+
+wait_for_user_logout() {
+    local target_user="$1"
+
+    log "Starting wait loop for user '$target_user' absence (max ${MAX_SLEEP_TIME_IN_SECONDS}s)."
+    local start_time
+    local current_time
+    local elapsed_time
+    start_time=$(date +%s)
+
+    while true; do # Loop controlled by time check below
+        current_time=$(date +%s)
+        elapsed_time=$((current_time - start_time))
+
+        if (( elapsed_time >= MAX_SLEEP_TIME_IN_SECONDS )); then
+            log "Maximum wait time (${MAX_SLEEP_TIME_IN_SECONDS}s) reached. Proceeding anyway..."
+            return 0
+        fi
+
+        if detect_user "$target_user" "$USER_DETECTION_WINDOW_IN_SECONDS" "$USER_DETECTION_INTERVAL_IN_SECONDS"; then
+          log "User '$target_user' was detected by detect_user. Sleeping for $DETECTED_USER_SLEEP_IN_SECONDS seconds."
+          log "Current elapsed time: ${elapsed_time}s / ${MAX_SLEEP_TIME_IN_SECONDS}s."
+          sleep "$DETECTED_USER_SLEEP_IN_SECONDS"
+        else
+          log "User '$target_user' confirmed absent by detect_user. Proceeding..."
+          return 0 # Success, proceed with execution
+        fi
+    done
+
+    # This part should technically not be reached
+    exit 1
+}
+
+wait_for_user_logout "$TARGET_USER"
+
 ROOT_DIR="/app/auto-ansible"
 
 source "${ROOT_DIR}/python-env/bin/activate"
 
-echo "Pulling latest changes from git"
+log "Pulling latest changes from git"
 git -C "${ROOT_DIR}/repo" pull
 BWS_TOKEN=$(cat "${ROOT_DIR}/config/bws_access_token")
 
-echo "Running ansible playbook"
+log "Running ansible playbook"
 BWS_ACCESS_TOKEN="${BWS_TOKEN}" ansible-playbook --connection=local --inventory "172.16.255.254," --limit "172.16.255.254" "${ROOT_DIR}/repo/ansible/setup_homelab.yaml" -i "${ROOT_DIR}/repo/ansible/inventory/home.yaml" -v
