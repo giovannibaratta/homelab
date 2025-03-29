@@ -252,20 +252,22 @@
 # blocked on this step, hence the need to run it asynchronously
 - name: Restart Netbird management service
   when: __vpn_copy_netbird_mgmt_env_file.changed or __vpn_copy_netbird_mgmt_conf_file.changed or __vpn_copy_netbird_mgmt_quadlet.changed
-  ansible.builtin.systemd_service:
-    state: restarted
-    name: netbird-mgmt
-  async: 300
-  poll: 0
-  register: __vpn_netbird_mgmt_service_restart
+  block:
+  - name: Restart Netbird management service
+    ansible.builtin.systemd_service:
+      state: restarted
+      name: netbird-mgmt
+    async: 300
+    poll: 0
+    register: __vpn_netbird_mgmt_service_restart
 
-- name: Check on Netbird mgmt service restart
-  async_status:
-    jid: "{{ __vpn_netbird_mgmt_service_restart.ansible_job_id }}"
-  register: job_result
-  until: job_result.finished
-  retries: 100
-  delay: 10
+  - name: Check on Netbird mgmt service restart
+    async_status:
+      jid: "{{ __vpn_netbird_mgmt_service_restart.ansible_job_id }}"
+    register: job_result
+    until: job_result.finished
+    retries: 100
+    delay: 10
 
 - name: Start netbird-mgmt
   ansible.builtin.systemd_service:
@@ -443,21 +445,23 @@
 # blocked on this step, hence the need to run it asynchronously
 - name: Restart Netbird exit node service
   when: __vpn_copy_netbird_exit_node_env_file.changed or __vpn_copy_netbird_exit_node_conf_file.changed or __vpn_copy_netbird_exit_node_quadlet.changed
-  ansible.builtin.systemd_service:
-    state: restarted
-    name: netbird-exit-node
-  async: 300
-  poll: 0
-  register: __vpn_netbird_exit_node_service_restart
+  block:
+  - name: Restart Netbird exit node service
+    ansible.builtin.systemd_service:
+      state: restarted
+      name: netbird-exit-node
+    async: 300
+    poll: 0
+    register: __vpn_netbird_exit_node_service_restart
 
-- name: Check on Netbird exit-node service restart
-  when: __vpn_netbird_exit_node_service_restart.changed
-  async_status:
-    jid: "{{ __vpn_netbird_exit_node_service_restart.ansible_job_id }}"
-  register: job_result
-  until: job_result.finished
-  retries: 100
-  delay: 10
+  - name: Check on Netbird exit-node service restart
+    when: __vpn_netbird_exit_node_service_restart.changed
+    async_status:
+      jid: "{{ __vpn_netbird_exit_node_service_restart.ansible_job_id }}"
+    register: job_result
+    until: job_result.finished
+    retries: 100
+    delay: 10
 
 - name: Start netbird-exit-node
   ansible.builtin.systemd_service:
@@ -547,21 +551,23 @@
 # blocked on this step, hence the need to run it asynchronously
 - name: Restart Netbird jump node service
   when: __vpn_copy_netbird_jump_node_env_file.changed or __vpn_copy_netbird_jump_node_conf_file.changed or __vpn_copy_netbird_jump_node_quadlet.changed
-  ansible.builtin.systemd_service:
-    state: restarted
-    name: netbird-jump-node
-  async: 300
-  poll: 0
-  register: __vpn_netbird_jump_node_service_restart
+  block:
+  - name: Restart Netbird jump node service
+    ansible.builtin.systemd_service:
+      state: restarted
+      name: netbird-jump-node
+    async: 300
+    poll: 0
+    register: __vpn_netbird_jump_node_service_restart
 
-- name: Check on Netbird jump-node service restart
-  when: __vpn_netbird_jump_node_service_restart.changed
-  async_status:
-    jid: "{{ __vpn_netbird_jump_node_service_restart.ansible_job_id }}"
-  register: job_result
-  until: job_result.finished
-  retries: 100
-  delay: 10
+  - name: Check on Netbird jump-node service restart
+    when: __vpn_netbird_jump_node_service_restart.changed
+    async_status:
+      jid: "{{ __vpn_netbird_jump_node_service_restart.ansible_job_id }}"
+    register: job_result
+    until: job_result.finished
+    retries: 100
+    delay: 10
 
 - name: Start netbird-jump-node
   ansible.builtin.systemd_service:
