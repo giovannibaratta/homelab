@@ -96,7 +96,7 @@
 - name: Ensure cron job for auto-ansible.sh exists
   ansible.builtin.cron:
     name: auto-ansible
-    job: /app/auto-ansible/artifacts/auto-ansible.sh
+    job: /app/auto-ansible/artifacts/auto-ansible.sh | /usr/bin/logger -t 'auto-ansible'
     hour: "*/4"
     minute: "30"
     state: present
