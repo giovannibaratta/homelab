@@ -36,7 +36,7 @@ resource "coder_agent" "main" {
     fi
 
     # install and start code-server
-    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.19.1
+    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.98.2
     /tmp/code-server/bin/code-server --auth none --port 13337 >/tmp/code-server.log 2>&1 &
   EOT
 
@@ -196,6 +196,35 @@ resource "docker_container" "workspace" {
 
   networks_advanced {
     name = "coder-workspaces"
+  }
+
+  # Required configurations to run Podman in Podman
+  security_opts = [
+    "apparmor=unconfined",
+    # Disable SELinux labelling
+    "label=disable",
+    # Give access to /proc information
+    "unmask=ALL",
+    # Allow syscall blocked by default
+    "seccomp=unconfined"
+  ]
+
+  devices {
+    host_path = "/dev/fuse"
+    container_path = "/dev/fuse"
+    permissions = "rwm"
+  }
+
+  devices {
+    host_path = "/dev/net/tun"
+    container_path = "/dev/net/tun"
+    permissions = "rwm"
+  }
+
+  capabilities {
+    add = [
+      "SYS_ADMIN", "NET_ADMIN", "SETUID", "SETGID"
+    ]
   }
 
   # Add labels in Docker to keep track of orphan resources.
