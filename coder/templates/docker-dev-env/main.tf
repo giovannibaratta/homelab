@@ -1,26 +1,9 @@
-terraform {
-  required_providers {
-    coder = {
-      source = "coder/coder"
-    }
-    docker = {
-      source = "kreuzwerker/docker"
-    }
-  }
-}
-
 locals {
   username = data.coder_workspace_owner.me.name
 }
 
-data "coder_provisioner" "me" {
-}
-
-provider "docker" {
-}
-
-data "coder_workspace" "me" {
-}
+data "coder_provisioner" "me" {}
+data "coder_workspace" "me" {}
 data "coder_workspace_owner" "me" {}
 
 resource "coder_agent" "main" {
@@ -51,11 +34,7 @@ resource "coder_agent" "main" {
     GIT_COMMITTER_EMAIL = "${data.coder_workspace_owner.me.email}"
   }
 
-  # The following metadata blocks are optional. They are used to display
-  # information about your workspace in the dashboard. You can remove them
-  # if you don't want to display any information.
-  # For basic resources, you can use the `coder stat` command.
-  # If you need more control, you can write your own script.
+  # Display information about your workspace in the dashboard.
   metadata {
     display_name = "CPU Usage"
     key          = "0_cpu_usage"
@@ -69,14 +48,6 @@ resource "coder_agent" "main" {
     key          = "1_ram_usage"
     script       = "coder stat mem"
     interval     = 10
-    timeout      = 1
-  }
-
-  metadata {
-    display_name = "Home Disk"
-    key          = "3_home_disk"
-    script       = "coder stat disk --path $${HOME}"
-    interval     = 60
     timeout      = 1
   }
 
@@ -134,13 +105,15 @@ resource "coder_app" "code-server" {
   }
 }
 
-resource "docker_volume" "home_volume" {
-  name = "coder-${data.coder_workspace.me.id}-home"
+resource "docker_volume" "workspace" {
+  for_each = local.persistent_volumes
+  name     = "coder-${data.coder_workspace.me.id}-${each.key}"
+
   # Protect the volume from being deleted due to changes in attributes.
   lifecycle {
     ignore_changes = all
   }
-  # Add labels in Docker to keep track of orphan resources.
+
   labels {
     label = "coder.owner"
     value = data.coder_workspace_owner.me.name
@@ -188,10 +161,14 @@ resource "docker_container" "workspace" {
     host = "host.docker.internal"
     ip   = "host-gateway"
   }
-  volumes {
-    container_path = "/home/${local.username}"
-    volume_name    = docker_volume.home_volume.name
-    read_only      = false
+
+  dynamic "volumes" {
+    for_each = local.persistent_volumes
+    content {
+      container_path = volumes.value
+      volume_name    = docker_volume.workspace[volumes.key].name
+      read_only      = false
+    }
   }
 
   networks_advanced {
@@ -210,15 +187,15 @@ resource "docker_container" "workspace" {
   ]
 
   devices {
-    host_path = "/dev/fuse"
+    host_path      = "/dev/fuse"
     container_path = "/dev/fuse"
-    permissions = "rwm"
+    permissions    = "rwm"
   }
 
   devices {
-    host_path = "/dev/net/tun"
+    host_path      = "/dev/net/tun"
     container_path = "/dev/net/tun"
-    permissions = "rwm"
+    permissions    = "rwm"
   }
 
   capabilities {
