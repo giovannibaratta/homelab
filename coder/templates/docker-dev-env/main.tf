@@ -105,6 +105,14 @@ resource "coder_app" "code-server" {
   }
 }
 
+module "cursor" {
+  count    = data.coder_workspace.me.start_count
+  source   = "registry.coder.com/modules/cursor/coder"
+  version  = "1.0.19"
+  agent_id = coder_agent.main.id
+  folder   = var.folder
+}
+
 resource "docker_volume" "workspace" {
   for_each = local.persistent_volumes
   name     = "coder-${data.coder_workspace.me.id}-${each.key}"
