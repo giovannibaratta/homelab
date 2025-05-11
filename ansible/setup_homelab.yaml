@@ -126,7 +126,7 @@
         name: homelab.apps.p2p
       vars:
         # The directory is used to stage downloaded and incomplete files
-        p2p_downloads_dir: /external-tmp/torrent/downloads
+        p2p_downloads_dir: /external/downloads
         p2p_sonarr_media_dir: "{{ media_data_dir }}/tv"
         p2p_radarr_media_dir: "{{ media_data_dir }}/movies"
       become: true
