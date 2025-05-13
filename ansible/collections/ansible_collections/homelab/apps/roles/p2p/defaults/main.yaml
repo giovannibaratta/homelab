@@ -1,5 +1,5 @@
 ---
-bitmagnet_version: v0.9.4
+bitmagnet_version: v0.10.0
 bitmagnet_conf_dir: /app/bitmagnet/conf
 bitmagnet_work_dir: /app/bitmagnet/work
 prowlarr_version: 1.24.3
