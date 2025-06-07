@@ -19,7 +19,7 @@ resource "coder_agent" "main" {
     fi
 
     # install and start code-server
-    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.98.2
+    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.100.3
     /tmp/code-server/bin/code-server --auth none --port 13337 >/tmp/code-server.log 2>&1 &
   EOT
 
@@ -108,7 +108,7 @@ resource "coder_app" "code-server" {
 module "cursor" {
   count    = data.coder_workspace.me.start_count
   source   = "registry.coder.com/modules/cursor/coder"
-  version  = "1.0.19"
+  version  = "1.2.0"
   agent_id = coder_agent.main.id
   folder   = var.folder
 }
