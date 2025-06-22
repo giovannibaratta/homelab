@@ -1,4 +1,6 @@
 ---
+# The playbook deploys two instances of the Netbird client in order to run two different
+# versions and perform a two stage update in case a new version would stop working as expected.
 - name: Add user {{ vpn_netbird_dashboard_container_user }}
   ansible.builtin.user:
     name: "{{ vpn_netbird_dashboard_container_user }}"
@@ -403,7 +405,7 @@
   containers.podman.podman_container:
     name: netbird-exit-node
     state: quadlet
-    image: netbirdio/netbird:{{ vpn_netbird_client_version }}
+    image: netbirdio/netbird:{{ vpn_netbird_exit_node_version }}
     env_file: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node.env"
     recreate: true
     network: netbird
@@ -509,7 +511,7 @@
   containers.podman.podman_container:
     name: netbird-jump-node
     state: quadlet
-    image: netbirdio/netbird:{{ vpn_netbird_client_version }}
+    image: netbirdio/netbird:{{ vpn_netbird_jump_node_version }}
     env_file: "{{ vpn_netbird_jump_node_conf_dir }}/netbird-jump-node.env"
     recreate: true
     network: netbird
