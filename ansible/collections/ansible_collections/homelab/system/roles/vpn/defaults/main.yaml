@@ -16,7 +16,7 @@ vpn_netbird_signal_work_dir: /app/netbird-signal/work
 vpn_netbird_exit_node_version: 0.48.0
 vpn_netbird_exit_node_conf_dir: /app/netbird-exit-node/conf
 vpn_netbird_exit_node_container_user: netbirdexitnode
-vpn_netbird_jump_node_version: 0.43.3
+vpn_netbird_jump_node_version: 0.48.0
 vpn_netbird_jump_node_conf_dir: /app/netbird-jump-node/conf
 vpn_netbird_jump_node_container_user: netbirdjumpnode
 # Available versions https://hub.docker.com/r/netbirdio/relay/tags
