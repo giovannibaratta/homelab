@@ -129,6 +129,26 @@
   notify:
     - Restart bitmagnet service
 
+- name: Copy bitmagnet-classifier.yaml.j2 file
+  ansible.builtin.template:
+    src: bitmagnet-classifier.yaml.j2
+    dest: "{{ bitmagnet_conf_dir }}/bitmagnet-classifier.yaml"
+    mode: "0640"
+    owner: "{{ bitmagnet_container_user }}"
+    group: "{{ bitmagnet_container_user_result.group }}"
+  notify:
+    - Restart bitmagnet service
+
+- name: Copy bitmagnet-config.yaml.j2 file
+  ansible.builtin.template:
+    src: bitmagnet-config.yaml.j2
+    dest: "{{ bitmagnet_conf_dir }}/bitmagnet-config.yaml"
+    mode: "0640"
+    owner: "{{ bitmagnet_container_user }}"
+    group: "{{ bitmagnet_container_user_result.group }}"
+  notify:
+    - Restart bitmagnet service
+
 - name: Create bitmagnet Quadlet
   containers.podman.podman_container:
     name: bitmagnet
@@ -148,6 +168,10 @@
     gidmap:
       - 0:{{ bitmagnet_container_user_result.group }}:1
       - 1:4000000000:100000
+
+    volumes:
+      - "{{ bitmagnet_conf_dir }}/bitmagnet-config.yaml:/config.yml:ro"
+      - "{{ bitmagnet_conf_dir }}/bitmagnet-classifier.yaml:/classifier.yml:ro"
 
     labels:
       traefik.enable: true

@@ -1,0 +1,6 @@
+workflows:
+  delete-archive:
+    - if_else:
+        condition: "torrent.files.filter(f, f.fileType == fileType.archive).size() > 0"
+        if_action: delete
+    - run_workflow: default
