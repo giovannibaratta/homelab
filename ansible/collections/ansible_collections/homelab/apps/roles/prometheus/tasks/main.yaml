@@ -79,8 +79,8 @@
     content: |
       global:
         smtp_from: {{ alertmanager_sender }}
-        smtp_smarthost: smtp.sendgrid.net:587
-        smtp_auth_username: apikey
+        smtp_smarthost: live.smtp.mailtrap.io:587
+        smtp_auth_username: smtp@mailtrap.io
         smtp_auth_password: {{ alertmanager_smtp_auth_password }}
       route:
         receiver: 'me'
