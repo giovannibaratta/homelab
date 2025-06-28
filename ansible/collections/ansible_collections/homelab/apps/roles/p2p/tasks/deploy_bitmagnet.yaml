@@ -82,6 +82,13 @@
     network: bitmagnet
     delete_depend: true
 
+    # Limit usage in case of CPU contention
+    # Based on a default of 1024
+    cpu_shares: 256
+    # Hard limit on CPU usage even if there is no contention
+    # Based on a default of 100000
+    cpu_quota: 15000
+
     # bitmagnet-db runs as root:root but /var/lib/postgresql/data must be assigned to postgres (70:70)
     # We map the root container user to the bitmagnet-db user running on the host
     # to give access to configuration and database files

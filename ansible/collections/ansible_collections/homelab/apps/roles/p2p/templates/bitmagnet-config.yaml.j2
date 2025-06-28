@@ -6,3 +6,11 @@ classifier:
       - xxx
 
   workflow: delete-archive
+
+dht_crawler:
+  # This parameter sets a maximum limit for the number of files saved by the crawler with each torrent.
+  save_files_threshold: 20
+  scaling_factor: 8
+
+processor:
+  concurrency: 5
