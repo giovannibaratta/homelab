@@ -28,5 +28,7 @@
       GSSAPIAuthentication no
       X11Forwarding no
       AllowAgentForwarding no
-      AllowTcpForwarding no
+      # https://man.openbsd.org/sshd_config#AllowTcpForwarding
+      # Since we have shell access there is no point in disabling it
+      AllowTcpForwarding local
       PermitTunnel no
