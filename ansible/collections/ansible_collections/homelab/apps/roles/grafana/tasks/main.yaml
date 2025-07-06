@@ -125,6 +125,7 @@
       Environment=PODMAN_SYSTEMD_UNIT=%n
       Restart=on-failure
       TimeoutStopSec=70
+      # Available versions https://hub.docker.com/r/grafana/grafana-oss/tags
       ExecStart=/usr/bin/podman run \
               --cidfile=%t/%n.ctr-id \
               --cgroups=no-conmon \
@@ -143,7 +144,7 @@
               --label="traefik.http.routers.grafana.tls.domains[0].main=grafana.{{ internal_domain }}" \
               --label="traefik.http.services.grafana.loadbalancer.server.port=3000" \
               --dns=172.16.255.254 \
-              docker.io/grafana/grafana-oss:11.0.0
+              docker.io/grafana/grafana-oss:12.0.2
       ExecStop=/usr/bin/podman stop \
               --ignore -t 10 \
               --cidfile=%t/%n.ctr-id
