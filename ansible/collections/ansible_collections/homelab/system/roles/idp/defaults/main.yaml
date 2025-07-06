@@ -1,5 +1,5 @@
 # Available versions https://ghcr.io/zitadel/zitadel
-idp_zitadel_version: v3.0.4
+idp_zitadel_version: v3.3.0
 idp_zitadel_container_user: zitadel
 idp_zitadel_conf_dir: /app/zitadel/conf
 idp_zitadel_db_version: 16.3-alpine
