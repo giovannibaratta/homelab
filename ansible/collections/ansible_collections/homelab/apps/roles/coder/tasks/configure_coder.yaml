@@ -1,3 +1,57 @@
+---
+- name: Check if Coder admin API token exists
+  ansible.builtin.stat:
+    path: "{{ coder_conf_dir }}/coder_admin_api_token"
+  register: _coder_api_token_file
+
+# The health endpoint requires an authentication token. The token will not be available during
+# the first run, in this case we will just check if the endpoint is responding without checking
+# the actual content.
+
+# Block for when the API token is found
+- name: Perform authenticated health check if token exists
+  when: _coder_api_token_file.stat.exists
+  block:
+    - name: Read Coder API token for health check
+      ansible.builtin.slurp:
+        src: "{{ coder_conf_dir }}/coder_admin_api_token"
+      register: _coder_api_token_file_content
+
+    - name: Set Coder API token fact
+      ansible.builtin.set_fact:
+        _coder_api_token: "{{ _coder_api_token_file_content['content'] | b64decode }}"
+
+    - name: Wait for Coder deployment to be healthy (authenticated)
+      ansible.builtin.uri:
+        url: "{{ _coder_fqdn }}/api/v2/debug/health"
+        method: GET
+        status_code: 200
+        return_content: true
+        headers:
+          Accept: application/json
+          Coder-Session-Token: "{{ _coder_api_token }}"
+      register: _coder_health_check
+      until: _coder_health_check.json.healthy | default(false)
+      retries: 36 # 180 seconds / 5 seconds per retry = 36 retries
+      delay: 5 # Wait 5 seconds between retries
+
+# Block for when the API token is NOT found (initial setup)
+- name: Perform unauthenticated health check if no token exists
+  when: not _coder_api_token_file.stat.exists
+  block:
+    - name: Wait for Coder service to become responsive
+      ansible.builtin.uri:
+        url: "{{ _coder_fqdn }}/api/v2/debug/health"
+        method: GET
+        status_code: [200, 401, 403] # Success if API is responsive (even if auth is required)
+        headers:
+          Accept: application/json
+      register: _coder_health_check
+      until: _coder_health_check.status in [200, 401, 403]
+      retries: 36
+      delay: 5
+
+# The rest of the playbook remains the same
 - name: Query Coder for existing first User
   ansible.builtin.uri:
     url: "{{ _coder_fqdn }}/api/v2/users/first"
@@ -21,7 +75,6 @@
 
 - name: Create first user and API token
   when: not _coder_first_user
-
   block:
     - name: Create first user
       ansible.builtin.uri:
@@ -73,12 +126,3 @@
         owner: root
         group: root
         mode: "0400"
-
-- name: Read Coder API token
-  ansible.builtin.slurp:
-    src: "{{ coder_conf_dir }}/coder_admin_api_token"
-  register: _coder_api_token_file_content
-
-- name: Set Coder API token
-  ansible.builtin.set_fact:
-    _coder_api_token: "{{ _coder_api_token_file_content['content'] | b64decode }}"
