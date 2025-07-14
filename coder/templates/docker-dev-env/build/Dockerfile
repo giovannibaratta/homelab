@@ -4,6 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
         && apt-get install -y \
+        apt-transport-https \
         curl \
         git \
         sudo \
@@ -41,11 +42,11 @@ ENV CONTAINERS_STORAGE_CONF=${CONTAINERS_ROOT_DIR}/storage.conf
 ENV CONTAINERS_GRAPHROOT=${CONTAINERS_ROOT_DIR}/storage
 
 RUN mkdir -p "${CONTAINERS_ROOT_DIR}" && \
-    mkdir -p "${CONTAINERS_GRAPHROOT}" && \
-    echo '[storage]' > ${CONTAINERS_STORAGE_CONF} && \
-    echo 'driver = "overlay"' >> ${CONTAINERS_STORAGE_CONF} && \
-    echo "graphroot = \"${CONTAINERS_GRAPHROOT}\"" >> ${CONTAINERS_STORAGE_CONF} && \
-    chown -R ${USER}:${USER} "${CONTAINERS_ROOT_DIR}"
+        mkdir -p "${CONTAINERS_GRAPHROOT}" && \
+        echo '[storage]' > ${CONTAINERS_STORAGE_CONF} && \
+        echo 'driver = "overlay"' >> ${CONTAINERS_STORAGE_CONF} && \
+        echo "graphroot = \"${CONTAINERS_GRAPHROOT}\"" >> ${CONTAINERS_STORAGE_CONF} && \
+        chown -R ${USER}:${USER} "${CONTAINERS_ROOT_DIR}"
 
 # Install developer tools
 RUN apt-get install -y \
@@ -62,8 +63,8 @@ RUN useradd --groups sudo -m --shell /bin/bash ${USER} \
 
 # Install NVM
 SHELL ["/bin/bash", "-c"]
-ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 22.14.0
+ENV NVM_DIR=/usr/local/nvm
+ENV NODE_VERSION=22.14.0
 
 RUN mkdir -p ${NVM_DIR}
 
@@ -72,18 +73,19 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.2/install.sh | b
 
 # install node and npm
 RUN source $NVM_DIR/nvm.sh \
-    && nvm install $NODE_VERSION \
-    && nvm alias default $NODE_VERSION \
-    && nvm use default
+        && nvm install $NODE_VERSION \
+        && nvm alias default $NODE_VERSION \
+        && nvm use default
 
 ENV NODE_PATH=$NVM_DIR/v$NODE_VERSION/lib/node_modules
 ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g corepack
+RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g @google/gemini-cli
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/corepack yarn install
 
 RUN mkdir -p /workspace && \
-    chown -R ${USER}:${USER} /workspace
+        chown -R ${USER}:${USER} /workspace
 
 USER ${USER}
 WORKDIR /workspace

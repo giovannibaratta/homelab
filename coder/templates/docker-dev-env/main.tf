@@ -10,16 +10,22 @@ resource "coder_agent" "main" {
   arch           = data.coder_provisioner.me.arch
   os             = "linux"
   startup_script = <<-EOT
+    echo "Configuring ephemeral instance ..."
+
+    # Exit immediately if a command fail
     set -e
 
     # Prepare user home with default files on first start.
     if [ ! -f ~/.init_done ]; then
+      echo "Initializing user home ..."
       cp -rT /etc/skel ~
       touch ~/.init_done
     fi
 
-    # install and start code-server
+    echo "Installing VSCode server ..."
     curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.101.2
+
+    echo "Starting VSCode server ..."
     /tmp/code-server/bin/code-server --auth none --port 13337 >/tmp/code-server.log 2>&1 &
   EOT
 
