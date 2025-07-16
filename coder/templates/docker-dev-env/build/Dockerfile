@@ -82,6 +82,7 @@ ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g corepack
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g @google/gemini-cli
+RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g @anthropic-ai/claude-code
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/corepack yarn install
 
 RUN mkdir -p /workspace && \
