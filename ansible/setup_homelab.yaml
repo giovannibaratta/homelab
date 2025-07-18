@@ -111,6 +111,11 @@
       tags: grafana
 
     - ansible.builtin.import_role:
+        name: homelab.apps.mqtt_broker
+      become: true
+      tags: mqtt-broker
+
+    - ansible.builtin.import_role:
         name: homelab.apps.coder
       become: true
       tags: coder

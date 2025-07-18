@@ -44,6 +44,14 @@
               writeTimeout: 600
               idleTimeout: 600
 
+        mqtt:
+          address: :1883
+          transport:
+            respondingTimeouts:
+              readTimeout: 0
+              writeTimeout: 0
+              idleTimeout: 0
+
         web:
           address: :8081
           transport:

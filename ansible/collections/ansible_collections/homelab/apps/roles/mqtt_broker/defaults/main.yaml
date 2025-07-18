@@ -1,0 +1,8 @@
+---
+mqtt_broker_version: "2.0.18"
+mqtt_broker_container_user: "mqtt-broker"
+mqtt_broker_conf_dir: "/app/mqtt-broker/conf"
+mqtt_broker_data_dir: "/app/mqtt-broker/data"
+mqtt_broker_port: 1883
+mqtt_broker_websocket_port: 9001
+mqtt_broker_internal_url: "tcp://mqtt-broker:{{ mqtt_broker_port }}"

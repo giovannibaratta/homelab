@@ -1,0 +1,7 @@
+# MQTT broker password file
+# Format: username:password_hash
+# To generate a new entry:
+# 1. Connect to the MQTT container
+# 2. mosquitto_passwd -c -b /tmp/passwd username plain_password
+# 3. Copy the content of /tmp/passwd here
+admin:{{mqtt_admin_password_hash}}

@@ -60,3 +60,5 @@ home:
 
       coder_admin_user_email: "{{ lookup('community.general.bitwarden_secrets_manager', '5c14666c-e754-427c-9ea0-b28d0183fcb9').value }}"
       coder_admin_user_password: "{{ lookup('community.general.bitwarden_secrets_manager', '4beb759e-3bd1-4b23-a56b-b28d018441d4').value }}"
+
+      mqtt_admin_password_hash: "{{ lookup('community.general.bitwarden_secrets_manager', '94d9095f-8bbf-4a6a-a19b-b31e00a3055f').value }}"

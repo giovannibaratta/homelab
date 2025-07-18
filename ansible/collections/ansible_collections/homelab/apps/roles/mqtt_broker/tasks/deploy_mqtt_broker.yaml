@@ -1,0 +1,94 @@
+---
+- name: Add user {{ mqtt_broker_container_user }}
+  ansible.builtin.user:
+    name: "{{ mqtt_broker_container_user }}"
+    comment: User used to run MQTT broker
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: mqtt_broker_container_user_result
+
+- name: Create MQTT broker directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ mqtt_broker_container_user }}"
+    group: "{{ mqtt_broker_container_user }}"
+  with_items:
+    - "{{ mqtt_broker_conf_dir }}"
+    - "{{ mqtt_broker_data_dir }}"
+
+- name: Create MQTT broker configuration file
+  ansible.builtin.template:
+    src: mosquitto.conf.j2
+    dest: "{{ mqtt_broker_conf_dir }}/mosquitto.conf"
+    mode: "0640"
+    owner: "{{ mqtt_broker_container_user }}"
+    group: "{{ mqtt_broker_container_user }}"
+  notify:
+    - Restart MQTT broker service
+
+- name: Create MQTT broker password file
+  ansible.builtin.template:
+    src: passwd.j2
+    dest: "{{ mqtt_broker_conf_dir }}/passwd"
+    mode: "0640"
+    owner: "{{ mqtt_broker_container_user }}"
+    group: "{{ mqtt_broker_container_user }}"
+  notify:
+    - Restart MQTT broker service
+
+- name: Create MQTT broker Quadlet
+  containers.podman.podman_container:
+    name: mqtt-broker
+    image: docker.io/eclipse-mosquitto:{{ mqtt_broker_version }}
+    state: quadlet
+
+    volumes:
+      - "{{ mqtt_broker_conf_dir }}:/mosquitto/config"
+      - "{{ mqtt_broker_data_dir }}:/mosquitto/data"
+
+    recreate: true
+    privileged: false
+
+    # Mosquitto runs as mosquitto:mosquitto (1883:1883)
+    # We map the mosquitto container user to the mqtt-broker user on the host
+    uidmap:
+      - 0:4000000000:1883
+      - 1883:{{ mqtt_broker_container_user_result.uid }}:1
+      - 1884:4000001884:100000
+
+    gidmap:
+      - 0:4000000000:1883
+      - 1883:{{ mqtt_broker_container_user_result.group }}:1
+      - 1884:4000001884:100000
+
+    labels:
+      traefik.enable: true
+      # TCP router for MQTT without TLS
+      traefik.tcp.routers.mqtt.rule: HostSNI(`*`)
+      traefik.tcp.routers.mqtt.entrypoints: mqtt
+      traefik.tcp.services.mqtt.loadbalancer.server.port: 1883
+      # HTTP router for WebSocket
+      traefik.http.routers.mqtt-websocket.rule: Host(`mqtt.{{ internal_domain }}`)
+      traefik.http.routers.mqtt-websocket.entrypoints: websecure
+      traefik.http.routers.mqtt-websocket.tls.certresolver: letsencrypt
+      traefik.http.routers.mqtt-websocket.tls.domains[0].main: mqtt.{{ internal_domain }}
+      traefik.http.services.mqtt-websocket.loadbalancer.server.port: 9001
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for mqtt-broker role
+    - Restart MQTT broker service
+
+- name: Flush handlers for MQTT broker
+  ansible.builtin.meta: flush_handlers
+
+- name: Start MQTT broker
+  ansible.builtin.systemd_service:
+    name: mqtt-broker
+    state: started
+    enabled: true
