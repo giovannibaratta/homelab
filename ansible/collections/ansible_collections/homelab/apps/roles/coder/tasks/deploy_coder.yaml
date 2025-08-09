@@ -168,6 +168,8 @@
         WantedBy=default.target
         [Unit]
         Requires=coder-db.service
+        Requires=zitadel.service
+
   notify:
     - Reload systemd daemons
     - Restart Coder service
