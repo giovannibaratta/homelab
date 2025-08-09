@@ -16,7 +16,8 @@ RUN apt-get update \
         python3-setuptools \
         fuse-overlayfs \
         slirp4netns \
-        uidmap
+        uidmap \
+        jq
 
 # Use podman-compose instead of docker-compose. Docker compose requires a socket to be
 # available, creating the socket in the container is not so easy.
