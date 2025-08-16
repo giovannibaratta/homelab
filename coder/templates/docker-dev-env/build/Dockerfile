@@ -17,7 +17,8 @@ RUN apt-get update \
         fuse-overlayfs \
         slirp4netns \
         uidmap \
-        jq
+        jq \
+        tmux
 
 # Use podman-compose instead of docker-compose. Docker compose requires a socket to be
 # available, creating the socket in the container is not so easy.
