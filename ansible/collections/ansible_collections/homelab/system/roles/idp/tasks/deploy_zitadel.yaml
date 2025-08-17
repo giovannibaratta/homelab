@@ -176,7 +176,7 @@
 
     labels:
       traefik.enable: true
-      traefik.http.routers.zitadel.rule: '"Host(`idp.{{ internal_domain }}`)"'
+      traefik.http.routers.zitadel.rule: Host(`idp.{{ internal_domain }}`)
       traefik.http.routers.zitadel.service: zitadel
       traefik.http.services.zitadel.loadbalancer.server.port: 8080
       traefik.http.routers.zitadel.entrypoints: websecure,public-secure
