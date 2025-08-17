@@ -355,9 +355,9 @@
 
     labels:
       traefik.enable: true
-      traefik.http.routers.netbird-relay.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/relay`)"'
+      traefik.http.routers.netbird-relay.rule: Host(`relay.netbird.{{ internal_domain }}`)
       traefik.http.routers.netbird-relay.entrypoints: websecure,public-secure
-      traefik.http.routers.netbird-relay.tls.domains[0].main: netbird.{{ internal_domain }}
+      traefik.http.routers.netbird-relay.tls.domains[0].main: relay.netbird.{{ internal_domain }}
       traefik.http.services.netbird-relay.loadbalancer.server.port: 8443
 
     quadlet_options:
