@@ -210,8 +210,6 @@
           # Forward external traffic to host ingress (Traefik)
           iifname { ftth } tcp dport { http } dnat to 172.16.255.254:9080
           iifname { ftth } tcp dport { https } dnat to 172.16.255.254:9443
-          # Forward external traffic for STUN/TURN
-          iifname { ftth } udp dport { 3478 } dnat to 172.16.255.254:3478
           # Forward local traffic to host ingress (Traefik)
           ip daddr 172.16.255.254 tcp dport { http } dnat to 172.16.255.254:8081
           ip daddr 172.16.255.254 tcp dport { https } dnat to 172.16.255.254:8443
@@ -269,8 +267,6 @@
           meta mark != $ALLOWED_COUNTRIES log prefix "Banned country " drop
           # Accept traffic to system ingress
           ip daddr 172.16.255.254 tcp dport { 9080, 9443 } accept
-          # Accept traffic for STUN
-          ip daddr 172.16.255.254 udp dport 3478 accept
           log prefix "Public unknown traffic " drop
         }
 
