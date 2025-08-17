@@ -4,21 +4,17 @@
 
 - Install Python packages
     ```bash
-    pip install -r requirements.txt
+    python3 -m venv .venv
+    source .venv/bin/activate
+    python3 -m pip install -r requirements.txt
     ```
-- (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK and configure an access token.
+- (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK (see [here](https://github.com/bitwarden/sdk-sm)) and configure an access token.
     ```bash
     export BWS_ACCESS_TOKEN=""
     ```
 - Terraform
 
 ## Run playbook
-
-1. Install the requirements
-
-    ```bash
-    ansible-galaxy install -r "requirements.yaml"
-    ```
 
 1. Install the collections
 
@@ -63,3 +59,10 @@ echo "$SSH_PUB_KEY" >> /home/ansible/.ssh/authorized_keys
 chmod -R 600 /home/ansible/.ssh
 chown -R ansible:ansible /home/ansible
 ```
+
+
+### FAQ
+
+#### Python requirements installation fails
+
+If the installation of the Python requirements fails due to a maturin error, it might related to this issue [here](https://github.com/bitwarden/sdk-sm/issues/1222). Manually install the Bitwarden SDK python package by cloning it from GitHub.
