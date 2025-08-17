@@ -70,7 +70,31 @@ wait_for_user_logout() {
     exit 1
 }
 
-wait_for_user_logout "$TARGET_USER"
+check_for_running_playbook() {
+    log "Checking for existing ansible-playbook processes..."
+    # pgrep -f checks the full command line for the pattern.
+    if pgrep -f "ansible-playbook" >/dev/null; then
+        log "Error: Another ansible-playbook process is already running. Exiting."
+        log "Running processes found:"
+        # pgrep -a shows the full command line.
+        pgrep -af "ansible-playbook" | while read -r line; do log "  $line"; done
+        exit 1
+    fi
+    log "No other ansible-playbook process found. Continuing."
+}
+
+
+SKIP_USER_LOGOUT_CHECK=false
+if [[ "$1" == "--skip-user-logout-check" ]]; then
+    log "Flag --skip-user-logout-check detected. Skipping user logout wait."
+    SKIP_USER_LOGOUT_CHECK=true
+fi
+
+if [ "$SKIP_USER_LOGOUT_CHECK" = false ]; then
+    wait_for_user_logout "$TARGET_USER"
+fi
+
+check_for_running_playbook
 
 ROOT_DIR="/app/auto-ansible"
 
