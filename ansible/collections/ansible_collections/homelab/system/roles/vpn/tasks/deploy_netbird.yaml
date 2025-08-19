@@ -33,6 +33,14 @@
     shell: /usr/sbin/nologin
   register: vpn_netbird_relay_container_user_result
 
+- name: Add user {{ vpn_netbird_relay_fallback_container_user }}
+  ansible.builtin.user:
+    name: "{{ vpn_netbird_relay_fallback_container_user }}"
+    comment: User used to run Netbird relay fallback
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: vpn_netbird_relay_fallback_container_user_result
+
 - name: Add user {{ vpn_netbird_exit_node_container_user }}
   ansible.builtin.user:
     name: "{{ vpn_netbird_exit_node_container_user }}"
@@ -81,6 +89,16 @@
     group: "{{ vpn_netbird_relay_container_user }}"
   with_items:
     - "{{ vpn_netbird_relay_conf_dir }}"
+
+- name: Create Netbird relay fallback directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ vpn_netbird_relay_fallback_container_user }}"
+    group: "{{ vpn_netbird_relay_fallback_container_user }}"
+  with_items:
+    - "{{ vpn_netbird_relay_fallback_conf_dir }}"
 
 - name: Create Netbird exit node directories
   ansible.builtin.file:
@@ -178,105 +196,6 @@
     state: started
     enabled: true
 
-- name: Copy netbird-mgmt.env file
-  ansible.builtin.template:
-    src: netbird-mgmt.env.j2
-    dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
-    mode: "0600"
-    backup: true
-  register: __vpn_copy_netbird_mgmt_env_file
-
-- name: Copy netbird-mgmt.json file
-  ansible.builtin.template:
-    src: netbird-mgmt.json.j2
-    dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json"
-    mode: "0600"
-    backup: true
-    owner: "{{ vpn_netbird_mgmt_container_user }}"
-    group: "{{ vpn_netbird_mgmt_container_user }}"
-  register: __vpn_copy_netbird_mgmt_conf_file
-
-- name: Create Netbird mgmt Quadlet
-  containers.podman.podman_container:
-    name: netbird-mgmt
-    state: quadlet
-    image: netbirdio/management:{{ vpn_netbird_mgmt_version }}
-    command: --port 8080 --log-file console --log-level info --disable-anonymous-metrics=true --single-account-mode-domain=netbird.{{ internal_domain }} --dns-domain=netbird.selfhosted
-    env_file: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
-    recreate: true
-    network: netbird
-
-    volumes:
-      - "{{ vpn_netbird_mgmt_work_dir }}:/var/lib/netbird"
-      - "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json:/etc/netbird/management.json"
-
-    uidmap:
-      - 0:{{ vpn_netbird_mgmt_container_user_result.uid }}:1
-      - 1:4000000000:100000
-
-    gidmap:
-      - 0:{{ vpn_netbird_mgmt_container_user_result.group }}:1
-      - 1:4000000000:100000
-
-    labels:
-      traefik.enable: true
-      traefik.http.routers.netbird-api.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/api`)"'
-      traefik.http.routers.netbird-api.service: netbird-api
-      traefik.http.services.netbird-api.loadbalancer.server.port: 8080
-      traefik.http.routers.netbird-api.entrypoints: websecure,public-secure
-      traefik.http.routers.netbird-api.tls.certresolver: letsencrypt
-      traefik.http.routers.netbird-management.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/management.ManagementService/`)"'
-      traefik.http.routers.netbird-management.service: netbird-management
-      traefik.http.services.netbird-management.loadbalancer.server.port: 8080
-      # gRPC scheme
-      traefik.http.services.netbird-management.loadbalancer.server.scheme: h2c
-      traefik.http.routers.netbird-management.entrypoints: websecure,public-secure
-      traefik.http.routers.netbird-management.tls.certresolver: letsencrypt
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        Requires=netbird-dashboard.service
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-  notify:
-    - Reload systemd daemons for vpn role
-  register: __vpn_copy_netbird_mgmt_quadlet
-
-- name: Trigger Handlers for netbird-mgmt
-  ansible.builtin.meta: flush_handlers
-
-# The restart will cause the connection to drop and Ansible will remained
-# blocked on this step, hence the need to run it asynchronously
-- name: Restart Netbird management service
-  when: __vpn_copy_netbird_mgmt_env_file.changed or __vpn_copy_netbird_mgmt_conf_file.changed or __vpn_copy_netbird_mgmt_quadlet.changed
-  block:
-  - name: Restart Netbird management service
-    ansible.builtin.systemd_service:
-      state: restarted
-      name: netbird-mgmt
-    async: 300
-    poll: 0
-    register: __vpn_netbird_mgmt_service_restart
-
-  - name: Check on Netbird mgmt service restart
-    async_status:
-      jid: "{{ __vpn_netbird_mgmt_service_restart.ansible_job_id }}"
-    register: job_result
-    until: job_result.finished
-    retries: 100
-    delay: 10
-
-- name: Start netbird-mgmt
-  ansible.builtin.systemd_service:
-    name: netbird-mgmt
-    state: started
-    enabled: true
-
 - name: Create Netbird signal Quadlet
   containers.podman.podman_container:
     name: netbird-signal
@@ -298,7 +217,7 @@
 
     labels:
       traefik.enable: true
-      traefik.http.routers.netbird-signal.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/signalexchange.SignalExchange/`)"'
+      traefik.http.routers.netbird-signal.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/signalexchange.SignalExchange/`)
       traefik.http.routers.netbird-signal.entrypoints: websecure,public-secure
       traefik.http.routers.netbird-signal.tls.domains[0].main: netbird.{{ internal_domain }}
       traefik.http.services.netbird-signal.loadbalancer.server.port: 80
@@ -355,7 +274,7 @@
 
     labels:
       traefik.enable: true
-      traefik.http.routers.netbird-relay.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/relay`)"'
+      traefik.http.routers.netbird-relay.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/relay`)
       traefik.http.routers.netbird-relay.entrypoints: websecure,public-secure
       traefik.http.routers.netbird-relay.tls.domains[0].main: netbird.{{ internal_domain }}
       traefik.http.services.netbird-relay.loadbalancer.server.port: 8443
@@ -380,6 +299,62 @@
 - name: Start netbird-relay
   ansible.builtin.systemd_service:
     name: netbird-relay
+    state: started
+    enabled: true
+
+- name: Copy netbird-relay-fallback.env file
+  ansible.builtin.template:
+    src: netbird-relay-fallback.env.j2
+    dest: "{{ vpn_netbird_relay_fallback_conf_dir }}/netbird-relay-fallback.env"
+    mode: "0600"
+    backup: true
+  notify:
+    - Restart netbird-relay-fallback service
+
+- name: Create Netbird relay fallback
+  containers.podman.podman_container:
+    name: netbird-relay-fallback
+    state: quadlet
+    image: netbirdio/relay:{{ vpn_netbird_relay_fallback_version }}
+    env_file: "{{ vpn_netbird_relay_fallback_conf_dir }}/netbird-relay-fallback.env"
+    recreate: true
+    network: netbird
+
+    uidmap:
+      - 0:{{ vpn_netbird_relay_fallback_container_user_result.uid }}:1
+      - 1:4000000000:10000
+
+    gidmap:
+      - 0:{{ vpn_netbird_relay_fallback_container_user_result.group }}:1
+      - 1:4000000000:10000
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.netbird-relay-fallback.rule: Host(`relay-fallback.netbird.{{ internal_domain }}`)
+      traefik.http.routers.netbird-relay-fallback.entrypoints: websecure,public-secure
+      traefik.http.routers.netbird-relay-fallback.tls.domains[0].main: relay-fallback.netbird.{{ internal_domain }}
+      traefik.http.services.netbird-relay-fallback.loadbalancer.server.port: 8443
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
+
+  notify:
+    - Reload systemd daemons for vpn role
+    - Restart netbird-relay-fallback service
+
+- name: Trigger Handlers for netbird-relay-fallback
+  ansible.builtin.meta: flush_handlers
+
+- name: Start netbird-relay-fallback
+  ansible.builtin.systemd_service:
+    name: netbird-relay-fallback
     state: started
     enabled: true
 
@@ -448,26 +423,125 @@
 - name: Restart Netbird exit node service
   when: __vpn_copy_netbird_exit_node_env_file.changed or __vpn_copy_netbird_exit_node_conf_file.changed or __vpn_copy_netbird_exit_node_quadlet.changed
   block:
-  - name: Restart Netbird exit node service
-    ansible.builtin.systemd_service:
-      state: restarted
-      name: netbird-exit-node
-    async: 300
-    poll: 0
-    register: __vpn_netbird_exit_node_service_restart
+    - name: Restart Netbird exit node service
+      ansible.builtin.systemd_service:
+        state: restarted
+        name: netbird-exit-node
+      async: 300
+      poll: 0
+      register: __vpn_netbird_exit_node_service_restart
 
-  - name: Check on Netbird exit-node service restart
-    when: __vpn_netbird_exit_node_service_restart.changed
-    async_status:
-      jid: "{{ __vpn_netbird_exit_node_service_restart.ansible_job_id }}"
-    register: job_result
-    until: job_result.finished
-    retries: 100
-    delay: 10
+    - name: Check on Netbird exit-node service restart
+      when: __vpn_netbird_exit_node_service_restart.changed
+      async_status:
+        jid: "{{ __vpn_netbird_exit_node_service_restart.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 100
+      delay: 10
 
 - name: Start netbird-exit-node
   ansible.builtin.systemd_service:
     name: netbird-exit-node
+    state: started
+    enabled: true
+
+- name: Copy netbird-mgmt.env file
+  ansible.builtin.template:
+    src: netbird-mgmt.env.j2
+    dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
+    mode: "0600"
+    backup: true
+  register: __vpn_copy_netbird_mgmt_env_file
+
+- name: Copy netbird-mgmt.json file
+  ansible.builtin.template:
+    src: netbird-mgmt.json.j2
+    dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json"
+    mode: "0600"
+    backup: true
+    owner: "{{ vpn_netbird_mgmt_container_user }}"
+    group: "{{ vpn_netbird_mgmt_container_user }}"
+  register: __vpn_copy_netbird_mgmt_conf_file
+
+- name: Create Netbird mgmt Quadlet
+  containers.podman.podman_container:
+    name: netbird-mgmt
+    state: quadlet
+    image: netbirdio/management:{{ vpn_netbird_mgmt_version }}
+    command: --port 8080 --log-file console --log-level info --disable-anonymous-metrics=true --single-account-mode-domain=netbird.{{ internal_domain }} --dns-domain=netbird.selfhosted
+    env_file: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
+    recreate: true
+    network: netbird
+
+    volumes:
+      - "{{ vpn_netbird_mgmt_work_dir }}:/var/lib/netbird"
+      - "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json:/etc/netbird/management.json"
+
+    uidmap:
+      - 0:{{ vpn_netbird_mgmt_container_user_result.uid }}:1
+      - 1:4000000000:100000
+
+    gidmap:
+      - 0:{{ vpn_netbird_mgmt_container_user_result.group }}:1
+      - 1:4000000000:100000
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.netbird-api.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/api`)
+      traefik.http.routers.netbird-api.service: netbird-api
+      traefik.http.services.netbird-api.loadbalancer.server.port: 8080
+      traefik.http.routers.netbird-api.entrypoints: websecure,public-secure
+      traefik.http.routers.netbird-api.tls.certresolver: letsencrypt
+      traefik.http.routers.netbird-management.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/management.ManagementService/`)
+      traefik.http.routers.netbird-management.service: netbird-management
+      traefik.http.services.netbird-management.loadbalancer.server.port: 8080
+      # gRPC scheme
+      traefik.http.services.netbird-management.loadbalancer.server.scheme: h2c
+      traefik.http.routers.netbird-management.entrypoints: websecure,public-secure
+      traefik.http.routers.netbird-management.tls.certresolver: letsencrypt
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=netbird-dashboard.service
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
+  notify:
+    - Reload systemd daemons for vpn role
+  register: __vpn_copy_netbird_mgmt_quadlet
+
+- name: Trigger Handlers for netbird-mgmt
+  ansible.builtin.meta: flush_handlers
+
+# The restart will cause the connection to drop and Ansible will remained
+# blocked on this step, hence the need to run it asynchronously
+- name: Restart Netbird management service
+  when: __vpn_copy_netbird_mgmt_env_file.changed or __vpn_copy_netbird_mgmt_conf_file.changed or __vpn_copy_netbird_mgmt_quadlet.changed
+  block:
+    - name: Restart Netbird management service
+      ansible.builtin.systemd_service:
+        state: restarted
+        name: netbird-mgmt
+      async: 300
+      poll: 0
+      register: __vpn_netbird_mgmt_service_restart
+
+    - name: Check on Netbird mgmt service restart
+      async_status:
+        jid: "{{ __vpn_netbird_mgmt_service_restart.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 100
+      delay: 10
+
+- name: Start netbird-mgmt
+  ansible.builtin.systemd_service:
+    name: netbird-mgmt
     state: started
     enabled: true
 
@@ -554,22 +628,22 @@
 - name: Restart Netbird jump node service
   when: __vpn_copy_netbird_jump_node_env_file.changed or __vpn_copy_netbird_jump_node_conf_file.changed or __vpn_copy_netbird_jump_node_quadlet.changed
   block:
-  - name: Restart Netbird jump node service
-    ansible.builtin.systemd_service:
-      state: restarted
-      name: netbird-jump-node
-    async: 300
-    poll: 0
-    register: __vpn_netbird_jump_node_service_restart
+    - name: Restart Netbird jump node service
+      ansible.builtin.systemd_service:
+        state: restarted
+        name: netbird-jump-node
+      async: 300
+      poll: 0
+      register: __vpn_netbird_jump_node_service_restart
 
-  - name: Check on Netbird jump-node service restart
-    when: __vpn_netbird_jump_node_service_restart.changed
-    async_status:
-      jid: "{{ __vpn_netbird_jump_node_service_restart.ansible_job_id }}"
-    register: job_result
-    until: job_result.finished
-    retries: 100
-    delay: 10
+    - name: Check on Netbird jump-node service restart
+      when: __vpn_netbird_jump_node_service_restart.changed
+      async_status:
+        jid: "{{ __vpn_netbird_jump_node_service_restart.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: 100
+      delay: 10
 
 - name: Start netbird-jump-node
   ansible.builtin.systemd_service:

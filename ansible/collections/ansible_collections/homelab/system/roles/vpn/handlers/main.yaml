@@ -23,6 +23,11 @@
     state: restarted
     name: netbird-relay
 
+- name: Restart netbird-relay-fallback service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: netbird-relay-fallback
+
 - name: Restart protonvpn network
   ansible.builtin.systemd_service:
     state: restarted
