@@ -1,0 +1,4 @@
+# Available versions https://hub.docker.com/r/jamesread/olivetin/tags
+remote_control_olivetin_version: 2025.7.29
+remote_control_container_user: olivetin
+remote_control_conf_dir: /app/olivetin/conf

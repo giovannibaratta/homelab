@@ -1,0 +1,113 @@
+---
+- name: Add user {{ remote_control_container_user }}
+  ansible.builtin.user:
+    name: "{{ remote_control_container_user }}"
+    comment: User used to run OliveTin
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: remote_control_container_user_result
+
+- name: Create OliveTin directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ remote_control_container_user }}"
+    group: "{{ remote_control_container_user }}"
+  with_items:
+    - "{{ remote_control_conf_dir }}"
+
+- name: Create OliveTin network Quadlet
+  containers.podman.podman_network:
+    name: olivetin
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-olivetin
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for remote-control role
+    - Restart olivetin network
+
+- name: Trigger Handlers for olivetin network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start olivetin network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: olivetin-network
+    state: started
+    enabled: true
+
+- name: Copy OliveTin configuration file
+  ansible.builtin.template:
+    src: olivetin-config.yaml.j2
+    dest: "{{ remote_control_conf_dir }}/config.yaml"
+    mode: "0600"
+    owner: "{{ remote_control_container_user }}"
+    group: "{{ remote_control_container_user }}"
+    backup: true
+  notify:
+    - Restart olivetin service
+
+- name: Create OliveTin Quadlet
+  containers.podman.podman_container:
+    name: olivetin
+    state: quadlet
+    image: jamesread/olivetin:{{ remote_control_olivetin_version }}
+    recreate: true
+    network: olivetin
+
+    # env:
+    #   OLIVETIN_CONFIG_DIR: "/config"
+
+    volumes:
+      - "{{ remote_control_conf_dir }}:/config"
+
+    uidmap:
+      - 0:4000000000:1000
+      - 1000:{{ remote_control_container_user_result.uid }}:1
+      - 1001:4000001000:100000
+
+    gidmap:
+      - 0:4000000000:100000
+      - +1000:@{{ remote_control_container_user_result.group }}:1
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.olivetin.rule: Host(`remote-control.{{ internal_domain }}`)
+      traefik.http.routers.olivetin.service: olivetin
+      traefik.http.services.olivetin.loadbalancer.server.port: 1337
+      traefik.http.routers.olivetin.entrypoints: websecure
+      traefik.http.routers.olivetin.tls.certresolver: letsencrypt
+      traefik.http.routers.olivetin.tls.domains[0].main: remote-control.{{ internal_domain }}
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
+  notify:
+    - Reload systemd daemons for remote-control role
+    - Restart olivetin service
+
+- name: Trigger Handlers for olivetin
+  ansible.builtin.meta: flush_handlers
+
+- name: Start olivetin
+  ansible.builtin.systemd_service:
+    name: olivetin
+    state: started
+    enabled: true

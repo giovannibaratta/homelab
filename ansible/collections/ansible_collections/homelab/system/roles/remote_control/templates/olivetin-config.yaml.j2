@@ -1,0 +1,49 @@
+---
+authRequireGuestsToLogin: true
+authLocalUsers:
+  enabled: false
+accessControlLists:
+  - name: admins
+    permissions:
+      view: true
+      exec: true
+      logs: true
+    matchUsergroups:
+      - admin
+    addToEveryAction: true
+    policy:
+      showDiagnostics: true
+      showLogList: true
+defaultPolicy:
+  showDiagnostics: false
+  showLogList: false
+defaultPermissions:
+  view: false
+  exec: false
+  logs: false
+authOAuth2RedirectURL: https://remote-control.{{ internal_domain }}/oauth/callback
+authOAuth2Providers:
+  zitadel:
+    name: zitadel
+    title: Zitadel
+    clientID: "{{ remote_control_oauth2_client_id }}"
+    clientSecret: "{{ remote_control_oauth2_client_secret }}"
+    authURL: https://idp.{{ internal_domain }}/oauth/v2/authorize
+    tokenURL: https://idp.{{ internal_domain }}/oauth/v2/token
+    whoamiURL: https://idp.{{ internal_domain }}/oidc/v1/userinfo
+    usernameField: preferred_username
+    userGroupField: single-group
+    scopes:
+      -  openid
+      -  profile
+      -  email
+      -  offline_access
+      -  api
+
+actions:
+  - title: System Information
+    shell: uname -a
+    timeout: 30
+
+logLevel: "INFO"
+insecureAllowDumpOAuth2UserData: false

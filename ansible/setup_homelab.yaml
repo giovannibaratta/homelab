@@ -76,7 +76,14 @@
         vpn_netbird_idp_client_secret: "{{ idp_zitadel_terraform_output.outputs.netbird_client_secret.value }}"
         coder_idp_client_id: "{{ idp_zitadel_terraform_output.outputs.coder_client_id.value }}"
         coder_idp_client_secret: "{{ idp_zitadel_terraform_output.outputs.coder_client_secret.value }}"
+        remote_control_oauth2_client_id: "{{ idp_zitadel_terraform_output.outputs.olivetin_client_id.value }}"
+        remote_control_oauth2_client_secret: "{{ idp_zitadel_terraform_output.outputs.olivetin_client_secret.value }}"
       tags: idp
+
+    - ansible.builtin.import_role:
+        name: homelab.system.remote_control
+      become: true
+      tags: remote-control
 
     - ansible.builtin.import_role:
         name: homelab.system.vpn
