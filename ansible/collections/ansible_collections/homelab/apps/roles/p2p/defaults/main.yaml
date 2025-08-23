@@ -2,21 +2,22 @@
 bitmagnet_version: v0.10.0
 bitmagnet_conf_dir: /app/bitmagnet/conf
 bitmagnet_work_dir: /app/bitmagnet/work
-prowlarr_version: 1.24.3
+prowlarr_version: 1.37.0
 prowlarr_conf_dir: /app/prowlarr/conf
 prowlarr_work_dir: /app/prowlarr/work
 bittorrent_version: 4.6.7
 bittorrent_port: 53428
 bittorrent_work_dir: /app/bittorrent/work
 # Available versions https://hub.docker.com/r/linuxserver/sonarr/tags
-sonarr_version: 4.0.14
+sonarr_version: 4.0.15
 sonarr_conf_dir: /app/sonarr/conf
 sonarr_work_dir: /app/sonarr/work
 p2p_sonarr_container_data_dir: /data
-overseerr_version: a2c25d5e4b1ae7ccbe3e64910de5472b629f49d3
+# Available versions https://hub.docker.com/r/sctx/overseerr/tags
+overseerr_version: b1c6e2fdbde49859a661767e9b414555aa7abc31
 overseerr_conf_dir: /app/overseerr/conf
 overseerr_work_dir: /app/overseerr/work
-p2p_radarr_version: 5.12.2
+p2p_radarr_version: 5.26.2
 p2p_radarr_conf_dir: /app/radarr/conf
 p2p_radarr_work_dir: /app/radarr/work
 p2p_radarr_container_data_dir: /data
