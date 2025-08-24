@@ -1,4 +1,14 @@
 ---
+- name: Create zitadel directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+  with_items:
+    - "{{ idp_zitadel_conf_dir }}/terraform"
+
 - name: Copy Terraform module
   ansible.posix.synchronize:
     src: files/terraform/
@@ -6,6 +16,8 @@
     delete: true
     group: false
     owner: false
+    perms: false
+    times: false
     rsync_opts:
       - "--no-motd"
       - "--exclude='.terraform'"
