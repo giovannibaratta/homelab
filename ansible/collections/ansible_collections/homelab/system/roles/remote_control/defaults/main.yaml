@@ -2,3 +2,7 @@
 remote_control_olivetin_version: 2025.7.29
 remote_control_container_user: olivetin
 remote_control_conf_dir: /app/olivetin/conf
+
+# Socket proxy configuration for Docker access
+remote_control_socket_proxy_version: latest
+remote_control_socket_proxy_container_user: socket-proxy

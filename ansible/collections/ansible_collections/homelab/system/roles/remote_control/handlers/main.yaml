@@ -12,3 +12,8 @@
   ansible.builtin.systemd_service:
     state: restarted
     name: olivetin
+
+- name: Restart docker-socket-proxy-ro service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: docker-socket-proxy-ro
