@@ -1,4 +1,10 @@
 ---
+{% set docker_logs_command %}
+{%- raw -%}
+/config/scripts/docker-logs.sh --container "{{container_name}}" {{tail_50}} --grep "{{grep_filter}}"
+{%- endraw -%}
+{% endset %}
+
 authRequireGuestsToLogin: true
 authLocalUsers:
   enabled: false
@@ -41,9 +47,35 @@ authOAuth2Providers:
       -  api
 
 actions:
-  - title: System Information
-    shell: uname -a
+  - title: List Running Containers
+    shell: DOCKER_HOST=docker-socket-proxy-ro:2375 docker ps
     timeout: 30
+
+  - title: View Container Logs
+    shell: |
+      {{ docker_logs_command | indent(2, true) }}
+    timeout: 30
+    popupOnStart: execution-dialog
+    arguments:
+      - name: container_name
+        title: Container Name
+        type: ascii_identifier
+        description: Name of the Docker container
+      - name: tail_50
+        title: Show last 50 lines only
+        type: checkbox
+        choices:
+          - title: 1
+            value: "--tail"
+
+          - title: 0
+            value: ""
+        description: Limit output to the last 50 log lines
+      - name: grep_filter
+        title: Filter logs (grep pattern)
+        type: ascii_identifier
+        description: Optional grep pattern to filter logs
+        default: ""
 
 logLevel: "INFO"
 insecureAllowDumpOAuth2UserData: false

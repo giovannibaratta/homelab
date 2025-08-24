@@ -31,6 +31,7 @@
     group: "{{ remote_control_container_user }}"
   with_items:
     - "{{ remote_control_conf_dir }}"
+    - "{{ remote_control_conf_dir }}/scripts"
 
 - name: Create OliveTin network Quadlet
   containers.podman.podman_network:
@@ -121,6 +122,16 @@
     owner: "{{ remote_control_container_user }}"
     group: "{{ remote_control_container_user }}"
     backup: true
+  notify:
+    - Restart olivetin service
+
+- name: Copy OliveTin scripts
+  ansible.builtin.copy:
+    src: scripts/
+    dest: "{{ remote_control_conf_dir }}/scripts/"
+    mode: "0750"
+    owner: "{{ remote_control_container_user }}"
+    group: "{{ remote_control_container_user }}"
   notify:
     - Restart olivetin service
 
