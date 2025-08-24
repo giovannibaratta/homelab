@@ -163,7 +163,7 @@
       traefik.http.routers.olivetin.rule: Host(`remote-control.{{ internal_domain }}`)
       traefik.http.routers.olivetin.service: olivetin
       traefik.http.services.olivetin.loadbalancer.server.port: 1337
-      traefik.http.routers.olivetin.entrypoints: websecure
+      traefik.http.routers.olivetin.entrypoints: public-secure
       traefik.http.routers.olivetin.tls.certresolver: letsencrypt
       traefik.http.routers.olivetin.tls.domains[0].main: remote-control.{{ internal_domain }}
 
