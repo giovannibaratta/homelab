@@ -68,6 +68,22 @@
               writeTimeout: 0
               idleTimeout: 0
 
+        dns-over-tls:
+          address: :8853
+          transport:
+            respondingTimeouts:
+              readTimeout: 0
+              writeTimeout: 0
+              idleTimeout: 0
+
+        dns-over-quic:
+          address: :8854/udp
+          transport:
+            respondingTimeouts:
+              readTimeout: 0
+              writeTimeout: 0
+              idleTimeout: 0
+
       api:
         # Dashboard is served on port 8080
         insecure: true

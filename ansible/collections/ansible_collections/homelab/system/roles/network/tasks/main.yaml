@@ -213,6 +213,9 @@
           # Forward local traffic to host ingress (Traefik)
           ip daddr 172.16.255.254 tcp dport { http } dnat to 172.16.255.254:8081
           ip daddr 172.16.255.254 tcp dport { https } dnat to 172.16.255.254:8443
+          # Forward internal DNS over TLS/QUIC traffic to Traefik
+          iifname { {{ internal_interface }} } tcp dport { 853 } dnat to 172.16.255.254:8853
+          iifname { {{ internal_interface }} } udp dport { 853 } dnat to 172.16.255.254:8854
         }
 
         # for all packets to WAN, after routing,

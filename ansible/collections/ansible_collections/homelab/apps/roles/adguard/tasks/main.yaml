@@ -43,8 +43,8 @@
         ratelimit_whitelist: []
         refuse_any: true
         upstream_dns:
-          - 1.1.1.1
-          - 8.8.8.8
+          - https://dns.cloudflare.com/dns-query
+          - https://dns.google/dns-query
         upstream_dns_file: ""
         bootstrap_dns:
           - 1.1.1.1
@@ -91,12 +91,12 @@
         enabled: false
         server_name: ""
         force_https: false
-        port_https: 443
-        port_dns_over_tls: 853
-        port_dns_over_quic: 853
+        port_https: 8444
+        port_dns_over_tls: 8530
+        port_dns_over_quic: 8531
         port_dnscrypt: 0
         dnscrypt_config_file: ""
-        allow_unencrypted_doh: false
+        allow_unencrypted_doh: true
         certificate_chain: ""
         private_key: ""
         certificate_path: ""
@@ -236,7 +236,23 @@
               --label="traefik.http.routers.adguard.entrypoints=websecure" \
               --label="traefik.http.routers.adguard.tls.certresolver=letsencrypt" \
               --label="traefik.http.routers.adguard.tls.domains[0].main=adguard.{{ internal_domain }}" \
+              --label="traefik.http.routers.adguard.service=adguard" \
               --label="traefik.http.services.adguard.loadbalancer.server.port=3000" \
+              --label="traefik.http.routers.adguard-doh.rule=Host(`adguard.{{ internal_domain }}`) && Path(`/dns-query`)" \
+              --label="traefik.http.routers.adguard-doh.entrypoints=websecure" \
+              --label="traefik.http.routers.adguard-doh.tls.certresolver=letsencrypt" \
+              --label="traefik.http.routers.adguard-doh.tls.domains[0].main=adguard.{{ internal_domain }}" \
+              --label="traefik.http.routers.adguard-doh.service=adguard-doh" \
+              --label="traefik.http.services.adguard-doh.loadbalancer.server.port=8444" \
+              --label="traefik.tcp.routers.adguard-dot.rule=HostSNI(`adguard.{{ internal_domain }}`)" \
+              --label="traefik.tcp.routers.adguard-dot.entrypoints=dns-over-tls" \
+              --label="traefik.tcp.routers.adguard-dot.tls.certresolver=letsencrypt" \
+              --label="traefik.tcp.routers.adguard-dot.tls.domains[0].main=adguard.{{ internal_domain }}" \
+              --label="traefik.tcp.routers.adguard-dot.service=adguard-dot" \
+              --label="traefik.tcp.services.adguard-dot.loadbalancer.server.port=8530" \
+              --label="traefik.udp.routers.adguard-doq.entrypoints=dns-over-quic" \
+              --label="traefik.udp.routers.adguard-doq.service=adguard-doq" \
+              --label="traefik.udp.services.adguard-doq.loadbalancer.server.port=8531" \
               docker.io/adguard/adguardhome:{{ adguard_version }}
       ExecStop=/usr/bin/podman stop \
               --ignore -t 10 \
