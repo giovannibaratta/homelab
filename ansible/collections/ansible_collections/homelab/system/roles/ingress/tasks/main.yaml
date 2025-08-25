@@ -16,6 +16,7 @@
     group: "{{ traefik_container_user }}"
   with_items:
     - /app/traefik/conf
+    - /app/traefik/conf/dynamic
     - /app/traefik/work
     - /app/traefik/work/certificates
 
@@ -26,7 +27,22 @@
         checkNewVersion: true
         sendAnonymousUsage: false
 
+      experimental:
+        plugins:
+          traefik-modsecurity-plugin:
+            modulename: github.com/madebymode/traefik-modsecurity-plugin
+            version: {{ ingress_waf_plugin_version }}
+
       entryPoints:
+        # Public Entrypoints with Multi-Layer Security Protection
+        # 
+        # Configuration loaded in order:
+        # 1. middleware.yml - Defines all middleware after plugin is available
+        # 2. traefik.yml - Configures entrypoints with middleware references
+        #
+        # Both entrypoints automatically apply 3-layer security to ALL incoming requests
+        # Middleware chain: rateLimit@file -> inFlightReq@file -> waf@file -> service
+        # This provides comprehensive protection: DDoS -> Concurrency -> Security Analysis
 
         public-insecure:
           address: :9080
@@ -35,6 +51,14 @@
               readTimeout: 600
               writeTimeout: 600
               idleTimeout: 600
+          http:
+            middlewares:
+              # Layer 1: Rate limiting (prevent request flooding)
+              - rateLimit@file
+              # Layer 2: Concurrent request limiting (prevent connection exhaustion)
+              - inFlightReq@file
+              # Layer 3: WAF security analysis (deep inspection)
+              - waf@file
 
         public-secure:
           address: :9443
@@ -43,6 +67,14 @@
               readTimeout: 600
               writeTimeout: 600
               idleTimeout: 600
+          http:
+            middlewares:
+              # Layer 1: Rate limiting (prevent request flooding)
+              - rateLimit@file
+              # Layer 2: Concurrent request limiting (prevent connection exhaustion)
+              - inFlightReq@file
+              # Layer 3: WAF security analysis (deep inspection)
+              - waf@file
 
         mqtt:
           address: :1883
@@ -95,6 +127,9 @@
           # This is a security risk, it should be better
           # to expose and use a TCP socket
           endpoint: "unix:///var/run/docker.sock"
+        file:
+          directory: "/etc/traefik/dynamic"
+          watch: false
 
       log:
         level: INFO
@@ -132,10 +167,133 @@
     backup: yes
   notify: Restart Traefik service
 
+- name: Copy traefik middleware configuration
+  ansible.builtin.copy:
+    content: |
+      # Traefik Middleware Configuration
+      # before the main traefik.yaml processes entrypoints and routes
+
+      # Multi-Layer Security Middleware Setup
+      # 
+      # Request Flow: Client -> Rate Limit -> In-Flight Control -> WAF -> Service
+      # 
+      # Defense layers (applied in order):
+      # 1. 'rateLimit': Prevents request flooding and DDoS attacks
+      # 2. 'inFlightReq': Controls concurrent connections per IP  
+      # 3. 'waf': Security analysis via ModSecurity OWASP Core Rules
+
+      http:
+        middlewares:
+          # Rate Limiting Middleware (Layer 1 Defense)
+          # Prevents abuse by limiting request frequency per IP address
+          # Blocks high-frequency attacks before they consume resources
+          rateLimit:
+            rateLimit:
+              average: {{ ingress_waf_rate_limit_average }}
+              period: {{ ingress_waf_rate_limit_period }}
+              burst: {{ ingress_waf_rate_limit_burst }}
+              sourceCriterion:
+                ipStrategy:
+                  depth: 1  # Use real client IP (accounting for proxy headers)
+
+          # In-Flight Request Limiting Middleware (Layer 2 Defense)  
+          # Controls concurrent connections per IP to prevent resource exhaustion
+          # Protects against connection-based attacks
+          inFlightReq:
+            inFlightReq:
+              amount: {{ ingress_waf_inflight_limit }}
+              sourceCriterion:
+                ipStrategy:
+                  depth: 1  # Use real client IP (accounting for proxy headers)
+
+          # WAF Security Middleware (Layer 3 Defense)
+          # Forwards requests to ModSecurity for deep security analysis
+          # Only processes traffic that passes rate and concurrency limits
+          waf:
+            plugin:
+              traefik-modsecurity-plugin:
+                # Points to our ModSecurity container on the waf-network
+                modSecurityUrl: "http://localhost:18080"
+                # Size limit for WAF analysis - larger requests get truncated
+                maxRequestBodySizeInMB: 10
+
+    dest: /app/traefik/conf/dynamic/middleware.yaml
+    mode: "0600"
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
+    backup: yes
+  notify: Restart Traefik service
+
 - name: Get the group ID of the 'containers' group
   ansible.builtin.shell: |
     getent group containers | cut -d: -f3
   register: containers_group_result
+
+- name: Create WAF network
+  containers.podman.podman_network:
+    name: waf-network
+    state: present
+
+- name: Create dummy backend container
+  containers.podman.podman_container:
+    name: waf-dummy
+    state: quadlet
+    image: docker.io/traefik/whoami:latest
+
+    recreate: true
+    network: waf-network
+
+    uidmap:
+      - 0:4000000000:100000
+    gidmap:
+      - 0:4000000000:100000
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for ingress role
+    - Restart WAF dummy service
+
+- name: Create ModSecurity WAF Quadlet
+  containers.podman.podman_container:
+    name: modsecurity-waf
+    state: quadlet
+    image: docker.io/owasp/modsecurity-crs:{{ ingress_waf_version }}
+
+    ports:
+      - "18080:8080"  # Expose ModSecurity on port 18080 for Traefik plugin
+
+    env:
+      PARANOIA: "{{ ingress_waf_paranoia_level }}"
+      ANOMALY_INBOUND: "{{ ingress_waf_anomaly_inbound }}"
+      ANOMALY_OUTBOUND: "{{ ingress_waf_anomaly_outbound }}"
+      BACKEND: "http://waf-dummy"
+      REPORTING_LEVEL: "{{ ingress_waf_reporting_level }}"
+      MODSEC_AUDIT_LOG_FORMAT: "{{ ingress_waf_audit_log_format }}"
+      MODSEC_RULE_ENGINE: "{{ ingress_waf_rule_engine }}"
+      PORT: "8080"
+      SSL_ENGINE: "off"  # Disable SSL in ModSecurity, Traefik handles TLS
+
+    recreate: true
+    network: waf-network
+
+    uidmap:
+      - 0:4000000000:100000
+    gidmap:
+      - 0:4000000000:100000
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for ingress role
+    - Restart ModSecurity WAF service
+
+- name: Trigger Handlers for ModSecurity WAF
+  ansible.builtin.meta: flush_handlers
 
 - name: Create Traefik Quadlet
   containers.podman.podman_container:
@@ -149,6 +307,7 @@
 
     volumes:
       - "/app/traefik/conf/traefik.yaml:/etc/traefik/traefik.yml:ro"
+      - "/app/traefik/conf/dynamic:/etc/traefik/dynamic:ro"
       - "/app/traefik/work:/app/traefik/work"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
 
@@ -168,6 +327,21 @@
   notify:
     - Reload systemd daemons for ingress role
     - Restart Traefik service
+
+- name: Trigger Handlers for Traefik
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start waf-dummy service
+  ansible.builtin.systemd_service:
+    name: waf-dummy.service
+    enabled: true
+    state: started
+
+- name: Enable and start modsecurity-waf service
+  ansible.builtin.systemd_service:
+    name: modsecurity-waf.service
+    enabled: true
+    state: started
 
 - name: Enable and start traefik service
   ansible.builtin.systemd_service:

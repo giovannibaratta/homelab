@@ -1,3 +1,37 @@
 ---
 # Available versions https://hub.docker.com/_/traefik/tags
 ingress_traefik_version: v3.5.0
+
+# WAF Configuration
+# Available versions https://hub.docker.com/r/owasp/modsecurity-crs/tags
+ingress_waf_version: 4.3.0-apache-alpine-202406090906
+# ModSecurity plugin version
+ingress_waf_plugin_version: v1.6.0
+
+# WAF Security Settings
+# Paranoia Level: Controls rule strictness (1=basic, 2=moderate, 3=strict, 4=paranoid)
+# Higher levels may cause more false positives but provide better security
+ingress_waf_paranoia_level: 1
+
+# Anomaly Scoring: Higher scores = more suspicious requests
+# Inbound: Threshold for blocking incoming requests (default: 5, we use 10 for less false positives)
+ingress_waf_anomaly_inbound: 10
+# Outbound: Threshold for blocking outgoing responses (default: 4, we use 5)
+ingress_waf_anomaly_outbound: 5
+
+# Reporting Level: Controls what gets logged (0=none, 1=errors, 2=warnings, 3=notices, 4=info)
+ingress_waf_reporting_level: 2
+# Rule Engine: Controls ModSecurity operation (On=enforce, DetectionOnly=log only, Off=disabled)
+ingress_waf_rule_engine: "On"
+# Audit Log Format: JSON provides structured logging for better analysis
+ingress_waf_audit_log_format: "JSON"
+
+# Rate Limiting Configuration
+# Controls request frequency per IP to prevent abuse and DDoS attacks
+ingress_waf_rate_limit_average: 50    # Average requests per second per IP
+ingress_waf_rate_limit_period: "1s"    # Time period for rate calculation
+ingress_waf_rate_limit_burst: 100      # Allow temporary bursts up to this amount
+
+# In-Flight Request Limiting Configuration
+# Controls concurrent connections per IP to prevent resource exhaustion
+ingress_waf_inflight_limit: 50       # Maximum concurrent requests per IP

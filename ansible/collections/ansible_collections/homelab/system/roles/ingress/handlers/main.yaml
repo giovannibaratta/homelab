@@ -3,6 +3,16 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
 
+- name: Restart WAF dummy service
+  ansible.builtin.service:
+    name: waf-dummy.service
+    state: restarted
+
+- name: Restart ModSecurity WAF service
+  ansible.builtin.service:
+    name: modsecurity-waf.service
+    state: restarted
+
 - name: Restart Traefik service
   ansible.builtin.service:
     name: traefik.service
