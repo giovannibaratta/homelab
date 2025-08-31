@@ -141,7 +141,8 @@
             storage: /app/traefik/work/certificates/acme.json
             dnsChallenge:
               provider: porkbun
-              delayBeforeCheck: 60
+              propagation:
+                delayBeforeChecks: 60
 
       # Enable access logs
       accessLog: {}
