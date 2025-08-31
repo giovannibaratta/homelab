@@ -8,6 +8,11 @@
     name: waf-dummy.service
     state: restarted
 
+- name: Restart traefik-socket-proxy service
+  ansible.builtin.service:
+    name: traefik-socket-proxy.service
+    state: restarted
+
 - name: Restart ModSecurity WAF service
   ansible.builtin.service:
     name: modsecurity-waf.service

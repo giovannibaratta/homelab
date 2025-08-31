@@ -1,0 +1,122 @@
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+experimental:
+  plugins:
+    traefik-modsecurity-plugin:
+      modulename: github.com/madebymode/traefik-modsecurity-plugin
+      version: {{ ingress_waf_plugin_version }}
+
+entryPoints:
+  # Public Entrypoints with Multi-Layer Security Protection
+  # 
+  # Configuration loaded in order:
+  # 1. middleware.yml - Defines all middleware after plugin is available
+  # 2. traefik.yml - Configures entrypoints with middleware references
+  #
+  # Both entrypoints automatically apply 3-layer security to ALL incoming requests
+  # Middleware chain: rateLimit@file -> inFlightReq@file -> waf@file -> service
+  # This provides comprehensive protection: DDoS -> Concurrency -> Security Analysis
+
+  public-insecure:
+    address: :9080
+    transport:
+      respondingTimeouts:
+        readTimeout: 600
+        writeTimeout: 600
+        idleTimeout: 600
+    http:
+      middlewares:
+        # Layer 1: Rate limiting (prevent request flooding)
+        - rateLimit@file
+        # Layer 2: Concurrent request limiting (prevent connection exhaustion)
+        - inFlightReq@file
+        # Layer 3: WAF security analysis (deep inspection)
+        - waf@file
+
+  public-secure:
+    address: :9443
+    transport:
+      respondingTimeouts:
+        readTimeout: 600
+        writeTimeout: 600
+        idleTimeout: 600
+    http:
+      middlewares:
+        # Layer 1: Rate limiting (prevent request flooding)
+        - rateLimit@file
+        # Layer 2: Concurrent request limiting (prevent connection exhaustion)
+        - inFlightReq@file
+        # Layer 3: WAF security analysis (deep inspection)
+        - waf@file
+
+  mqtt:
+    address: :1883
+    transport:
+      respondingTimeouts:
+        readTimeout: 0
+        writeTimeout: 0
+        idleTimeout: 0
+
+  web:
+    address: :8081
+    transport:
+      respondingTimeouts:
+        readTimeout: 0
+        writeTimeout: 0
+        idleTimeout: 0
+
+  websecure:
+    address: :8443
+    transport:
+      respondingTimeouts:
+        readTimeout: 0
+        writeTimeout: 0
+        idleTimeout: 0
+
+  dns-over-tls:
+    address: :8853
+    transport:
+      respondingTimeouts:
+        readTimeout: 0
+        writeTimeout: 0
+        idleTimeout: 0
+
+  dns-over-quic:
+    address: :8854/udp
+    transport:
+      respondingTimeouts:
+        readTimeout: 0
+        writeTimeout: 0
+        idleTimeout: 0
+
+api:
+  # Dashboard is served on port 8080
+  insecure: true
+  dashboard: true
+
+providers:
+  docker:
+    exposedByDefault: false
+    # Using secure TCP socket proxy instead of direct Unix socket
+    endpoint: "tcp://localhost:40375"
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: false
+
+log:
+  level: INFO
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: {{ acme_email }}
+      storage: /app/traefik/work/certificates/acme.json
+      dnsChallenge:
+        provider: porkbun
+        propagation:
+          delayBeforeChecks: 60
+
+# Enable access logs
+accessLog: {}

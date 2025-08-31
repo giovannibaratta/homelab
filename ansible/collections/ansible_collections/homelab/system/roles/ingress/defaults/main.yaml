@@ -35,3 +35,7 @@ ingress_waf_rate_limit_burst: 100      # Allow temporary bursts up to this amoun
 # In-Flight Request Limiting Configuration
 # Controls concurrent connections per IP to prevent resource exhaustion
 ingress_waf_inflight_limit: 50       # Maximum concurrent requests per IP
+
+# Socket proxy configuration for secure Docker access
+ingress_socket_proxy_version: latest
+ingress_socket_proxy_container_user: traefik-socket-proxy

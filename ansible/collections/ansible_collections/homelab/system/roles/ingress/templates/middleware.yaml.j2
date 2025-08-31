@@ -1,0 +1,46 @@
+# Traefik Middleware Configuration
+# before the main traefik.yaml processes entrypoints and routes
+
+# Multi-Layer Security Middleware Setup
+# 
+# Request Flow: Client -> Rate Limit -> In-Flight Control -> WAF -> Service
+# 
+# Defense layers (applied in order):
+# 1. 'rateLimit': Prevents request flooding and DDoS attacks
+# 2. 'inFlightReq': Controls concurrent connections per IP  
+# 3. 'waf': Security analysis via ModSecurity OWASP Core Rules
+
+http:
+  middlewares:
+    # Rate Limiting Middleware (Layer 1 Defense)
+    # Prevents abuse by limiting request frequency per IP address
+    # Blocks high-frequency attacks before they consume resources
+    rateLimit:
+      rateLimit:
+        average: {{ ingress_waf_rate_limit_average }}
+        period: {{ ingress_waf_rate_limit_period }}
+        burst: {{ ingress_waf_rate_limit_burst }}
+        sourceCriterion:
+          ipStrategy:
+            depth: 1  # Use real client IP (accounting for proxy headers)
+
+    # In-Flight Request Limiting Middleware (Layer 2 Defense)
+    # Controls concurrent connections per IP to prevent resource exhaustion
+    # Protects against connection-based attacks
+    inFlightReq:
+      inFlightReq:
+        amount: {{ ingress_waf_inflight_limit }}
+        sourceCriterion:
+          ipStrategy:
+            depth: 1  # Use real client IP (accounting for proxy headers)
+
+    # WAF Security Middleware (Layer 3 Defense)
+    # Forwards requests to ModSecurity for deep security analysis
+    # Only processes traffic that passes rate and concurrency limits
+    waf:
+      plugin:
+        traefik-modsecurity-plugin:
+          # Points to our ModSecurity container on the waf-network
+          modSecurityUrl: "http://localhost:18080"
+          # Size limit for WAF analysis - larger requests get truncated
+          maxRequestBodySizeInMB: 10
