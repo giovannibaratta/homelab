@@ -1,0 +1,78 @@
+# Zigbee2MQTT Configuration
+# Documentation: https://www.zigbee2mqtt.io/guide/configuration/
+
+# Home Assistant integration (MQTT discovery)
+# Enables automatic discovery of Zigbee devices in Home Assistant
+homeassistant: true
+
+# MQTT settings
+# Documentation: https://www.zigbee2mqtt.io/guide/configuration/mqtt.html
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://mqtt.{{ internal_domain }}:1883
+  user: admin
+  password: {{ mqtt_admin_password }}
+  client_id: 'zigbee2mqtt'
+
+# Serial settings
+# Documentation: https://www.zigbee2mqtt.io/guide/configuration/adapter-settings.html
+serial:
+  # Device will be mapped to /dev/ttyUSB0 inside the container
+  port: /dev/ttyUSB0
+  baudrate: 115200
+  adapter: deconz
+
+# Frontend settings
+# Enables the web frontend for device management
+# Documentation: https://www.zigbee2mqtt.io/guide/configuration/frontend.html
+frontend:
+  port: 8080
+  host: 0.0.0.0
+
+# Advanced settings
+# Documentation: https://www.zigbee2mqtt.io/guide/configuration/advanced.html
+advanced:
+  log_level: debug
+  # Personal Area Network ID - should be unique for your Zigbee network
+  pan_id: 0x1a62
+  # Extended PAN ID - 8 bytes, should be unique
+  ext_pan_id: [0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD]
+  # Zigbee channel (11-26 for 2.4GHz)
+  channel: 16
+  # Network encryption key - 16-byte array for network encryption
+  network_key: {{ zigbee2mqtt_network_key }}
+
+  # Include last seen timestamp in device state
+  last_seen: 'ISO_8601'
+  # Don't include elapsed time since last seen
+  elapsed: false
+  disable_aps_ack: true
+
+# Device options
+# Default settings for all devices
+# Documentation: https://www.zigbee2mqtt.io/guide/configuration/device-options.html
+device_options:
+  # Use modern Zigbee 3.0 features
+  legacy: false
+  # Don't retain MQTT messages by default
+  retain: false
+  # Optimistic updates for better responsiveness
+  optimistic: true
+
+# OTA (Over-The-Air) updates
+# Documentation: https://www.zigbee2mqtt.io/guide/usage/ota_updates.html
+ota:
+  # Allow automatic checking for firmware updates
+  disable_automatic_update_check: false
+
+devices:
+  '0x0015bc001b1004a8':
+    friendly_name: EnergyMeterSolar
+    debounce: 1
+    homeassistant: {}
+  '0xb43522fffece5b8b':
+    friendly_name: Temperatura25101200159603
+  '0xb43522fffeceb87c':
+    friendly_name: Temperatura25101200156724
+  '0xc4d8c8fffe2047b0':
+    friendly_name: WaterSensor25220300064776

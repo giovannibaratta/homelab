@@ -1,0 +1,20 @@
+---
+# Available versions https://github.com/home-assistant/core/releases
+home_assistant_version: "2025.7.2"
+home_assistant_conf_dir: /app/home-assistant/conf
+home_assistant_data_dir: /app/home-assistant/data
+home_assistant_container_user: home-assistant
+home_assistant_db_container_user: home-assistant-db
+home_assistant_db_name: homeassistant
+home_assistant_db_user: homeassistant
+home_assistant_database_dir: /app/home-assistant/database
+home_assistant_recorder_db_url: "postgresql://{{ home_assistant_db_user }}:{{ home_assistant_db_password }}@home-assistant-db:5432/{{ home_assistant_db_name }}"
+home_assistant_timezone: "Europe/Rome"
+home_assistant_internal_url: "https://ha.{{ internal_domain }}"
+home_assistant_external_url: "https://ha.{{ internal_domain }}"
+
+# Zigbee2MQTT configuration
+zigbee2mqtt_version: "2.2"
+zigbee2mqtt_container_user: "zigbee2mqtt"
+zigbee2mqtt_conf_dir: "/app/zigbee2mqtt/conf"
+zigbee2mqtt_data_dir: "/app/zigbee2mqtt/data"

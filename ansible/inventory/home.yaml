@@ -62,3 +62,10 @@ home:
       coder_admin_user_password: "{{ lookup('community.general.bitwarden_secrets_manager', '4beb759e-3bd1-4b23-a56b-b28d018441d4').value }}"
 
       mqtt_admin_password_hash: "{{ lookup('community.general.bitwarden_secrets_manager', '94d9095f-8bbf-4a6a-a19b-b31e00a3055f').value }}"
+      mqtt_admin_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'a8d6721c-a444-40cf-b1e2-b34c014d484e').value }}"
+
+      home_assistant_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'a09f27e7-2e7c-48ec-8e73-b34500ba8400').value }}"
+      home_assistant_telegram_chat_id: "{{ lookup('community.general.bitwarden_secrets_manager', 'a281fc4b-da3d-4860-be26-b34c014cd0d7').value }}"
+      telegram_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5234d8de-1d5a-4a6d-a6ae-b34500df7551').value }}"
+      zigbee_usb_device: /dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03318564-if00-port0
+      zigbee2mqtt_network_key: "{{ lookup('community.general.bitwarden_secrets_manager', '77392e92-62c7-42a6-baeb-b34c014db768').value }}"

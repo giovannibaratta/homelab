@@ -1,0 +1,31 @@
+---
+- name: Reload systemd daemons for home-assistant role
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart Home Assistant network
+  ansible.builtin.systemd_service:
+    name: home-assistant-network
+    state: restarted
+
+- name: Restart Home Assistant DB service
+  ansible.builtin.systemd_service:
+    name: home-assistant-db
+    state: restarted
+  failed_when: false
+  register: home_assistant_db_restart_result
+  listen: "Restart Home Assistant DB service"
+
+- name: Restart Home Assistant service
+  ansible.builtin.systemd_service:
+    name: home-assistant
+    state: restarted
+  # Avoid failing if the service doesn't exist yet (during the first run)
+  failed_when: false
+
+- name: Restart Zigbee2MQTT service
+  ansible.builtin.systemd_service:
+    name: zigbee2mqtt
+    state: restarted
+  # Avoid failing if the service doesn't exist yet (during the first run)
+  failed_when: false

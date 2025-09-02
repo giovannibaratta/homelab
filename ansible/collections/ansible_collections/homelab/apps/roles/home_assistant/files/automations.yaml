@@ -1,0 +1,67 @@
+- id: "1752841190486"
+  alias: SendNotificationIfMovement
+  description: Send a notification to Telegram if a movement is detected
+  triggers:
+    - trigger: state
+      entity_id:
+        - binary_sensor.yi_camera_movement
+      from: "off"
+      to: "on"
+  conditions:
+    - condition: and
+      conditions:
+        - condition: state
+          entity_id: person.loredana
+          state: not_home
+        - condition: state
+          entity_id: person.antonio
+          state: not_home
+  actions:
+    - sequence:
+        - variables:
+            random_value:
+              "{{ now().strftime('%Y-%m-%d_%H-%M-%S') }}-{{ range(1, 100000)
+              | random }}"
+        - action: camera.record
+          metadata: {}
+          data:
+            filename: /tmp/movement_detected{{random_value}}.mp4
+            duration: 15
+          target:
+            entity_id:
+              - camera.tapo_c230_ce52_live_view
+        - action: telegram_bot.send_video
+          metadata: {}
+          data:
+            authentication: digest
+            config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+            file: /tmp/movement_detected{{random_value}}.mp4
+            disable_notification: true
+  mode: single
+- id: "1756649357117"
+  alias: EnergyProductionDaily
+  description: ""
+  triggers:
+    - entity_id:
+        - sensor.energymetersolar_power
+      for:
+        hours: 0
+        minutes: 15
+        seconds: 0
+      below: 50
+      trigger: numeric_state
+  conditions:
+    - condition: time
+      after: "19:00:00"
+  actions:
+    - action: telegram_bot.send_message
+      metadata: {}
+      data:
+        config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+        authentication: digest
+        parse_mode: html
+        title: ☀️ Produzione Solare Giornaliera
+        message:
+          "Produzione totale di oggi: <b>{{ states('sensor.dailysolarproduction')
+          | round(2) }}</b> kWh"
+  mode: single

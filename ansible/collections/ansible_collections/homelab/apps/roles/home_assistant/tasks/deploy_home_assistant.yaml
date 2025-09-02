@@ -1,0 +1,233 @@
+---
+- name: Add user {{ home_assistant_container_user }}
+  ansible.builtin.user:
+    name: "{{ home_assistant_container_user }}"
+    comment: User used to run Home Assistant
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: home_assistant_container_user_result
+
+- name: Add user {{ home_assistant_db_container_user }}
+  ansible.builtin.user:
+    name: "{{ home_assistant_db_container_user }}"
+    comment: User used to run PostgreSQL database for Home Assistant
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: home_assistant_db_container_user_result
+
+- name: Create Home Assistant directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ home_assistant_container_user }}"
+    group: "{{ home_assistant_container_user }}"
+  with_items:
+    - "{{ home_assistant_conf_dir }}"
+    - "{{ home_assistant_data_dir }}"
+    - "{{ home_assistant_database_dir }}"
+    - "{{ home_assistant_conf_dir }}/custom_components"
+
+- name: Clone yi-hack Home Assistant integration
+  ansible.builtin.git:
+    repo: https://github.com/roleoroleo/yi-hack_ha_integration.git
+    dest: /tmp/yi-hack_ha_integration
+    version: 48deb895c3653f7e69496904d3fbc1697efe4cf2
+    force: yes
+
+- name: Copy yi_hack custom component
+  ansible.builtin.copy:
+    src: /tmp/yi-hack_ha_integration/custom_components/yi_hack/
+    dest: "{{ home_assistant_conf_dir }}/custom_components/yi_hack/"
+    owner: "{{ home_assistant_container_user }}"
+    group: "{{ home_assistant_container_user }}"
+    mode: '0644'
+    remote_src: yes
+
+- name: Clean up temporary clone
+  ansible.builtin.file:
+    path: /tmp/yi-hack_ha_integration
+    state: absent
+
+- name: Change ownership of {{ home_assistant_database_dir }}
+  ansible.builtin.file:
+    path: "{{ home_assistant_database_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ home_assistant_db_container_user }}"
+    group: "{{ home_assistant_db_container_user }}"
+
+- name: Create Home Assistant network Quadlet
+  containers.podman.podman_network:
+    name: home-assistant
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns:
+      - "{{ internal_gateway }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-home-assistant
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for home-assistant role
+    - Restart Home Assistant network
+
+- name: Flush handlers for Home Assistant network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start Home Assistant network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: home-assistant-network
+    state: started
+    enabled: true
+
+- name: Copy home-assistant-db.env file
+  ansible.builtin.template:
+    src: home-assistant-db.env.j2
+    dest: "{{ home_assistant_conf_dir }}/home-assistant-db.env"
+    mode: "0640"
+  notify:
+    - Restart Home Assistant DB service
+
+- name: Create Home Assistant database Quadlet
+  containers.podman.podman_container:
+    name: home-assistant-db
+    image: docker.io/postgres:16.3-alpine
+    state: quadlet
+
+    volumes: "{{ home_assistant_database_dir }}:/var/lib/postgresql/data"
+    env_file: "{{ home_assistant_conf_dir }}/home-assistant-db.env"
+    network: home-assistant
+    delete_depend: true
+
+    # PostgreSQL runs as postgres:postgres (70:70)
+    # We map the postgres container user to the home-assistant-db user on the host
+    uidmap:
+      - 0:4000000000:70
+      - 70:{{ home_assistant_db_container_user_result.uid }}:1
+      - 71:4000000071:100000
+
+    gidmap:
+      - 0:4000000000:100000
+      - +70:@{{ home_assistant_db_container_user_result.group }}:1
+
+    recreate: true
+
+    healthcheck: pg_isready -U {{ home_assistant_db_user }} -d {{ home_assistant_db_name }}
+    healthcheck_interval: 5s
+    healthcheck_timeout: 5s
+    healthcheck_retries: 5
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for home-assistant role
+    - Restart Home Assistant DB service
+
+- name: Flush handlers for Home Assistant DB
+  ansible.builtin.meta: flush_handlers
+
+- name: Start Home Assistant DB
+  ansible.builtin.systemd_service:
+    name: home-assistant-db
+    state: started
+    enabled: true
+
+- name: Copy Home Assistant configuration.yaml
+  ansible.builtin.template:
+    src: configuration.yaml.j2
+    dest: "{{ home_assistant_conf_dir }}/configuration.yaml"
+    mode: "0640"
+    backup: true
+    owner: "{{ home_assistant_container_user }}"
+    group: "{{ home_assistant_container_user }}"
+  notify:
+    - Restart Home Assistant service
+
+- name: Copy automations.yaml to Home Assistant
+  ansible.builtin.copy:
+    src: "files/automations.yaml"
+    dest: "{{ home_assistant_conf_dir }}/automations.yaml"
+    mode: "0640"
+    backup: true
+    owner: "{{ home_assistant_container_user }}"
+    group: "{{ home_assistant_container_user }}"
+  notify:
+    - Restart Home Assistant service
+
+- name: Copy Home Assistant camera-view.yaml
+  ansible.builtin.template:
+    src: camera-view.yaml.j2
+    dest: "{{ home_assistant_conf_dir }}/camera-view.yaml"
+    mode: "0640"
+    backup: true
+    owner: "{{ home_assistant_container_user }}"
+    group: "{{ home_assistant_container_user }}"
+  notify:
+    - Restart Home Assistant service
+
+- name: Create Home Assistant Quadlet
+  containers.podman.podman_container:
+    name: home-assistant
+    image: ghcr.io/home-assistant/home-assistant:{{ home_assistant_version }}
+    state: quadlet
+
+    volumes:
+      - "{{ home_assistant_conf_dir }}:/config"
+      - "{{ home_assistant_data_dir }}:/data"
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+      - tmpfs:/tmp:rw # Ephemeral /tmp directory
+
+    recreate: true
+    network: home-assistant
+    privileged: false
+
+    # Resource limits
+    cpu_shares: 2048
+    memory: "8g"
+
+    # Home Assistant runs as root:root but we need to map to unprivileged user
+    # Map container root to home-assistant user on host
+    uidmap:
+      - 0:{{ home_assistant_container_user_result.uid }}:1
+      - 1:4000000001:100000
+
+    gidmap:
+      - 0:{{ home_assistant_container_user_result.group }}:1
+      - 1:4000000001:100000
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.home-assistant.rule: Host(`ha.{{ internal_domain }}`)
+      traefik.http.routers.home-assistant.entrypoints: websecure,public-secure
+      traefik.http.routers.home-assistant.tls.certresolver: letsencrypt
+      traefik.http.routers.home-assistant.tls.domains[0].main: ha.{{ internal_domain }}
+      traefik.http.services.home-assistant.loadbalancer.server.port: 8123
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=home-assistant-db.service
+  notify:
+    - Reload systemd daemons for home-assistant role
+    - Restart Home Assistant service
+
+- name: Flush handlers for Home Assistant
+  ansible.builtin.meta: flush_handlers
+
+- name: Start Home Assistant
+  ansible.builtin.systemd_service:
+    name: home-assistant
+    state: started
+    enabled: true

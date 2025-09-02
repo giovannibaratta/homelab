@@ -1,0 +1,13 @@
+---
+- name: Set server URLs
+  ansible.builtin.set_fact:
+    _home_assistant_fqdn: "{{ home_assistant_internal_url }}"
+
+- name: "Deploy Zigbee2MQTT"
+  ansible.builtin.import_tasks: deploy_zigbee2mqtt.yaml
+
+- name: "Deploy Home Assistant"
+  ansible.builtin.import_tasks: deploy_home_assistant.yaml
+
+- name: "Configure Home Assistant"
+  ansible.builtin.import_tasks: configure_home_assistant.yaml

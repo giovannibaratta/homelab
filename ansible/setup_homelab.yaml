@@ -123,6 +123,11 @@
       tags: mqtt-broker
 
     - ansible.builtin.import_role:
+        name: homelab.apps.home_assistant
+      become: true
+      tags: home-assistant
+
+    - ansible.builtin.import_role:
         name: homelab.apps.coder
       become: true
       tags: coder

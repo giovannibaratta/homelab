@@ -1,0 +1,68 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+
+# Database configuration
+recorder:
+  db_url: {{ home_assistant_recorder_db_url }}
+  purge_keep_days: 30
+  commit_interval: 1
+
+# HTTP configuration
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 127.0.0.1
+    - ::1
+    - 10.0.0.0/8
+  ip_ban_enabled: true
+  login_attempts_threshold: 5
+
+homeassistant:
+  auth_mfa_modules:
+    - type: totp
+      name: "Authenticator app"
+  name: Home
+  latitude: !secret latitude
+  longitude: !secret longitude
+  elevation: !secret elevation
+  unit_system: metric
+  time_zone: {{ home_assistant_timezone }}
+  currency: EUR
+  country: IT
+  internal_url: {{ home_assistant_internal_url }}
+  external_url: {{ home_assistant_external_url }}
+  allowlist_external_dirs:
+    - /tmp/
+
+# Logger configuration
+logger:
+  default: info
+  logs:
+    homeassistant.core: info
+    homeassistant.components.recorder: info
+
+telegram_bot:
+  - platform: broadcast
+    api_key: "{{ telegram_api_key }}"
+    allowed_chat_ids:
+      - {{ home_assistant_telegram_chat_id }}
+
+notify:
+  - platform: telegram
+    name: "Home Assistant notification"
+    chat_id: {{ home_assistant_telegram_chat_id }}
+
+# Lovelace UI configuration
+lovelace:
+  mode: yaml
+  resources: []
+  dashboards:
+    camera-view:
+      mode: yaml
+      filename: camera-view.yaml
+      title: Camera View
+      icon: mdi:camera
+      show_in_sidebar: true

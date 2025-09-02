@@ -1,0 +1,105 @@
+---
+- name: Add user {{ zigbee2mqtt_container_user }}
+  ansible.builtin.user:
+    name: "{{ zigbee2mqtt_container_user }}"
+    comment: User used to run Zigbee2MQTT
+    create_home: false
+    shell: /usr/sbin/nologin
+    groups: dialout
+    append: yes
+  register: zigbee2mqtt_container_user_result
+
+- name: Get dialout group info
+  ansible.builtin.getent:
+    database: group
+    key: dialout
+  register: dialout_group_result
+
+- name: Disable ModemManager to prevent interference with Zigbee adapter
+  ansible.builtin.systemd_service:
+    name: ModemManager
+    state: stopped
+    enabled: false
+    masked: true
+  failed_when: false
+
+- name: Create Zigbee2MQTT directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ zigbee2mqtt_container_user }}"
+    group: "{{ zigbee2mqtt_container_user }}"
+  with_items:
+    - "{{ zigbee2mqtt_conf_dir }}"
+    - "{{ zigbee2mqtt_data_dir }}"
+
+- name: Copy Zigbee2MQTT configuration.yaml
+  ansible.builtin.template:
+    src: zigbee2mqtt-configuration.yaml.j2
+    dest: "{{ zigbee2mqtt_conf_dir }}/configuration.yaml"
+    mode: "0640"
+    backup: true
+    owner: "{{ zigbee2mqtt_container_user }}"
+    group: "{{ zigbee2mqtt_container_user }}"
+  notify:
+    - Restart Zigbee2MQTT service
+
+- name: Create Zigbee2MQTT Quadlet
+  containers.podman.podman_container:
+    name: zigbee2mqtt
+    image: ghcr.io/koenkk/zigbee2mqtt:{{ zigbee2mqtt_version }}
+    state: quadlet
+
+    volumes:
+      - "{{ zigbee2mqtt_conf_dir }}:/app/data"
+      - /etc/localtime:/etc/localtime:ro
+      - /run/udev:/run/udev:ro
+
+    device:
+      - "{{ zigbee_usb_device }}:/dev/ttyUSB0"
+
+    recreate: true
+    network: home-assistant
+    privileged: false
+
+    # Resource limits
+    cpu_shares: 1024
+    memory: "1g"
+
+    # Zigbee2MQTT runs as root:root (0:0) in this image
+    # We map the container root to the zigbee2mqtt user on the host
+    uidmap:
+      - 0:{{ zigbee2mqtt_container_user_result.uid }}:1
+      - 1:4000000001:100000
+
+    gidmap:
+      - 0:{{ dialout_group_result.ansible_facts.getent_group.dialout[1] }}:1
+      - 1:4000000001:100000
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.zigbee2mqtt.rule: Host(`zigbee.{{ internal_domain }}`)
+      traefik.http.routers.zigbee2mqtt.entrypoints: websecure
+      traefik.http.routers.zigbee2mqtt.tls.certresolver: letsencrypt
+      traefik.http.routers.zigbee2mqtt.tls.domains[0].main: zigbee.{{ internal_domain }}
+      traefik.http.services.zigbee2mqtt.loadbalancer.server.port: 8080
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=mqtt-broker.service
+  notify:
+    - Reload systemd daemons for home-assistant role
+    - Restart Zigbee2MQTT service
+
+- name: Flush handlers for Zigbee2MQTT
+  ansible.builtin.meta: flush_handlers
+
+- name: Start Zigbee2MQTT
+  ansible.builtin.systemd_service:
+    name: zigbee2mqtt
+    state: started
+    enabled: true
