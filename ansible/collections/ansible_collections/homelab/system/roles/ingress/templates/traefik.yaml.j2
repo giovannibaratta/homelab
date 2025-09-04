@@ -42,14 +42,6 @@ entryPoints:
         readTimeout: 600
         writeTimeout: 600
         idleTimeout: 600
-    http:
-      middlewares:
-        # Layer 1: Rate limiting (prevent request flooding)
-        - rateLimit@file
-        # Layer 2: Concurrent request limiting (prevent connection exhaustion)
-        - inFlightReq@file
-        # Layer 3: WAF security analysis (deep inspection)
-        - waf@file
 
   mqtt:
     address: :1883

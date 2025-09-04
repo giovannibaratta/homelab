@@ -44,3 +44,22 @@ http:
           modSecurityUrl: "http://localhost:18080"
           # Size limit for WAF analysis - larger requests get truncated
           maxRequestBodySizeInMB: 10
+
+    # Default Security Middleware Chain (With WAF)
+    # Full security stack for most services: rate limiting + concurrency + WAF
+    # Chain: rateLimit -> inFlightReq -> waf -> service
+    default-chain:
+      chain:
+        middlewares:
+          - rateLimit@file
+          - inFlightReq@file
+          - waf@file
+
+    # Netbird Middleware Chain (No WAF)
+    # Custom chain for Netbird services to bypass WAF while maintaining rate limiting
+    # Chain: rateLimit -> inFlightReq -> service (skips WAF)
+    netbird-chain:
+      chain:
+        middlewares:
+          - rateLimit@file
+          - inFlightReq@file
