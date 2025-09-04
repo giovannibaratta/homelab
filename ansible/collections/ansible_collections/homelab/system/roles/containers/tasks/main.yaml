@@ -86,7 +86,7 @@
 - name: Create /etc/containers/nodocker
   ansible.builtin.file:
     path: /etc/containers/nodocker
-    state: touch
+    state: file
     mode: "0644"
 
 - name: Create directory {{ containers_storage_dir }}

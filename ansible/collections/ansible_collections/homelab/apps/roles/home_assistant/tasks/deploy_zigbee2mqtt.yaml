@@ -91,6 +91,10 @@
         WantedBy=default.target
         [Unit]
         Requires=mqtt-broker.service
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
   notify:
     - Reload systemd daemons for home-assistant role
     - Restart Zigbee2MQTT service

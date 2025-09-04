@@ -78,8 +78,8 @@
     dns:
       - "{{ internal_gateway }}"
     driver: bridge
-    force: true
-    recreate: true
+    force: false
+    recreate: false
     # Need to be reachable by other services
     internal: false
     interface_name: podman-traefik
