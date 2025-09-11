@@ -131,7 +131,7 @@
       CONTAINERS: 1
       LOGS: 0
       INFO: 1
-      LOG_LEVEL: debug
+      LOG_LEVEL: err
 
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
