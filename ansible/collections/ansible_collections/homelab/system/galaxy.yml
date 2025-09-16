@@ -7,6 +7,7 @@ authors:
   - Giovanni Baratta
 dependencies:
   sdorra.porkbun: ">=1.0.0"
+  community.crypto: ">=2.8.0"
 license:
   - MIT
 tags:

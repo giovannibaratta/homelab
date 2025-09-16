@@ -44,6 +44,7 @@ home:
       vpn_acme_email: "{{ lookup('community.general.bitwarden_secrets_manager', '0232eb36-1bb2-4842-83b7-b1f2011fa2f2').value }}"
       vpn_mgmt_datastore_env_key: "{{ lookup('community.general.bitwarden_secrets_manager', '4f9429fb-e6bb-4c72-ad3b-b2a900b420bd').value }}"
       vpn_protonvpn_wireguard_privatekey: "{{ lookup('community.general.bitwarden_secrets_manager', 'f677b4d3-2534-4c7e-a689-b1fa0149c2aa').value }}"
+      vpn_turn_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'c659f2f6-1096-4b6d-b690-b1ec01268975').value }}"
       network_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"
       network_porkbun_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5').value }}"
       idp_zitadel_db_admin_password: "{{ lookup('community.general.bitwarden_secrets_manager', '2b05dc90-5fbb-4879-b901-b1f400ed722b').value }}"

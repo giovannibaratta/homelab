@@ -26,6 +26,11 @@ vpn_netbird_relay_container_user: netbirdrelay
 vpn_netbird_relay_fallback_version: 0.56.0
 vpn_netbird_relay_fallback_conf_dir: /app/netbird-relay-fallback/conf
 vpn_netbird_relay_fallback_container_user: netbirdrelayfallback
+# Available versions https://hub.docker.com/r/coturn/coturn/tags
+vpn_netbird_coturn_version: 4.7.0
+vpn_netbird_coturn_container_user: netbirdcoturn
+vpn_netbird_coturn_conf_dir: /app/netbird-coturn/conf
+vpn_netbird_coturn_cert_dir: /app/netbird-coturn/certs
 vpn_protonvpn_container_user: protonvpn
 vpn_protonvpn_version: 7.5.3
 vpn_protonvpn_conf_dir: /app/protonvpn/conf

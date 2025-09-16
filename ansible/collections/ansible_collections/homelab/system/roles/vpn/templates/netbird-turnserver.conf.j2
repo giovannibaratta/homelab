@@ -1,0 +1,17 @@
+listening-port=3478
+tls-listening-port=5349
+# Disable regular STUN on port 3478
+no-tcp
+# Disable TURN functionality - STUN only
+stun-only
+fingerprint
+lt-cred-mech
+user=self:{{ vpn_turn_password }}
+# TLS certificates
+cert=/etc/coturn/certs/cert.pem
+pkey=/etc/coturn/private/privkey.pem
+# Logging and process
+log-file=stdout
+no-software-attribute
+pidfile="/var/tmp/turnserver.pid"
+no-cli
