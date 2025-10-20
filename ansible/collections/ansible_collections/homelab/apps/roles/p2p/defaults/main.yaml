@@ -5,7 +5,7 @@ bitmagnet_work_dir: /app/bitmagnet/work
 prowlarr_version: 1.37.0
 prowlarr_conf_dir: /app/prowlarr/conf
 prowlarr_work_dir: /app/prowlarr/work
-bittorrent_version: 4.6.7
+bittorrent_version: 5.1.2
 bittorrent_port: 53428
 bittorrent_work_dir: /app/bittorrent/work
 # Available versions https://hub.docker.com/r/linuxserver/sonarr/tags

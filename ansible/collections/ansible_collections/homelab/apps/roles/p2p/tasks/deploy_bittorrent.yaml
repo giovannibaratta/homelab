@@ -60,14 +60,26 @@
     src: bittorrent.env.j2
     dest: "{{ bittorrent_work_dir }}/bittorrent.env"
     mode: "0640"
+    owner: "{{ bittorrent_container_user }}"
+    group: "{{ bittorrent_container_user }}"
   notify:
     - Restart bittorrent service
+
+- name: Create qBittorrent config directory
+  ansible.builtin.file:
+    path: "{{ bittorrent_work_dir }}/qBittorrent"
+    state: directory
+    mode: "0770"
+    owner: "{{ bittorrent_container_user }}"
+    group: "{{ bittorrent_container_user }}"
 
 - name: Copy bittorrent.conf file
   ansible.builtin.template:
     src: bittorrent.conf.j2
     dest: "{{ bittorrent_work_dir }}/qBittorrent/qBittorrent.conf"
     mode: "0640"
+    owner: "{{ bittorrent_container_user }}"
+    group: "{{ bittorrent_container_user }}"
   notify:
     - Restart bittorrent service
 
@@ -80,6 +92,10 @@
     env_file: "{{ bittorrent_work_dir }}/bittorrent.env"
     recreate: true
     network: container:protonvpn
+
+    # Resource limits: 2 CPUs and 4 GiB memory
+    cpu_shares: 2048
+    memory: "4g"
 
     volumes:
       - "{{ bittorrent_work_dir }}:/config"

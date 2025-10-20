@@ -11,15 +11,19 @@ FileLogger\Path=/config/qBittorrent/logs
 enabled=false
 program=
 
+# qBittorrent Configuration Reference:
+# https://github.com/qbittorrent/qBittorrent/wiki/Explanation-of-Options-in-qBittorrent
+
 [BitTorrent]
 Session\AddExtensionToIncompleteFiles=true
+Session\ResumeDataStorageType=SQLite
 Session\AlternativeGlobalDLSpeedLimit=80000
 Session\AlternativeGlobalUPSpeedLimit=25000
 Session\BandwidthSchedulerEnabled=true
 Session\DefaultSavePath=/downloads/
 Session\DisableAutoTMMByDefault=false
 Session\Encryption=1
-Session\ExcludedFileNames=
+Session\ExcludedFileNames=*.exe,*.bat,*.cmd,*.com,*.pif,*.scr,*.vbs,*.js,*.jar,*.app,*.deb,*.rpm,*.dmg,*.pkg,*.msi,*.dll,*.sys,*.drv,*.ocx,*.cpl,*.inf,*.reg,*.ps1,*.psm1,*.psd1,*.ps1xml,*.psc1,*.sh,*.bash,*.zsh,*.fish,*.csh,*.tcsh,*.py,*.pl,*.rb,*.php,*.asp,*.aspx,*.jsp,*.html,*.htm,*.hta
 Session\IgnoreSlowTorrentsForQueueing=true
 Session\MaxActiveCheckingTorrents=2
 Session\MaxActiveDownloads=10
@@ -36,6 +40,77 @@ Session\TempPath=/downloads/incomplete/
 Session\TempPathEnabled=true
 Session\UseAlternativeGlobalSpeedLimit=true
 Session\Interface=protonwire0
+
+# Disk I/O optimizations for large HDD + Plex media server setup
+# These settings reduce disk seeks and minimize interference with Plex streaming
+
+# DiskCacheSize: 512MB cache for large disk setup (default 0=disabled)
+# Wiki recommends non-zero values for better performance, especially with HDDs
+# Larger cache = fewer disk operations = smoother Plex playback during torrenting
+Session\DiskCacheSize=512
+
+# DiskCacheTTL: Keep data in cache for 10 minutes to batch writes and reduce HDD wear
+# Longer TTL = fewer write operations = less competition with Plex for disk I/O
+Session\DiskCacheTTL=600
+
+# UseOSCache: Keep ENABLED per wiki recommendation for better performance
+# Wiki states OS cache is "enabled by default" and recommended for performance
+# Helps with read operations that benefit both qBittorrent and Plex
+Session\UseOSCache=true
+
+# CoalesceReads/Writes: Combine small I/O operations into larger sequential ones
+# HDDs perform much better with large sequential operations vs many small random ones
+# Reduces disk fragmentation and improves overall system responsiveness for Plex
+Session\CoalesceReads=true
+Session\CoalesceWrites=true
+
+# Connection management optimized for high-speed internet
+# OutgoingConnectionsPerSecond: Increased for high-bandwidth connections
+# Higher rate to establish connections faster and utilize available bandwidth
+Session\OutgoingConnectionsPerSecond=50
+
+# ConnectionsLimit: Increased for high-speed connections to maximize throughput
+# With high-speed internet available, more connections = better bandwidth utilization
+Session\ConnectionsLimit=1000
+Session\ConnectionsLimitPerTorrent=200
+
+# GlobalMaxRatio: Set reasonable ratio limit for private trackers
+# Higher upload capacity allows for better ratios
+Session\GlobalMaxRatio=2.0
+
+# SeedChokingAlgorithm: Use fastest upload algorithm (1) for efficient seeding
+# Faster seeding = less time active = reduced disk competition with Plex
+# Options: 0=round-robin, 1=fastest-upload, 2=anti-leech
+Session\SeedChokingAlgorithm=1
+
+# File handling optimization for large media libraries on HDD
+# FilePoolSize: Wiki default is 5000, reducing to 500 for conservative memory usage
+# Higher value reduces file system operations when handling large torrents
+Session\FilePoolSize=500
+
+# AsyncIOThreads: Wiki recommends 4x hardware threads for SHA-1 hashing performance
+# For 4-core/8-thread CPU: set to 16, adjust based on your CPU specs
+# Improves performance during torrent verification and hashing operations
+Session\AsyncIOThreads=16
+
+# Memory usage optimization for high-speed connections
+# SocketReceiveBufferSize: 4MB receive buffer for high-bandwidth connections
+Session\SocketReceiveBufferSize=4194304
+
+# SocketSendBufferSize: 4MB send buffer for high-speed internet
+Session\SocketSendBufferSize=4194304
+
+# MaxPeerlistSize: Increased for high-speed connections to maintain more peers
+# More peers = better bandwidth distribution across your high-speed connection
+Session\MaxPeerlistSize=8000
+
+# SendBufferWatermark: High watermark for upload buffer (default 500 KiB)
+# Wiki warns to adjust carefully - set higher for gigabit upload capacity
+Session\SendBufferWatermark=2097152
+
+# SendBufferLowWatermark: Low watermark for upload ramp-up (default 10 KiB)
+# Higher value for faster initial upload speed on high-bandwidth connections
+Session\SendBufferLowWatermark=102400
 
 [Core]
 AutoDeleteAddedTorrentFile=IfAdded
