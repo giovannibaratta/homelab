@@ -101,3 +101,11 @@
     minute: "30"
     state: present
     user: root
+
+- name: Ensure cron job for conditional system reboot exists
+  ansible.builtin.cron:
+    name: conditional-reboot
+    job: "[ ! -f /reboot-done ] && /usr/bin/touch /reboot-done && /usr/sbin/reboot"
+    minute: "*/15"
+    state: present
+    user: root
