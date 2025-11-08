@@ -1,19 +1,53 @@
 ---
 home:
+  vars:
+    ##### Required for first setup #####
+    pppoe_username: "{{ lookup('community.general.bitwarden_secrets_manager', 'bd0b9603-45e4-40a1-a9f7-b19600edd71c').value }}"
+    pppoe_password: "{{ lookup('community.general.bitwarden_secrets_manager', '15745580-f311-499b-a07c-b19600ee0739').value }}"
+    internal_network: 172.16.0.0
+    internal_network_netmask: 255.255.0.0
+    internal_gateway: 172.16.255.254
+    internal_network_dhcp_start: 172.16.200.0
+    internal_network_dhcp_end: 172.16.200.254
+    internal_domain: "{{ lookup('community.general.bitwarden_secrets_manager', 'bb0bd8de-67bf-4afb-97f3-b19600eeec9a').value }}"
+    network_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"
+    network_porkbun_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5').value }}"
+    network_gateway_virtual_ip: 172.16.255.251
+    network_vrrp_auth_pass: "{{ lookup('community.general.bitwarden_secrets_manager', '1630ccec-e351-48bc-b7e9-b38f012974ea').value }}"
+    adguardhome_hashed_password: "{{ lookup('community.general.bitwarden_secrets_manager', '1cc495f1-1ec9-47eb-b698-b1a000de76d1').value }}"
+    ##### Required for first setup #####
   hosts:
+    172.16.255.253:
+      ##### Required for first setup #####
+      ansible_user: ansible
+      ansible_ssh_private_key_file: ~/.ssh/ansible
+      ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
+      wan_interface: enp1s0
+      internal_interface: enp1s0
+      dyn_dns_entry: "ingress-fallback"
+      network_gateway_role: secondary
+      ##### Required for first setup #####
     172.16.255.254:
       ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/ansible
       ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
       wan_interface: enp1s0
       internal_interface: enp1s0
-      pppoe_username: "{{ lookup('community.general.bitwarden_secrets_manager', 'bd0b9603-45e4-40a1-a9f7-b19600edd71c').value }}"
-      pppoe_password: "{{ lookup('community.general.bitwarden_secrets_manager', '15745580-f311-499b-a07c-b19600ee0739').value }}"
-      internal_network: 172.16.0.0
-      internal_network_netmask: 255.255.0.0
-      internal_gateway: 172.16.255.254
-      internal_network_dhcp_start: 172.16.200.0
-      internal_network_dhcp_end: 172.16.200.254
+      dyn_dns_entry: "ingress-primary"
+      network_gateway_role: primary
+      ##### END Required for first setup #####
+      system_update_day: 3
+      #### deployment preferences
+      deploy_grafana: false
+      deploy_prometheus: false
+      deploy_alertmanager: false
+      deploy_mediastack: true
+      deploy_logging: true
+      deploy_home_assistant: true
+      deploy_coder: true
+      deploy_mqtt: true
+      ##### ad hoc deployments variables #####
+      containers_netavark_version: v1.11.0
       grafana_password: "{{ lookup('community.general.bitwarden_secrets_manager', '1733459e-a62e-41a2-8ada-b19600ee2a5b').value }}"
       desec_token: "{{ lookup('community.general.bitwarden_secrets_manager', '47a7f216-1255-46e2-ad18-b19600e95fa1').value }}"
       ingress_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"
@@ -24,7 +58,6 @@ home:
       alertmanager_sender: "{{ lookup('community.general.bitwarden_secrets_manager', 'e96e03b0-6f8b-487c-9e39-b30a014aa6ce').value }}"
       alertmanager_smtp_auth_password: "{{ lookup('community.general.bitwarden_secrets_manager', '6de74413-d287-4996-8a2a-b30a014ade6b').value }}"
       coder_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '90f228e2-5405-4cfb-ada2-b199009f2d39').value }}"
-      adguardhome_hashed_password: "{{ lookup('community.general.bitwarden_secrets_manager', '1cc495f1-1ec9-47eb-b698-b1a000de76d1').value }}"
       bitmagnet_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '119f3c7b-3b7a-4fb2-96d4-b1ac00cd1a02').value }}"
       tmdb_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'd1995ff6-fb11-490b-b397-b1ac00d9d02b').value }}"
       prowlarr_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'af9f1b09-6d7f-4313-9fa7-b1ad011e4fcc').value }}"
@@ -45,8 +78,6 @@ home:
       vpn_mgmt_datastore_env_key: "{{ lookup('community.general.bitwarden_secrets_manager', '4f9429fb-e6bb-4c72-ad3b-b2a900b420bd').value }}"
       vpn_protonvpn_wireguard_privatekey: "{{ lookup('community.general.bitwarden_secrets_manager', 'f677b4d3-2534-4c7e-a689-b1fa0149c2aa').value }}"
       vpn_turn_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'c659f2f6-1096-4b6d-b690-b1ec01268975').value }}"
-      network_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"
-      network_porkbun_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5').value }}"
       idp_zitadel_db_admin_password: "{{ lookup('community.general.bitwarden_secrets_manager', '2b05dc90-5fbb-4879-b901-b1f400ed722b').value }}"
       idp_zitadel_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '29b9fee6-3315-4932-b28e-b1f400ed5ffb').value }}"
       idp_zitadel_admin_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'ee663db2-6613-47fb-ae53-b1f400ece468').value }}"

@@ -49,8 +49,8 @@
               --name adguardhome \
               -v /app/adguardhome/work:/opt/adguardhome/work \
               -v /app/adguardhome/conf:/opt/adguardhome/conf \
-              -p 172.16.255.254:53:53/tcp \
-              -p 172.16.255.254:53:53/udp \
+              -p {{ internal_ip_address }}:53:53/tcp \
+              -p {{ internal_ip_address }}:53:53/udp \
               --label="traefik.enable=true" \
               --label="traefik.http.routers.adguard.rule=Host(`adguard.{{ internal_domain }}`)" \
               --label="traefik.http.routers.adguard.entrypoints=websecure" \
@@ -90,6 +90,9 @@
     mode: "0644"
   register: adguardhome_service_unit
   notify: Reload systemd daemons for adguard role
+
+- name: Flush the handlers for adguard role
+  ansible.builtin.meta: flush_handlers
 
 - name: Enable and start adguardhome service
   ansible.builtin.systemd_service:

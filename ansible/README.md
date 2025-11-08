@@ -56,7 +56,8 @@ usermod -aG wheel ansible
 SSH_PUB_KEY=""
 mkdir -p /home/ansible/.ssh
 echo "$SSH_PUB_KEY" >> /home/ansible/.ssh/authorized_keys
-chmod -R 600 /home/ansible/.ssh
+chmod -R 600 /home/ansible/.ssh/*
+chmod 755 /home/ansible/.ssh/*
 chown -R ansible:ansible /home/ansible
 ```
 

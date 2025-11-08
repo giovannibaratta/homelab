@@ -18,7 +18,7 @@
     src: resolv.conf.j2
     dest: "/etc/systemd/resolved.conf.d/{{internal_domain}}.conf"
     mode: "0644"
-  notify:
+  notify: Reload systemd daemons for network role
   register: internal_resolved_conf_file
 
 - name: Restart systemd-resolved

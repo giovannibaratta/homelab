@@ -7,3 +7,7 @@
   ansible.builtin.systemd_service:
     name: podman.socket
     state: restarted
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true

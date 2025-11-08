@@ -124,6 +124,9 @@
   notify:
     - Restart NetworkManager service
 
+- name: Flush handlers to restart NetworkManager
+  ansible.builtin.meta: flush_handlers
+
 # Enable IP forwarding
 - name: Configure routing table
   ansible.builtin.copy:
@@ -174,7 +177,13 @@
   ansible.builtin.shell: |
     /app/nftables-geoip/repo/nft_geoip.py --download -c es,fr,pt,it,de,ie,gb,ch,se,no --output-dir /app/nftables-geoip/ip-lists --file-location /app/nftables-geoip/repo/location.csv
 
-- name: Ensture that nftables start after file system has been mounted
+- name: Create override directory for nftables service
+  ansible.builtin.file:
+    path: /etc/systemd/system/nftables.service.d
+    state: directory
+    mode: "0755"
+
+- name: Ensure that nftables start after file system has been mounted
   ansible.builtin.template:
     src: nftables.service.override.conf.j2
     dest: "/etc/systemd/system/nftables.service.d/override.conf"

@@ -63,15 +63,20 @@
     name: slirp4netns
     state: present
 
+- name: Pin podman version to 5.x releases
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/podman-pin
+    content: |
+      Package: podman
+      Pin: version 5.*
+      Pin-Priority: 1001 # Forced Installation
+    mode: "0644"
+  notify: Update apt cache
+
 - name: Install podman
   ansible.builtin.package:
-    name: podman=100:5.2.0-1
-    state: present
-
-- name: Pin podman
-  ansible.builtin.dpkg_selections:
     name: podman
-    selection: hold
+    state: present
 
 - name: Install podman-docker
   ansible.builtin.package:
@@ -86,7 +91,7 @@
 - name: Create /etc/containers/nodocker
   ansible.builtin.file:
     path: /etc/containers/nodocker
-    state: file
+    state: touch
     mode: "0644"
 
 - name: Create directory {{ containers_storage_dir }}

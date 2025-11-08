@@ -9,6 +9,13 @@
     media_data_dir: /external/media
 
   tasks:
+
+    - name: Get IP of the specified internal interface
+      ansible.builtin.set_fact:
+        internal_ip_address: "{{ ansible_facts[internal_interface].ipv4.address }}"
+      tags:
+        - always
+
     - name: Ensure group exists with name {{ media_shared_group }}
       ansible.builtin.group:
         name: "{{ media_shared_group }}"
@@ -26,10 +33,24 @@
         mode: "0770"
         group: "{{ media_shared_group }}"
 
+    # Containers must be run before the network role
+    # due to a dependency on Podman. A temporary internet
+    # connection is expected to be available during the first setup.
+    - ansible.builtin.import_role:
+        name: homelab.system.containers
+      become: true
+      vars:
+        containers_storage_dir: /app/containers
+      tags:
+        - first-setup
+        - containers
+
     - ansible.builtin.import_role:
         name: homelab.system.network
       become: true
-      tags: system-network
+      tags:
+        - first-setup
+        - system-network
 
     - ansible.builtin.import_role:
         name: homelab.system.base
@@ -39,7 +60,9 @@
         base_ohmyzsh_users:
           - root
           - gbaratta
-      tags: system-base
+      tags:
+        - first-setup
+        - system-base
 
     - ansible.builtin.import_role:
         name: homelab.system.auto_remediation
@@ -57,13 +80,6 @@
         name: homelab.system.ingress
       become: true
       tags: ingress
-
-    - ansible.builtin.import_role:
-        name: homelab.system.containers
-      become: true
-      vars:
-        containers_storage_dir: /app/containers
-      tags: containers
 
     - ansible.builtin.import_role:
         name: homelab.system.idp
@@ -98,7 +114,9 @@
     - ansible.builtin.import_role:
         name: homelab.apps.adguard
       become: true
-      tags: adguard
+      tags:
+        - first-setup
+        - adguard
 
     - ansible.builtin.import_role:
         name: homelab.apps.prometheus
