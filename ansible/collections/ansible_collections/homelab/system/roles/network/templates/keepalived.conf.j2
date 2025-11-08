@@ -1,0 +1,21 @@
+global_defs {
+   router_id {{ _network_vrrp_identifier }}
+}
+
+vrrp_instance VI_1 {
+    state {{ _network_vrrp_state }}
+    interface {{ internal_interface }}
+    virtual_router_id {{ vrrp_virtual_router_id }}
+    priority {{ _network_vrrp_priority }}
+    advert_int 1
+    preempt_delay 300
+
+    authentication {
+        auth_type AH
+        auth_pass {{ network_vrrp_auth_pass }}
+    }
+
+    virtual_ipaddress {
+        {{ network_gateway_virtual_ip }}
+    }
+}

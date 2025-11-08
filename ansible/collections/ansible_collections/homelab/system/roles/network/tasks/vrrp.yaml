@@ -1,0 +1,27 @@
+---
+- name: Install keepalived
+  ansible.builtin.package:
+    name: keepalived
+    state: present
+
+- name: Set VRRP variables
+  ansible.builtin.set_fact:
+    _network_vrrp_state: "{{ 'MASTER' if network_gateway_role == 'primary' else 'BACKUP' }}"
+    _network_vrrp_priority: "{{ 200 if network_gateway_role == 'primary' else 100 }}"
+    _network_vrrp_identifier: "{{ 'GW_PRIMARY' if network_gateway_role == 'primary' else 'GW_FALLBACK' }}"
+
+- name: Configure keepalived
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart keepalived
+
+- name: Ensure keepalived service is started and enabled
+  ansible.builtin.service:
+    name: keepalived
+    state: started
+    enabled: true
+

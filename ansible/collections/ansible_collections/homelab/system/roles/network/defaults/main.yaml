@@ -3,3 +3,4 @@ ddclient_version: v4.0.0-rc.1
 ddclient_container_user: ddclient
 ddclient_conf_dir: /app/ddclient/conf
 ddclient_work_dir: /app/ddclient/work
+vrrp_virtual_router_id: 90

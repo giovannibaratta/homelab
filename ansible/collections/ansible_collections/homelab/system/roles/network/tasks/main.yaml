@@ -356,3 +356,7 @@
 
 - name: Dynamic DNS
   ansible.builtin.import_tasks: configure-dyn-dns.yaml
+
+- name: Configure VRRP
+  ansible.builtin.import_tasks: vrrp.yaml
+  when: network_gateway_role is defined and network_gateway_role

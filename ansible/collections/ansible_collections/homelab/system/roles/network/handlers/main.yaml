@@ -22,3 +22,8 @@
   ansible.builtin.systemd_service:
     state: restarted
     name: ddclient
+
+- name: Restart keepalived
+  ansible.builtin.service:
+    name: keepalived
+    state: restarted
