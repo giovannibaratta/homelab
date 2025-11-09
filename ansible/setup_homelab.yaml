@@ -16,22 +16,25 @@
       tags:
         - always
 
-    - name: Ensure group exists with name {{ media_shared_group }}
-      ansible.builtin.group:
-        name: "{{ media_shared_group }}"
-        state: present
-      register: media_group_result
+    - name: Setup media group and dirs
+      when: deploy_mediastack
+      block:
+        - name: Ensure group exists with name {{ media_shared_group }}
+          ansible.builtin.group:
+            name: "{{ media_shared_group }}"
+            state: present
+          register: media_group_result
 
-    - name: Set media_gid
-      ansible.builtin.set_fact:
-        media_gid: "{{ media_group_result.gid }}"
+        - name: Set media_gid
+          ansible.builtin.set_fact:
+            media_gid: "{{ media_group_result.gid }}"
 
-    - name: Create directory {{ media_data_dir }}
-      ansible.builtin.file:
-        path: "{{ media_data_dir }}"
-        state: directory
-        mode: "0770"
-        group: "{{ media_shared_group }}"
+        - name: Create directory {{ media_data_dir }}
+          ansible.builtin.file:
+            path: "{{ media_data_dir }}"
+            state: directory
+            mode: "0770"
+            group: "{{ media_shared_group }}"
 
     # Containers must be run before the network role
     # due to a dependency on Podman. A temporary internet
@@ -69,7 +72,8 @@
       become: true
       tags: auto-remediation
 
-    - ansible.builtin.import_role:
+    - when: deploy_logging
+      ansible.builtin.import_role:
         name: homelab.system.logging
       become: true
       vars:
@@ -81,27 +85,32 @@
       become: true
       tags: ingress
 
-    - ansible.builtin.import_role:
-        name: homelab.system.idp
-      become: true
-      tags: idp
+    - when: deploy_idp
+      name: Identity provider
+      block:
+        - ansible.builtin.import_role:
+            name: homelab.system.idp
+          become: true
+          tags: idp
 
-    - name: Set fact from idp terraform output
-      ansible.builtin.set_fact:
-        vpn_netbird_idp_client_id: "{{ idp_zitadel_terraform_output.outputs.netbird_client_id.value }}"
-        vpn_netbird_idp_client_secret: "{{ idp_zitadel_terraform_output.outputs.netbird_client_secret.value }}"
-        coder_idp_client_id: "{{ idp_zitadel_terraform_output.outputs.coder_client_id.value }}"
-        coder_idp_client_secret: "{{ idp_zitadel_terraform_output.outputs.coder_client_secret.value }}"
-        remote_control_oauth2_client_id: "{{ idp_zitadel_terraform_output.outputs.olivetin_client_id.value }}"
-        remote_control_oauth2_client_secret: "{{ idp_zitadel_terraform_output.outputs.olivetin_client_secret.value }}"
-      tags: idp
+        - name: Set fact from idp terraform output
+          ansible.builtin.set_fact:
+            vpn_netbird_idp_client_id: "{{ idp_zitadel_terraform_output.outputs.netbird_client_id.value }}"
+            vpn_netbird_idp_client_secret: "{{ idp_zitadel_terraform_output.outputs.netbird_client_secret.value }}"
+            coder_idp_client_id: "{{ idp_zitadel_terraform_output.outputs.coder_client_id.value }}"
+            coder_idp_client_secret: "{{ idp_zitadel_terraform_output.outputs.coder_client_secret.value }}"
+            remote_control_oauth2_client_id: "{{ idp_zitadel_terraform_output.outputs.olivetin_client_id.value }}"
+            remote_control_oauth2_client_secret: "{{ idp_zitadel_terraform_output.outputs.olivetin_client_secret.value }}"
+          tags: idp
 
-    - ansible.builtin.import_role:
-        name: homelab.system.remote_control
-      become: true
-      tags: remote-control
+        # Remote control depends on the OAuth available only with the IDP provider
+        - ansible.builtin.import_role:
+            name: homelab.system.remote_control
+          become: true
+          tags: remote-control
 
-    - ansible.builtin.import_role:
+    - when: deploy_netbird
+      ansible.builtin.import_role:
         name: homelab.system.vpn
       become: true
       tags: vpn
@@ -118,7 +127,8 @@
         - first-setup
         - adguard
 
-    - ansible.builtin.import_role:
+    - when: deploy_prometheus
+      ansible.builtin.import_role:
         name: homelab.apps.prometheus
       become: true
       tags: prometheus
@@ -127,37 +137,43 @@
         name: prometheus.prometheus.node_exporter
       become: true
       vars:
-        node_exporter_web_listen_address: 172.16.255.254:9100
+        node_exporter_web_listen_address: "{{ internal_ip_address }}:9100"
       tags: prometheus
 
-    - ansible.builtin.import_role:
+    - when: deploy_grafana
+      ansible.builtin.import_role:
         name: homelab.apps.grafana
       become: true
       tags: grafana
 
-    - ansible.builtin.import_role:
+    - when: deploy_mqtt
+      ansible.builtin.import_role:
         name: homelab.apps.mqtt_broker
       become: true
       tags: mqtt-broker
 
-    - ansible.builtin.import_role:
+    - when: deploy_home_assistant
+      ansible.builtin.import_role:
         name: homelab.apps.home_assistant
       become: true
       tags: home-assistant
 
-    - ansible.builtin.import_role:
+    - when: deploy_coder
+      ansible.builtin.import_role:
         name: homelab.apps.coder
       become: true
       tags: coder
 
-    - ansible.builtin.import_role:
+    - when: deploy_mediastack
+      ansible.builtin.import_role:
         name: homelab.apps.media_server
       vars:
         media_server_media_dir: "{{ media_data_dir }}"
       become: true
       tags: media-server
 
-    - ansible.builtin.import_role:
+    - when: deploy_mediastack
+      ansible.builtin.import_role:
         name: homelab.apps.p2p
       vars:
         # The directory is used to stage downloaded and incomplete files

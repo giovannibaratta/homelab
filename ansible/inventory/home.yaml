@@ -28,10 +28,13 @@ home:
     deploy_home_assistant: false
     deploy_coder: false
     deploy_mqtt: false
+    deploy_idp: false
+    deploy_netbird: false
     #### Shared deployment variables #####
     logging_aws_cloud_watch_access_key: "{{ lookup('community.general.bitwarden_secrets_manager', '98b22309-34ba-48ec-8025-b228014a9294').value }}"
     logging_aws_cloud_watch_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '2e0329dc-7f83-42ab-a22c-b228014ab2ad').value }}"
     acme_email: "{{ lookup('community.general.bitwarden_secrets_manager', '0f8cfc8a-1daa-4bea-9ace-b19600eebb2a').value }}"
+    grafana_password: "{{ lookup('community.general.bitwarden_secrets_manager', '1733459e-a62e-41a2-8ada-b19600ee2a5b').value }}"
   hosts:
     172.16.255.253:
       ##### Required for first setup #####
@@ -46,13 +49,15 @@ home:
       system_update_day: 6
       ##### Deployment preferences #####
       deploy_grafana: true
-      deploy_prometheus: true
-      deploy_alertmanager: true
+      deploy_prometheus: false
+      deploy_alertmanager: false
       deploy_mediastack: false
       deploy_logging: true
       deploy_home_assistant: false
       deploy_coder: false
       deploy_mqtt: false
+      deploy_idp: false
+      deploy_netbird: false
     172.16.255.252:
       ##### Required for first setup #####
       ansible_user: ansible
@@ -73,9 +78,10 @@ home:
       deploy_home_assistant: true
       deploy_coder: true
       deploy_mqtt: true
+      deploy_idp: true
+      deploy_netbird: true
       ##### ad hoc deployments variables #####
       containers_netavark_version: v1.11.0
-      grafana_password: "{{ lookup('community.general.bitwarden_secrets_manager', '1733459e-a62e-41a2-8ada-b19600ee2a5b').value }}"
       desec_token: "{{ lookup('community.general.bitwarden_secrets_manager', '47a7f216-1255-46e2-ad18-b19600e95fa1').value }}"
       alertmanager_receiver_email: "{{ lookup('community.general.bitwarden_secrets_manager', '2ef318e4-be55-418f-a87b-b19700f42c73').value }}"
       alertmanager_sender: "{{ lookup('community.general.bitwarden_secrets_manager', 'e96e03b0-6f8b-487c-9e39-b30a014aa6ce').value }}"
