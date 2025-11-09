@@ -10,6 +10,6 @@
       reboot
     minute: "00"
     hour: "03"
-    weekday: "6"
+    weekday: "{{ system_update_day }}"
     state: present
     user: root
