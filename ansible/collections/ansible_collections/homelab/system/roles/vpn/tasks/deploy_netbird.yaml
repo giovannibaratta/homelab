@@ -1,134 +1,4 @@
 ---
-# The playbook deploys two instances of the Netbird client in order to run two different
-# versions and perform a two stage update in case a new version would stop working as expected.
-- name: Add user {{ vpn_netbird_dashboard_container_user }}
-  ansible.builtin.user:
-    name: "{{ vpn_netbird_dashboard_container_user }}"
-    comment: User used to run Netbird dashboard
-    create_home: false
-    shell: /usr/sbin/nologin
-  register: vpn_netbird_dashboard_container_user_result
-
-- name: Add user {{ vpn_netbird_mgmt_container_user }}
-  ansible.builtin.user:
-    name: "{{ vpn_netbird_mgmt_container_user }}"
-    comment: User used to run Netbird mgmt
-    create_home: false
-    shell: /usr/sbin/nologin
-  register: vpn_netbird_mgmt_container_user_result
-
-- name: Add user {{ vpn_netbird_signal_container_user }}
-  ansible.builtin.user:
-    name: "{{ vpn_netbird_signal_container_user }}"
-    comment: User used to run Netbird signal
-    create_home: false
-    shell: /usr/sbin/nologin
-  register: vpn_netbird_signal_container_user_result
-
-- name: Add user {{ vpn_netbird_relay_container_user }}
-  ansible.builtin.user:
-    name: "{{ vpn_netbird_relay_container_user }}"
-    comment: User used to run Netbird relay
-    create_home: false
-    shell: /usr/sbin/nologin
-  register: vpn_netbird_relay_container_user_result
-
-- name: Add user {{ vpn_netbird_relay_fallback_container_user }}
-  ansible.builtin.user:
-    name: "{{ vpn_netbird_relay_fallback_container_user }}"
-    comment: User used to run Netbird relay fallback
-    create_home: false
-    shell: /usr/sbin/nologin
-  register: vpn_netbird_relay_fallback_container_user_result
-
-- name: Add user {{ vpn_netbird_coturn_container_user }}
-  ansible.builtin.user:
-    name: "{{ vpn_netbird_coturn_container_user }}"
-    comment: User used to run Netbird coturn
-    create_home: false
-    shell: /usr/sbin/nologin
-  register: vpn_netbird_coturn_container_user_result
-
-- name: Add user {{ vpn_netbird_exit_node_container_user }}
-  ansible.builtin.user:
-    name: "{{ vpn_netbird_exit_node_container_user }}"
-    comment: User used to run Netbird exit node
-    create_home: false
-    shell: /usr/sbin/nologin
-  register: vpn_netbird_exit_node_container_user_result
-
-- name: Create Netbird dashboard directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0770"
-    owner: "{{ vpn_netbird_dashboard_container_user }}"
-    group: "{{ vpn_netbird_dashboard_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_dashboard_conf_dir }}"
-
-- name: Create Netbird mgmt directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0770"
-    owner: "{{ vpn_netbird_mgmt_container_user }}"
-    group: "{{ vpn_netbird_mgmt_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_mgmt_conf_dir }}"
-    - "{{ vpn_netbird_mgmt_work_dir }}"
-
-- name: Create Netbird signal directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0770"
-    owner: "{{ vpn_netbird_signal_container_user }}"
-    group: "{{ vpn_netbird_signal_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_signal_work_dir }}"
-
-- name: Create Netbird relay directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0770"
-    owner: "{{ vpn_netbird_relay_container_user }}"
-    group: "{{ vpn_netbird_relay_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_relay_conf_dir }}"
-
-- name: Create Netbird relay fallback directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0770"
-    owner: "{{ vpn_netbird_relay_fallback_container_user }}"
-    group: "{{ vpn_netbird_relay_fallback_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_relay_fallback_conf_dir }}"
-
-- name: Create Netbird exit node directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0770"
-    owner: "{{ vpn_netbird_exit_node_container_user }}"
-    group: "{{ vpn_netbird_exit_node_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_exit_node_conf_dir }}"
-
-- name: Create Netbird coturn directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0770"
-    owner: "{{ vpn_netbird_coturn_container_user }}"
-    group: "{{ vpn_netbird_coturn_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_coturn_conf_dir }}"
-    - "{{ vpn_netbird_coturn_cert_dir }}"
-
 - name: Create Netbird network Quadlet
   containers.podman.podman_network:
     name: netbird
@@ -159,700 +29,756 @@
     state: started
     enabled: true
 
-- name: Copy netbird-turnserver.conf file
-  ansible.builtin.template:
-    src: netbird-turnserver.conf.j2
-    dest: "{{ vpn_netbird_coturn_conf_dir }}/turnserver.conf"
-    mode: "0600"
-    owner: "{{ vpn_netbird_coturn_container_user }}"
-    group: "{{ vpn_netbird_coturn_container_user }}"
-    backup: true
-  notify:
-    - Restart netbird-coturn service
-
-- name: Generate Let's Encrypt account key
-  community.crypto.openssl_privatekey:
-    path: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.account.private.pem"
-    owner: "{{ vpn_netbird_coturn_container_user }}"
-    group: "{{ vpn_netbird_coturn_container_user }}"
-    mode: "0600"
-
-- name: Generate certificate private key
-  community.crypto.openssl_privatekey:
-    path: "{{ vpn_netbird_coturn_cert_dir }}/privkey.pem"
-    owner: "{{ vpn_netbird_coturn_container_user }}"
-    group: "{{ vpn_netbird_coturn_container_user }}"
-    mode: "0600"
-  notify:
-    - Restart netbird-coturn service
-
-- name: Generate OpenSSL Certificate Signing Request for netbird.{{ internal_domain }}
-  community.crypto.openssl_csr:
-    path: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.csr"
-    privatekey_path: "{{ vpn_netbird_coturn_cert_dir }}/privkey.pem"
-    common_name: netbird.{{ internal_domain }}
-    owner: "{{ vpn_netbird_coturn_container_user }}"
-    group: "{{ vpn_netbird_coturn_container_user }}"
-    mode: "0600"
-
-- name: Ensure Let's Encrypt account exists
-  community.crypto.acme_account:
-    account_key_src: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.account.private.pem"
-    state: present
-    terms_agreed: true
-    acme_version: 2
-    acme_directory: https://acme-v02.api.letsencrypt.org/directory
-    contact:
-      - "mailto:{{ vpn_acme_email }}"
-
-- name: Create a challenge for netbird.{{ internal_domain }}
-  community.crypto.acme_certificate:
-    account_key_src: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.account.private.pem"
-    account_email: "{{ vpn_acme_email }}"
-    src: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.csr"
-    cert: "{{ vpn_netbird_coturn_cert_dir }}/cert.pem"
-    challenge: dns-01
-    acme_directory: https://acme-v02.api.letsencrypt.org/directory
-    acme_version: 2
-    remaining_days: 30
-  register: netbird_coturn_challenge
-  retries: 3
-  delay: 20
-
-- name: Handle DNS challenge for certificate validation
-  when: netbird_coturn_challenge is changed
+- name: Deploy Netbird dashboard
+  when: vpn_deploy_dashboard
   block:
-    - name: Set DNS challenge record name
-      ansible.builtin.set_fact:
-        dns_challenge_lookup_key: "netbird.{{ internal_domain }}"
-        dns_challenge_record_name: "_acme-challenge.netbird"
+    - name: Add user {{ vpn_netbird_dashboard_container_user }}
+      ansible.builtin.user:
+        name: "{{ vpn_netbird_dashboard_container_user }}"
+        comment: User used to run Netbird dashboard
+        create_home: false
+        shell: /usr/sbin/nologin
+      register: vpn_netbird_dashboard_container_user_result
+    - name: Create Netbird dashboard directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0770"
+        owner: "{{ vpn_netbird_dashboard_container_user }}"
+        group: "{{ vpn_netbird_dashboard_container_user }}"
+      with_items:
+        - "{{ vpn_netbird_dashboard_conf_dir }}"
+    - name: Copy netbird-dashboard.env file
+      ansible.builtin.template:
+        src: netbird-dashboard.env.j2
+        dest: "{{ vpn_netbird_dashboard_conf_dir }}/netbird-dashboard.env"
+        mode: "0600"
+        backup: true
+      notify:
+        - Restart netbird-dashboard service
 
-    - name: Set DNS challenge record value
-      ansible.builtin.set_fact:
-        dns_challenge_record_value: "{{ netbird_coturn_challenge.challenge_data[dns_challenge_lookup_key]['dns-01'].resource_value }}"
+    - name: Create Netbird dashboard Quadlet
+      containers.podman.podman_container:
+        name: netbird-dashboard
+        state: quadlet
+        image: netbirdio/dashboard:{{ vpn_netbird_dashboard_version }}
+        env_file: "{{ vpn_netbird_dashboard_conf_dir }}/netbird-dashboard.env"
+        recreate: true
+        network: netbird
 
-    - name: Create DNS challenge record
-      sdorra.porkbun.porkbun_record:
+        uidmap:
+          - 0:{{ vpn_netbird_dashboard_container_user_result.uid }}:1
+          - 1:4000000000:100000
+
+        gidmap:
+          - 0:{{ vpn_netbird_dashboard_container_user_result.group }}:1
+          - 1:4000000000:100000
+
+        labels:
+          traefik.enable: true
+          traefik.http.routers.netbird.rule: Host(`netbird.{{ internal_domain }}`)
+          traefik.http.routers.netbird.entrypoints: websecure,public-secure
+          traefik.http.routers.netbird.middlewares: netbird-chain@file
+          traefik.http.routers.netbird.tls.certresolver: letsencrypt
+          traefik.http.routers.netbird.tls.domains[0].main: netbird.{{ internal_domain }}
+          traefik.http.services.netbird.loadbalancer.server.port: 80
+
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target
+            [Unit]
+            StartLimitIntervalSec=0
+            [Service]
+            Restart=always
+            RestartSec=60s
+      notify:
+        - Reload systemd daemons for vpn role
+        - Restart netbird-dashboard service
+
+    - name: Trigger Handlers for netbird-dashboard
+      ansible.builtin.meta: flush_handlers
+
+    - name: Start netbird-dashboard
+      ansible.builtin.systemd_service:
+        name: netbird-dashboard
+        state: started
+        enabled: true
+
+- name: Deploy stun server
+  when: vpn_deploy_stun_server
+  block:
+    - name: Add user {{ vpn_netbird_coturn_container_user }}
+      ansible.builtin.user:
+        name: "{{ vpn_netbird_coturn_container_user }}"
+        comment: User used to run Netbird coturn
+        create_home: false
+        shell: /usr/sbin/nologin
+      register: vpn_netbird_coturn_container_user_result
+    - name: Create Netbird coturn directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0770"
+        owner: "{{ vpn_netbird_coturn_container_user }}"
+        group: "{{ vpn_netbird_coturn_container_user }}"
+      with_items:
+        - "{{ vpn_netbird_coturn_conf_dir }}"
+        - "{{ vpn_netbird_coturn_cert_dir }}"
+    - name: Copy netbird-turnserver.conf file
+      ansible.builtin.template:
+        src: netbird-turnserver.conf.j2
+        dest: "{{ vpn_netbird_coturn_conf_dir }}/turnserver.conf"
+        mode: "0600"
+        owner: "{{ vpn_netbird_coturn_container_user }}"
+        group: "{{ vpn_netbird_coturn_container_user }}"
+        backup: true
+      notify:
+        - Restart netbird-coturn service
+
+    - name: Generate Let's Encrypt account key
+      community.crypto.openssl_privatekey:
+        path: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.account.private.pem"
+        owner: "{{ vpn_netbird_coturn_container_user }}"
+        group: "{{ vpn_netbird_coturn_container_user }}"
+        mode: "0600"
+
+    - name: Generate certificate private key
+      community.crypto.openssl_privatekey:
+        path: "{{ vpn_netbird_coturn_cert_dir }}/privkey.pem"
+        owner: "{{ vpn_netbird_coturn_container_user }}"
+        group: "{{ vpn_netbird_coturn_container_user }}"
+        mode: "0600"
+      notify:
+        - Restart netbird-coturn service
+
+    - name: Generate OpenSSL Certificate Signing Request for netbird.{{ internal_domain }}
+      community.crypto.openssl_csr:
+        path: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.csr"
+        privatekey_path: "{{ vpn_netbird_coturn_cert_dir }}/privkey.pem"
+        common_name: netbird.{{ internal_domain }}
+        owner: "{{ vpn_netbird_coturn_container_user }}"
+        group: "{{ vpn_netbird_coturn_container_user }}"
+        mode: "0600"
+
+    - name: Ensure Let's Encrypt account exists
+      community.crypto.acme_account:
+        account_key_src: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.account.private.pem"
         state: present
-        domain: "{{ internal_domain }}"
-        record_type: TXT
-        name: "{{ dns_challenge_record_name }}"
-        content: "{{ dns_challenge_record_value }}"
-        api_key: "{{ vpn_porkbun_api_key }}"
-        secret_api_key: "{{ vpn_porkbun_secret_key }}"
-        ttl: 0
+        terms_agreed: true
+        acme_version: 2
+        acme_directory: https://acme-v02.api.letsencrypt.org/directory
+        contact:
+          - "mailto:{{ vpn_acme_email }}"
 
-    - name: Wait for DNS propagation
-      ansible.builtin.wait_for:
-        timeout: 300
-
-    - name: Validate the challenge for netbird.{{ internal_domain }}
+    - name: Create a challenge for netbird.{{ internal_domain }}
       community.crypto.acme_certificate:
         account_key_src: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.account.private.pem"
         account_email: "{{ vpn_acme_email }}"
         src: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.csr"
         cert: "{{ vpn_netbird_coturn_cert_dir }}/cert.pem"
-        fullchain: "{{ vpn_netbird_coturn_cert_dir }}/fullchain.pem"
-        chain: "{{ vpn_netbird_coturn_cert_dir }}/chain.pem"
         challenge: dns-01
         acme_directory: https://acme-v02.api.letsencrypt.org/directory
         acme_version: 2
         remaining_days: 30
-        data: "{{ netbird_coturn_challenge }}"
-      retries: 5
-      delay: 60
-      register: validation_result
+      register: netbird_coturn_challenge
+      retries: 3
+      delay: 20
 
-    - name: Delete DNS challenge record
-      sdorra.porkbun.porkbun_record:
-        state: absent
-        domain: "{{ internal_domain }}"
-        record_type: TXT
-        name: "{{ dns_challenge_record_name }}"
-        content: "{{ dns_challenge_record_value }}"
-        api_key: "{{ vpn_porkbun_api_key }}"
-        secret_api_key: "{{ vpn_porkbun_secret_key }}"
-        ttl: 0
+    - name: Handle DNS challenge for certificate validation
+      when: netbird_coturn_challenge is changed
+      block:
+        - name: Set DNS challenge record name
+          ansible.builtin.set_fact:
+            dns_challenge_lookup_key: "netbird.{{ internal_domain }}"
+            dns_challenge_record_name: "_acme-challenge.netbird"
 
-    - name: Let's Encrypt certificate validation failed
-      ansible.builtin.fail:
-        msg: The validation of the certificate failed
-      when: validation_result is failed
+        - name: Set DNS challenge record value
+          ansible.builtin.set_fact:
+            dns_challenge_record_value: "{{ netbird_coturn_challenge.challenge_data[dns_challenge_lookup_key]['dns-01'].resource_value }}"
 
-- name: Set certificate ownership
-  ansible.builtin.file:
-    path: "{{ item }}"
-    owner: "{{ vpn_netbird_coturn_container_user }}"
-    group: "{{ vpn_netbird_coturn_container_user }}"
-    mode: "0600"
-  loop:
-    - "{{ vpn_netbird_coturn_cert_dir }}/cert.pem"
-    - "{{ vpn_netbird_coturn_cert_dir }}/privkey.pem"
-  notify:
-    - Restart netbird-coturn service
+        - name: Create DNS challenge record
+          sdorra.porkbun.porkbun_record:
+            state: present
+            domain: "{{ internal_domain }}"
+            record_type: TXT
+            name: "{{ dns_challenge_record_name }}"
+            content: "{{ dns_challenge_record_value }}"
+            api_key: "{{ vpn_porkbun_api_key }}"
+            secret_api_key: "{{ vpn_porkbun_secret_key }}"
+            ttl: 0
 
-- name: Copy netbird-dashboard.env file
-  ansible.builtin.template:
-    src: netbird-dashboard.env.j2
-    dest: "{{ vpn_netbird_dashboard_conf_dir }}/netbird-dashboard.env"
-    mode: "0600"
-    backup: true
-  notify:
-    - Restart netbird-dashboard service
+        - name: Wait for DNS propagation
+          ansible.builtin.wait_for:
+            timeout: 300
 
-- name: Create Netbird dashboard Quadlet
-  containers.podman.podman_container:
-    name: netbird-dashboard
-    state: quadlet
-    image: netbirdio/dashboard:{{ vpn_netbird_dashboard_version }}
-    env_file: "{{ vpn_netbird_dashboard_conf_dir }}/netbird-dashboard.env"
-    recreate: true
-    network: netbird
+        - name: Validate the challenge for netbird.{{ internal_domain }}
+          community.crypto.acme_certificate:
+            account_key_src: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.account.private.pem"
+            account_email: "{{ vpn_acme_email }}"
+            src: "{{ vpn_netbird_coturn_cert_dir }}/netbird.{{ internal_domain }}.csr"
+            cert: "{{ vpn_netbird_coturn_cert_dir }}/cert.pem"
+            fullchain: "{{ vpn_netbird_coturn_cert_dir }}/fullchain.pem"
+            chain: "{{ vpn_netbird_coturn_cert_dir }}/chain.pem"
+            challenge: dns-01
+            acme_directory: https://acme-v02.api.letsencrypt.org/directory
+            acme_version: 2
+            remaining_days: 30
+            data: "{{ netbird_coturn_challenge }}"
+          retries: 5
+          delay: 60
+          register: validation_result
 
-    uidmap:
-      - 0:{{ vpn_netbird_dashboard_container_user_result.uid }}:1
-      - 1:4000000000:100000
+        - name: Delete DNS challenge record
+          sdorra.porkbun.porkbun_record:
+            state: absent
+            domain: "{{ internal_domain }}"
+            record_type: TXT
+            name: "{{ dns_challenge_record_name }}"
+            content: "{{ dns_challenge_record_value }}"
+            api_key: "{{ vpn_porkbun_api_key }}"
+            secret_api_key: "{{ vpn_porkbun_secret_key }}"
+            ttl: 0
 
-    gidmap:
-      - 0:{{ vpn_netbird_dashboard_container_user_result.group }}:1
-      - 1:4000000000:100000
+        - name: Let's Encrypt certificate validation failed
+          ansible.builtin.fail:
+            msg: The validation of the certificate failed
+          when: validation_result is failed
 
-    labels:
-      traefik.enable: true
-      traefik.http.routers.netbird.rule: Host(`netbird.{{ internal_domain }}`)
-      traefik.http.routers.netbird.entrypoints: websecure,public-secure
-      traefik.http.routers.netbird.middlewares: netbird-chain@file
-      traefik.http.routers.netbird.tls.certresolver: letsencrypt
-      traefik.http.routers.netbird.tls.domains[0].main: netbird.{{ internal_domain }}
-      traefik.http.services.netbird.loadbalancer.server.port: 80
+    - name: Set certificate ownership
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: "{{ vpn_netbird_coturn_container_user }}"
+        group: "{{ vpn_netbird_coturn_container_user }}"
+        mode: "0600"
+      loop:
+        - "{{ vpn_netbird_coturn_cert_dir }}/cert.pem"
+        - "{{ vpn_netbird_coturn_cert_dir }}/privkey.pem"
+      notify:
+        - Restart netbird-coturn service
 
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-  notify:
-    - Reload systemd daemons for vpn role
-    - Restart netbird-dashboard service
+    - name: Create Netbird coturn Quadlet
+      containers.podman.podman_container:
+        name: netbird-coturn
+        state: quadlet
+        image: coturn/coturn:{{ vpn_netbird_coturn_version }}
+        command: -c /etc/coturn/turnserver.conf
+        recreate: true
+        network: netbird
 
-- name: Trigger Handlers for netbird-dashboard
-  ansible.builtin.meta: flush_handlers
+        volumes:
+          - "{{ vpn_netbird_coturn_conf_dir }}/turnserver.conf:/etc/coturn/turnserver.conf"
+          - "{{ vpn_netbird_coturn_cert_dir }}/cert.pem:/etc/coturn/certs/cert.pem:ro"
+          - "{{ vpn_netbird_coturn_cert_dir }}/privkey.pem:/etc/coturn/private/privkey.pem:ro"
 
-- name: Start netbird-dashboard
-  ansible.builtin.systemd_service:
-    name: netbird-dashboard
-    state: started
-    enabled: true
+        ports:
+          - "3478:3478/udp"
 
-- name: Create Netbird coturn Quadlet
-  containers.podman.podman_container:
-    name: netbird-coturn
-    state: quadlet
-    image: coturn/coturn:{{ vpn_netbird_coturn_version }}
-    command: -c /etc/coturn/turnserver.conf
-    recreate: true
-    network: netbird
+        uidmap:
+          - 65534:{{ vpn_netbird_coturn_container_user_result.uid }}:1
+          - 0:4000000000:65534
+          - 65535:4000065535:100000
 
-    volumes:
-      - "{{ vpn_netbird_coturn_conf_dir }}/turnserver.conf:/etc/coturn/turnserver.conf"
-      - "{{ vpn_netbird_coturn_cert_dir }}/cert.pem:/etc/coturn/certs/cert.pem:ro"
-      - "{{ vpn_netbird_coturn_cert_dir }}/privkey.pem:/etc/coturn/private/privkey.pem:ro"
+        gidmap:
+          - 65534:{{ vpn_netbird_coturn_container_user_result.group }}:1
+          - 0:4000000000:65534
+          - 65535:4000065535:100000
 
-    ports:
-      - "3478:3478/udp"
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target
+            [Unit]
+            StartLimitIntervalSec=0
+            [Service]
+            Restart=always
+            RestartSec=60s
+      notify:
+        - Reload systemd daemons for vpn role
+        - Restart netbird-coturn service
 
-    uidmap:
-      - 65534:{{ vpn_netbird_coturn_container_user_result.uid }}:1
-      - 0:4000000000:65534
-      - 65535:4000065535:100000
+    - name: Trigger Handlers for netbird-coturn
+      ansible.builtin.meta: flush_handlers
 
-    gidmap:
-      - 65534:{{ vpn_netbird_coturn_container_user_result.group }}:1
-      - 0:4000000000:65534
-      - 65535:4000065535:100000
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-  notify:
-    - Reload systemd daemons for vpn role
-    - Restart netbird-coturn service
-
-- name: Trigger Handlers for netbird-coturn
-  ansible.builtin.meta: flush_handlers
-
-- name: Start netbird-coturn
-  ansible.builtin.systemd_service:
-    name: netbird-coturn
-    state: started
-    enabled: true
-
-- name: Create Netbird signal Quadlet
-  containers.podman.podman_container:
-    name: netbird-signal
-    state: quadlet
-    image: netbirdio/signal:{{ vpn_netbird_signal_version }}
-    recreate: true
-    network: netbird
-
-    volumes:
-      - "{{ vpn_netbird_signal_work_dir }}:/var/lib/netbird"
-
-    uidmap:
-      - 0:{{ vpn_netbird_signal_container_user_result.uid }}:1
-      - 1:4000000000:100000
-
-    gidmap:
-      - 0:{{ vpn_netbird_signal_container_user_result.group }}:1
-      - 1:4000000000:100000
-
-    labels:
-      traefik.enable: true
-      traefik.http.routers.netbird-signal.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/signalexchange.SignalExchange/`)
-      traefik.http.routers.netbird-signal.entrypoints: websecure,public-secure
-      traefik.http.routers.netbird-signal.middlewares: netbird-chain@file
-      traefik.http.routers.netbird-signal.tls.domains[0].main: netbird.{{ internal_domain }}
-      traefik.http.services.netbird-signal.loadbalancer.server.port: 80
-      # gRPC scheme
-      traefik.http.services.netbird-signal.loadbalancer.server.scheme: h2c
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-  notify:
-    - Reload systemd daemons for vpn role
-    - Restart netbird-signal service
-
-- name: Trigger Handlers for netbird-signal
-  ansible.builtin.meta: flush_handlers
-
-- name: Start netbird-signal
-  ansible.builtin.systemd_service:
-    name: netbird-signal
-    state: started
-    enabled: true
-
-- name: Copy netbird-relay.env file
-  ansible.builtin.template:
-    src: netbird-relay.env.j2
-    dest: "{{ vpn_netbird_relay_conf_dir }}/netbird-relay.env"
-    mode: "0600"
-    backup: true
-  notify:
-    - Restart netbird-relay service
-
-- name: Create Netbird relay
-  containers.podman.podman_container:
-    name: netbird-relay
-    state: quadlet
-    image: netbirdio/relay:{{ vpn_netbird_relay_version }}
-    env_file: "{{ vpn_netbird_relay_conf_dir }}/netbird-relay.env"
-    recreate: true
-    network: netbird
-
-    uidmap:
-      - 0:{{ vpn_netbird_relay_container_user_result.uid }}:1
-      - 1:4000000000:10000
-
-    gidmap:
-      - 0:{{ vpn_netbird_relay_container_user_result.group }}:1
-      - 1:4000000000:10000
-
-    labels:
-      traefik.enable: true
-      traefik.http.routers.netbird-relay.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/relay`)
-      traefik.http.routers.netbird-relay.entrypoints: websecure,public-secure
-      traefik.http.routers.netbird-relay.middlewares: netbird-chain@file
-      traefik.http.routers.netbird-relay.tls.domains[0].main: netbird.{{ internal_domain }}
-      traefik.http.services.netbird-relay.loadbalancer.server.port: 8443
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-
-  notify:
-    - Reload systemd daemons for vpn role
-    - Restart netbird-relay service
-
-- name: Trigger Handlers for netbird-relay
-  ansible.builtin.meta: flush_handlers
-
-- name: Start netbird-relay
-  ansible.builtin.systemd_service:
-    name: netbird-relay
-    state: started
-    enabled: true
-
-- name: Copy netbird-relay-fallback.env file
-  ansible.builtin.template:
-    src: netbird-relay-fallback.env.j2
-    dest: "{{ vpn_netbird_relay_fallback_conf_dir }}/netbird-relay-fallback.env"
-    mode: "0600"
-    backup: true
-  notify:
-    - Restart netbird-relay-fallback service
-
-- name: Create Netbird relay fallback
-  containers.podman.podman_container:
-    name: netbird-relay-fallback
-    state: quadlet
-    image: netbirdio/relay:{{ vpn_netbird_relay_fallback_version }}
-    env_file: "{{ vpn_netbird_relay_fallback_conf_dir }}/netbird-relay-fallback.env"
-    recreate: true
-    network: netbird
-
-    uidmap:
-      - 0:{{ vpn_netbird_relay_fallback_container_user_result.uid }}:1
-      - 1:4000000000:10000
-
-    gidmap:
-      - 0:{{ vpn_netbird_relay_fallback_container_user_result.group }}:1
-      - 1:4000000000:10000
-
-    labels:
-      traefik.enable: true
-      traefik.http.routers.netbird-relay-fallback.rule: Host(`relay-fallback.netbird.{{ internal_domain }}`)
-      traefik.http.routers.netbird-relay-fallback.entrypoints: websecure,public-secure
-      traefik.http.routers.netbird-relay-fallback.middlewares: netbird-chain@file
-      traefik.http.routers.netbird-relay-fallback.tls.domains[0].main: relay-fallback.netbird.{{ internal_domain }}
-      traefik.http.services.netbird-relay-fallback.loadbalancer.server.port: 8443
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-
-  notify:
-    - Reload systemd daemons for vpn role
-    - Restart netbird-relay-fallback service
-
-- name: Trigger Handlers for netbird-relay-fallback
-  ansible.builtin.meta: flush_handlers
-
-- name: Start netbird-relay-fallback
-  ansible.builtin.systemd_service:
-    name: netbird-relay-fallback
-    state: started
-    enabled: true
-
-- name: Copy netbird-exit-node.env file
-  ansible.builtin.template:
-    src: netbird-exit-node.env.j2
-    dest: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node.env"
-    mode: "0600"
-    backup: true
-  register: __vpn_copy_netbird_exit_node_env_file
-
-- name: Copy netbird-exit-node-config.json file
-  ansible.builtin.template:
-    src: netbird-exit-node-config.json.j2
-    dest: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node-config.json"
-    mode: "0600"
-    owner: "{{ vpn_netbird_exit_node_container_user }}"
-    group: "{{ vpn_netbird_exit_node_container_user }}"
-    backup: true
-  register: __vpn_copy_netbird_exit_node_conf_file
-
-- name: Create Netbird exit node
-  containers.podman.podman_container:
-    name: netbird-exit-node
-    state: quadlet
-    image: netbirdio/netbird:{{ vpn_netbird_exit_node_version }}
-    env_file: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node.env"
-    recreate: true
-    network: netbird
-    # The hostname is used by the Netbird client when registering in the mgmt plane
-    hostname: netbird-exit-node
-
-    cap_add:
-      - "NET_ADMIN"
-      - "SYS_ADMIN"
-      - "SYS_RESOURCE"
-
-    uidmap:
-      - 0:{{ vpn_netbird_exit_node_container_user_result.uid }}:1
-      - 1:4000000000:10000
-
-    gidmap:
-      - 0:{{ vpn_netbird_exit_node_container_user_result.group }}:1
-      - 1:4000000000:10000
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        Requires=netbird-mgmt.service
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-
-  notify:
-    - Reload systemd daemons for vpn role
-  register: __vpn_copy_netbird_exit_node_quadlet
-
-- name: Trigger Handlers for netbird-exit-node
-  ansible.builtin.meta: flush_handlers
-
-# The restart will cause the connection to drop and Ansible will remained
-# blocked on this step, hence the need to run it asynchronously
-- name: Restart Netbird exit node service
-  when: __vpn_copy_netbird_exit_node_env_file.changed or __vpn_copy_netbird_exit_node_conf_file.changed or __vpn_copy_netbird_exit_node_quadlet.changed
-  block:
-    - name: Restart Netbird exit node service
+    - name: Start netbird-coturn
       ansible.builtin.systemd_service:
-        state: restarted
+        name: netbird-coturn
+        state: started
+        enabled: true
+
+- name: Deploy netbird-relay
+  when: vpn_deploy_relay_server
+  block:
+    - name: Add user {{ vpn_netbird_relay_container_user }}
+      ansible.builtin.user:
+        name: "{{ vpn_netbird_relay_container_user }}"
+        comment: User used to run Netbird relay
+        create_home: false
+        shell: /usr/sbin/nologin
+      register: vpn_netbird_relay_container_user_result
+    - name: Create Netbird relay directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0770"
+        owner: "{{ vpn_netbird_relay_container_user }}"
+        group: "{{ vpn_netbird_relay_container_user }}"
+      with_items:
+        - "{{ vpn_netbird_relay_conf_dir }}"
+    - name: Copy netbird-relay.env file
+      ansible.builtin.template:
+        src: netbird-relay.env.j2
+        dest: "{{ vpn_netbird_relay_conf_dir }}/netbird-relay.env"
+        mode: "0600"
+        backup: true
+      notify:
+        - Restart netbird-relay service
+
+    - name: Create Netbird relay
+      containers.podman.podman_container:
+        name: netbird-relay
+        state: quadlet
+        image: netbirdio/relay:{{ vpn_netbird_relay_version }}
+        env_file: "{{ vpn_netbird_relay_conf_dir }}/netbird-relay.env"
+        recreate: true
+        network: netbird
+
+        uidmap:
+          - 0:{{ vpn_netbird_relay_container_user_result.uid }}:1
+          - 1:4000000000:10000
+
+        gidmap:
+          - 0:{{ vpn_netbird_relay_container_user_result.group }}:1
+          - 1:4000000000:10000
+
+        labels:
+          traefik.enable: true
+          traefik.http.routers.netbird-relay.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/relay`)
+          traefik.http.routers.netbird-relay.entrypoints: websecure,public-secure
+          traefik.http.routers.netbird-relay.middlewares: netbird-chain@file
+          traefik.http.routers.netbird-relay.tls.domains[0].main: netbird.{{ internal_domain }}
+          traefik.http.services.netbird-relay.loadbalancer.server.port: 8443
+
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target
+            [Unit]
+            StartLimitIntervalSec=0
+            [Service]
+            Restart=always
+            RestartSec=60s
+      notify:
+        - Reload systemd daemons for vpn role
+        - Restart netbird-relay service
+
+    - name: Trigger Handlers for netbird-relay
+      ansible.builtin.meta: flush_handlers
+
+    - name: Start netbird-relay
+      ansible.builtin.systemd_service:
+        name: netbird-relay
+        state: started
+        enabled: true
+
+- name: Deploy netbird-exit-node
+  when: vpn_deploy_exit_node
+  block:
+    - name: Add user {{ vpn_netbird_exit_node_container_user }}
+      ansible.builtin.user:
+        name: "{{ vpn_netbird_exit_node_container_user }}"
+        comment: User used to run Netbird exit node
+        create_home: false
+        shell: /usr/sbin/nologin
+      register: vpn_netbird_exit_node_container_user_result
+    - name: Create Netbird exit node directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0770"
+        owner: "{{ vpn_netbird_exit_node_container_user }}"
+        group: "{{ vpn_netbird_exit_node_container_user }}"
+      with_items:
+        - "{{ vpn_netbird_exit_node_conf_dir }}"
+    - name: Copy netbird-exit-node.env file
+      ansible.builtin.template:
+        src: netbird-exit-node.env.j2
+        dest: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node.env"
+        mode: "0600"
+        backup: true
+      register: __vpn_copy_netbird_exit_node_env_file
+
+    - name: Copy netbird-exit-node-config.json file
+      ansible.builtin.template:
+        src: netbird-exit-node-config.json.j2
+        dest: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node-config.json"
+        mode: "0600"
+        owner: "{{ vpn_netbird_exit_node_container_user }}"
+        group: "{{ vpn_netbird_exit_node_container_user }}"
+        backup: true
+      register: __vpn_copy_netbird_exit_node_conf_file
+
+    - name: Create Netbird exit node
+      containers.podman.podman_container:
         name: netbird-exit-node
-      async: 300
-      poll: 0
-      register: __vpn_netbird_exit_node_service_restart
+        state: quadlet
+        image: netbirdio/netbird:{{ vpn_netbird_exit_node_version }}
+        env_file: "{{ vpn_netbird_exit_node_conf_dir }}/netbird-exit-node.env"
+        recreate: true
+        network: netbird
+        # The hostname is used by the Netbird client when registering in the mgmt plane
+        hostname: netbird-exit-node-{{ ansible_fqdn }}
 
-    - name: Check on Netbird exit-node service restart
-      when: __vpn_netbird_exit_node_service_restart.changed
-      async_status:
-        jid: "{{ __vpn_netbird_exit_node_service_restart.ansible_job_id }}"
-      register: job_result
-      until: job_result.finished
-      retries: 100
-      delay: 10
+        cap_add:
+          - "NET_ADMIN"
+          - "SYS_ADMIN"
+          - "SYS_RESOURCE"
 
-- name: Start netbird-exit-node
-  ansible.builtin.systemd_service:
-    name: netbird-exit-node
-    state: started
-    enabled: true
+        uidmap:
+          - 0:{{ vpn_netbird_exit_node_container_user_result.uid }}:1
+          - 1:4000000000:10000
 
-- name: Copy netbird-mgmt.env file
-  ansible.builtin.template:
-    src: netbird-mgmt.env.j2
-    dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
-    mode: "0600"
-    backup: true
-  register: __vpn_copy_netbird_mgmt_env_file
+        gidmap:
+          - 0:{{ vpn_netbird_exit_node_container_user_result.group }}:1
+          - 1:4000000000:10000
 
-- name: Copy netbird-mgmt.json file
-  ansible.builtin.template:
-    src: netbird-mgmt.json.j2
-    dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json"
-    mode: "0600"
-    backup: true
-    owner: "{{ vpn_netbird_mgmt_container_user }}"
-    group: "{{ vpn_netbird_mgmt_container_user }}"
-  register: __vpn_copy_netbird_mgmt_conf_file
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target
+            [Unit]
+            StartLimitIntervalSec=0
+            [Service]
+            Restart=always
+            RestartSec=60s
 
-- name: Create Netbird mgmt Quadlet
-  containers.podman.podman_container:
-    name: netbird-mgmt
-    state: quadlet
-    image: netbirdio/management:{{ vpn_netbird_mgmt_version }}
-    command: --port 8080 --log-file console --log-level info --disable-anonymous-metrics=true --single-account-mode-domain=netbird.{{ internal_domain }} --dns-domain=netbird.selfhosted
-    env_file: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
-    recreate: true
-    network: netbird
+      notify:
+        - Reload systemd daemons for vpn role
+      register: __vpn_copy_netbird_exit_node_quadlet
 
-    volumes:
-      - "{{ vpn_netbird_mgmt_work_dir }}:/var/lib/netbird"
-      - "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json:/etc/netbird/management.json"
+    - name: Trigger Handlers for netbird-exit-node
+      ansible.builtin.meta: flush_handlers
 
-    uidmap:
-      - 0:{{ vpn_netbird_mgmt_container_user_result.uid }}:1
-      - 1:4000000000:100000
+    # The restart will cause the connection to drop and Ansible will remained
+    # blocked on this step, hence the need to run it asynchronously
+    - name: Restart Netbird exit node service
+      when: __vpn_copy_netbird_exit_node_env_file.changed or __vpn_copy_netbird_exit_node_conf_file.changed or __vpn_copy_netbird_exit_node_quadlet.changed
+      block:
+        - name: Restart Netbird exit node service
+          ansible.builtin.systemd_service:
+            state: restarted
+            name: netbird-exit-node
+          async: 300
+          poll: 0
+          register: __vpn_netbird_exit_node_service_restart
 
-    gidmap:
-      - 0:{{ vpn_netbird_mgmt_container_user_result.group }}:1
-      - 1:4000000000:100000
+        - name: Check on Netbird exit-node service restart
+          when: __vpn_netbird_exit_node_service_restart.changed
+          async_status:
+            jid: "{{ __vpn_netbird_exit_node_service_restart.ansible_job_id }}"
+          register: job_result
+          until: job_result.finished
+          retries: 100
+          delay: 10
 
-    labels:
-      traefik.enable: true
-      traefik.http.routers.netbird-api.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/api`)
-      traefik.http.routers.netbird-api.service: netbird-api
-      traefik.http.routers.netbird-api.middlewares: netbird-chain@file
-      traefik.http.services.netbird-api.loadbalancer.server.port: 8080
-      traefik.http.routers.netbird-api.entrypoints: websecure,public-secure
-      traefik.http.routers.netbird-api.tls.certresolver: letsencrypt
-      traefik.http.routers.netbird-management.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/management.ManagementService/`)
-      traefik.http.routers.netbird-management.service: netbird-management
-      traefik.http.routers.netbird-management.middlewares: netbird-chain@file
-      traefik.http.services.netbird-management.loadbalancer.server.port: 8080
-      # gRPC scheme
-      traefik.http.services.netbird-management.loadbalancer.server.scheme: h2c
-      traefik.http.routers.netbird-management.entrypoints: websecure,public-secure
-      traefik.http.routers.netbird-management.tls.certresolver: letsencrypt
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        Requires=netbird-dashboard.service
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-  notify:
-    - Reload systemd daemons for vpn role
-  register: __vpn_copy_netbird_mgmt_quadlet
-
-- name: Trigger Handlers for netbird-mgmt
-  ansible.builtin.meta: flush_handlers
-
-# The restart will cause the connection to drop and Ansible will remained
-# blocked on this step, hence the need to run it asynchronously
-- name: Restart Netbird management service
-  when: __vpn_copy_netbird_mgmt_env_file.changed or __vpn_copy_netbird_mgmt_conf_file.changed or __vpn_copy_netbird_mgmt_quadlet.changed
-  block:
-    - name: Restart Netbird management service
+    - name: Start netbird-exit-node
       ansible.builtin.systemd_service:
-        state: restarted
+        name: netbird-exit-node
+        state: started
+        enabled: true
+
+- name: Deploy netbird-mgmt
+  when: vpn_deploy_management_server
+  block:
+    - name: Add user {{ vpn_netbird_signal_container_user }}
+      ansible.builtin.user:
+        name: "{{ vpn_netbird_signal_container_user }}"
+        comment: User used to run Netbird signal
+        create_home: false
+        shell: /usr/sbin/nologin
+      register: vpn_netbird_signal_container_user_result
+    - name: Add user {{ vpn_netbird_mgmt_container_user }}
+      ansible.builtin.user:
+        name: "{{ vpn_netbird_mgmt_container_user }}"
+        comment: User used to run Netbird mgmt
+        create_home: false
+        shell: /usr/sbin/nologin
+      register: vpn_netbird_mgmt_container_user_result
+    - name: Create Netbird mgmt directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0770"
+        owner: "{{ vpn_netbird_mgmt_container_user }}"
+        group: "{{ vpn_netbird_mgmt_container_user }}"
+      with_items:
+        - "{{ vpn_netbird_mgmt_conf_dir }}"
+        - "{{ vpn_netbird_mgmt_work_dir }}"
+
+    - name: Create Netbird signal directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0770"
+        owner: "{{ vpn_netbird_signal_container_user }}"
+        group: "{{ vpn_netbird_signal_container_user }}"
+      with_items:
+        - "{{ vpn_netbird_signal_work_dir }}"
+    - name: Create Netbird signal Quadlet
+      containers.podman.podman_container:
+        name: netbird-signal
+        state: quadlet
+        image: netbirdio/signal:{{ vpn_netbird_signal_version }}
+        recreate: true
+        network: netbird
+
+        volumes:
+          - "{{ vpn_netbird_signal_work_dir }}:/var/lib/netbird"
+
+        uidmap:
+          - 0:{{ vpn_netbird_signal_container_user_result.uid }}:1
+          - 1:4000000000:100000
+
+        gidmap:
+          - 0:{{ vpn_netbird_signal_container_user_result.group }}:1
+          - 1:4000000000:100000
+
+        labels:
+          traefik.enable: true
+          traefik.http.routers.netbird-signal.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/signalexchange.SignalExchange/`)
+          traefik.http.routers.netbird-signal.entrypoints: websecure,public-secure
+          traefik.http.routers.netbird-signal.middlewares: netbird-chain@file
+          traefik.http.routers.netbird-signal.tls.domains[0].main: netbird.{{ internal_domain }}
+          traefik.http.services.netbird-signal.loadbalancer.server.port: 80
+          # gRPC scheme
+          traefik.http.services.netbird-signal.loadbalancer.server.scheme: h2c
+
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target
+            [Unit]
+            StartLimitIntervalSec=0
+            [Service]
+            Restart=always
+            RestartSec=60s
+      notify:
+        - Reload systemd daemons for vpn role
+        - Restart netbird-signal service
+
+    - name: Trigger Handlers for netbird-signal
+      ansible.builtin.meta: flush_handlers
+
+    - name: Start netbird-signal
+      ansible.builtin.systemd_service:
+        name: netbird-signal
+        state: started
+        enabled: true
+
+    - name: Copy netbird-mgmt.env file
+      ansible.builtin.template:
+        src: netbird-mgmt.env.j2
+        dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
+        mode: "0600"
+        backup: true
+      register: __vpn_copy_netbird_mgmt_env_file
+
+    - name: Copy netbird-mgmt.json file
+      ansible.builtin.template:
+        src: netbird-mgmt.json.j2
+        dest: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json"
+        mode: "0600"
+        backup: true
+        owner: "{{ vpn_netbird_mgmt_container_user }}"
+        group: "{{ vpn_netbird_mgmt_container_user }}"
+      register: __vpn_copy_netbird_mgmt_conf_file
+
+    - name: Create Netbird mgmt Quadlet
+      containers.podman.podman_container:
         name: netbird-mgmt
-      async: 300
-      poll: 0
-      register: __vpn_netbird_mgmt_service_restart
+        state: quadlet
+        image: netbirdio/management:{{ vpn_netbird_mgmt_version }}
+        command: --port 8080 --log-file console --log-level info --disable-anonymous-metrics=true --single-account-mode-domain=netbird.{{ internal_domain }} --dns-domain=netbird.selfhosted
+        env_file: "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.env"
+        recreate: true
+        network: netbird
 
-    - name: Check on Netbird mgmt service restart
-      async_status:
-        jid: "{{ __vpn_netbird_mgmt_service_restart.ansible_job_id }}"
-      register: job_result
-      until: job_result.finished
-      retries: 100
-      delay: 10
+        volumes:
+          - "{{ vpn_netbird_mgmt_work_dir }}:/var/lib/netbird"
+          - "{{ vpn_netbird_mgmt_conf_dir }}/netbird-mgmt.json:/etc/netbird/management.json"
 
-- name: Start netbird-mgmt
-  ansible.builtin.systemd_service:
-    name: netbird-mgmt
-    state: started
-    enabled: true
+        uidmap:
+          - 0:{{ vpn_netbird_mgmt_container_user_result.uid }}:1
+          - 1:4000000000:100000
 
-- name: Add user {{ vpn_netbird_jump_node_container_user }}
-  ansible.builtin.user:
-    name: "{{ vpn_netbird_jump_node_container_user }}"
-    comment: User used to run Netbird jump node
-    create_home: false
-    shell: /usr/sbin/nologin
-  register: vpn_netbird_jump_node_container_user_result
+        gidmap:
+          - 0:{{ vpn_netbird_mgmt_container_user_result.group }}:1
+          - 1:4000000000:100000
 
-- name: Create Netbird jump node directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0770"
-    owner: "{{ vpn_netbird_jump_node_container_user }}"
-    group: "{{ vpn_netbird_jump_node_container_user }}"
-  with_items:
-    - "{{ vpn_netbird_jump_node_conf_dir }}"
+        labels:
+          traefik.enable: true
+          traefik.http.routers.netbird-api.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/api`)
+          traefik.http.routers.netbird-api.service: netbird-api
+          traefik.http.routers.netbird-api.middlewares: netbird-chain@file
+          traefik.http.services.netbird-api.loadbalancer.server.port: 8080
+          traefik.http.routers.netbird-api.entrypoints: websecure,public-secure
+          traefik.http.routers.netbird-api.tls.certresolver: letsencrypt
+          traefik.http.routers.netbird-management.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/management.ManagementService/`)
+          traefik.http.routers.netbird-management.service: netbird-management
+          traefik.http.routers.netbird-management.middlewares: netbird-chain@file
+          traefik.http.services.netbird-management.loadbalancer.server.port: 8080
+          # gRPC scheme
+          traefik.http.services.netbird-management.loadbalancer.server.scheme: h2c
+          traefik.http.routers.netbird-management.entrypoints: websecure,public-secure
+          traefik.http.routers.netbird-management.tls.certresolver: letsencrypt
 
-- name: Copy netbird-jump-node.env file
-  ansible.builtin.template:
-    src: netbird-jump-node.env.j2
-    dest: "{{ vpn_netbird_jump_node_conf_dir }}/netbird-jump-node.env"
-    mode: "0600"
-    backup: true
-  register: __vpn_copy_netbird_jump_node_env_file
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target
+            [Unit]
+            StartLimitIntervalSec=0
+            [Service]
+            Restart=always
+            RestartSec=60s
+      notify:
+        - Reload systemd daemons for vpn role
+      register: __vpn_copy_netbird_mgmt_quadlet
 
-- name: Copy netbird-jump-node-config.json file
-  ansible.builtin.template:
-    src: netbird-jump-node-config.json.j2
-    dest: "{{ vpn_netbird_jump_node_conf_dir }}/netbird-jump-node-config.json"
-    mode: "0600"
-    owner: "{{ vpn_netbird_jump_node_container_user }}"
-    group: "{{ vpn_netbird_jump_node_container_user }}"
-    backup: true
-  register: __vpn_copy_netbird_jump_node_conf_file
+    - name: Trigger Handlers for netbird-mgmt
+      ansible.builtin.meta: flush_handlers
 
-- name: Create Netbird jump node
-  containers.podman.podman_container:
-    name: netbird-jump-node
-    state: quadlet
-    image: netbirdio/netbird:{{ vpn_netbird_jump_node_version }}
-    env_file: "{{ vpn_netbird_jump_node_conf_dir }}/netbird-jump-node.env"
-    recreate: true
-    network: netbird
-    # The hostname is used by the Netbird client when registering in the mgmt plane
-    hostname: netbird-jump-node
+    # The restart will cause the connection to drop and Ansible will remained
+    # blocked on this step, hence the need to run it asynchronously
+    - name: Restart Netbird management service
+      when: __vpn_copy_netbird_mgmt_env_file.changed or __vpn_copy_netbird_mgmt_conf_file.changed or __vpn_copy_netbird_mgmt_quadlet.changed
+      block:
+        - name: Restart Netbird management service
+          ansible.builtin.systemd_service:
+            state: restarted
+            name: netbird-mgmt
+          async: 300
+          poll: 0
+          register: __vpn_netbird_mgmt_service_restart
 
-    cap_add:
-      - "NET_ADMIN"
-      - "SYS_ADMIN"
-      - "SYS_RESOURCE"
+        - name: Check on Netbird mgmt service restart
+          async_status:
+            jid: "{{ __vpn_netbird_mgmt_service_restart.ansible_job_id }}"
+          register: job_result
+          until: job_result.finished
+          retries: 100
+          delay: 10
 
-    uidmap:
-      - 0:{{ vpn_netbird_jump_node_container_user_result.uid }}:1
-      - 1:4000000000:10000
-
-    gidmap:
-      - 0:{{ vpn_netbird_jump_node_container_user_result.group }}:1
-      - 1:4000000000:10000
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        Requires=netbird-mgmt.service
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-
-  notify:
-    - Reload systemd daemons for vpn role
-  register: __vpn_copy_netbird_jump_node_quadlet
-
-- name: Trigger Handlers for netbird-jump-node
-  ansible.builtin.meta: flush_handlers
-
-# The restart will cause the connection to drop and Ansible will remained
-# blocked on this step, hence the need to run it asynchronously
-- name: Restart Netbird jump node service
-  when: __vpn_copy_netbird_jump_node_env_file.changed or __vpn_copy_netbird_jump_node_conf_file.changed or __vpn_copy_netbird_jump_node_quadlet.changed
-  block:
-    - name: Restart Netbird jump node service
+    - name: Start netbird-mgmt
       ansible.builtin.systemd_service:
-        state: restarted
+        name: netbird-mgmt
+        state: started
+        enabled: true
+
+- name: Deploy Netbird jump node
+  when: vpn_deploy_jump_node
+  block:
+    - name: Add user {{ vpn_netbird_jump_node_container_user }}
+      ansible.builtin.user:
+        name: "{{ vpn_netbird_jump_node_container_user }}"
+        comment: User used to run Netbird jump node
+        create_home: false
+        shell: /usr/sbin/nologin
+      register: vpn_netbird_jump_node_container_user_result
+
+    - name: Create Netbird jump node directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0770"
+        owner: "{{ vpn_netbird_jump_node_container_user }}"
+        group: "{{ vpn_netbird_jump_node_container_user }}"
+      with_items:
+        - "{{ vpn_netbird_jump_node_conf_dir }}"
+
+    - name: Copy netbird-jump-node.env file
+      ansible.builtin.template:
+        src: netbird-jump-node.env.j2
+        dest: "{{ vpn_netbird_jump_node_conf_dir }}/netbird-jump-node.env"
+        mode: "0600"
+        backup: true
+      register: __vpn_copy_netbird_jump_node_env_file
+
+    - name: Copy netbird-jump-node-config.json file
+      ansible.builtin.template:
+        src: netbird-jump-node-config.json.j2
+        dest: "{{ vpn_netbird_jump_node_conf_dir }}/netbird-jump-node-config.json"
+        mode: "0600"
+        owner: "{{ vpn_netbird_jump_node_container_user }}"
+        group: "{{ vpn_netbird_jump_node_container_user }}"
+        backup: true
+      register: __vpn_copy_netbird_jump_node_conf_file
+
+    - name: Create Netbird jump node
+      containers.podman.podman_container:
         name: netbird-jump-node
-      async: 300
-      poll: 0
-      register: __vpn_netbird_jump_node_service_restart
+        state: quadlet
+        image: netbirdio/netbird:{{ vpn_netbird_jump_node_version }}
+        env_file: "{{ vpn_netbird_jump_node_conf_dir }}/netbird-jump-node.env"
+        recreate: true
+        network: netbird
+        # The hostname is used by the Netbird client when registering in the mgmt plane
+        hostname: netbird-jump-node-{{ ansible_fqdn }}
 
-    - name: Check on Netbird jump-node service restart
-      when: __vpn_netbird_jump_node_service_restart.changed
-      async_status:
-        jid: "{{ __vpn_netbird_jump_node_service_restart.ansible_job_id }}"
-      register: job_result
-      until: job_result.finished
-      retries: 100
-      delay: 10
+        cap_add:
+          - "NET_ADMIN"
+          - "SYS_ADMIN"
+          - "SYS_RESOURCE"
 
-- name: Start netbird-jump-node
-  ansible.builtin.systemd_service:
-    name: netbird-jump-node
-    state: started
-    enabled: true
+        uidmap:
+          - 0:{{ vpn_netbird_jump_node_container_user_result.uid }}:1
+          - 1:4000000000:10000
+
+        gidmap:
+          - 0:{{ vpn_netbird_jump_node_container_user_result.group }}:1
+          - 1:4000000000:10000
+
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target
+            [Unit]
+            StartLimitIntervalSec=0
+            [Service]
+            Restart=always
+            RestartSec=60s
+
+      notify:
+        - Reload systemd daemons for vpn role
+      register: __vpn_copy_netbird_jump_node_quadlet
+
+    - name: Trigger Handlers for netbird-jump-node
+      ansible.builtin.meta: flush_handlers
+
+    # The restart will cause the connection to drop and Ansible will remained
+    # blocked on this step, hence the need to run it asynchronously
+    - name: Restart Netbird jump node service
+      when: __vpn_copy_netbird_jump_node_env_file.changed or __vpn_copy_netbird_jump_node_conf_file.changed or __vpn_copy_netbird_jump_node_quadlet.changed
+      block:
+        - name: Restart Netbird jump node service
+          ansible.builtin.systemd_service:
+            state: restarted
+            name: netbird-jump-node
+          async: 300
+          poll: 0
+          register: __vpn_netbird_jump_node_service_restart
+
+        - name: Check on Netbird jump-node service restart
+          when: __vpn_netbird_jump_node_service_restart.changed
+          async_status:
+            jid: "{{ __vpn_netbird_jump_node_service_restart.ansible_job_id }}"
+          register: job_result
+          until: job_result.finished
+          retries: 100
+          delay: 10
+
+    - name: Start netbird-jump-node
+      ansible.builtin.systemd_service:
+        name: netbird-jump-node
+        state: started
+        enabled: true

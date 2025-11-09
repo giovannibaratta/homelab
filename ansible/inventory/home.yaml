@@ -35,6 +35,15 @@ home:
     logging_aws_cloud_watch_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '2e0329dc-7f83-42ab-a22c-b228014ab2ad').value }}"
     acme_email: "{{ lookup('community.general.bitwarden_secrets_manager', '0f8cfc8a-1daa-4bea-9ace-b19600eebb2a').value }}"
     grafana_password: "{{ lookup('community.general.bitwarden_secrets_manager', '1733459e-a62e-41a2-8ada-b19600ee2a5b').value }}"
+    vpn_relay_secret: "{{ lookup('community.general.bitwarden_secrets_manager', 'db0e1fc9-d134-48d6-badb-b1f30120aa22').value }}"
+    vpn_exit_node_setup_key: "{{ lookup('community.general.bitwarden_secrets_manager', '9222ee78-1f5d-48e0-a97b-b1f30122184c').value }}"
+    vpn_jump_node_setup_key: "{{ lookup('community.general.bitwarden_secrets_manager', '01f11a33-838f-4e02-879a-b25900023f8e').value }}"
+    vpn_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"
+    vpn_porkbun_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5').value }}"
+    vpn_acme_email: "{{ lookup('community.general.bitwarden_secrets_manager', '0232eb36-1bb2-4842-83b7-b1f2011fa2f2').value }}"
+    vpn_mgmt_datastore_env_key: "{{ lookup('community.general.bitwarden_secrets_manager', '4f9429fb-e6bb-4c72-ad3b-b2a900b420bd').value }}"
+    vpn_protonvpn_wireguard_privatekey: "{{ lookup('community.general.bitwarden_secrets_manager', 'f677b4d3-2534-4c7e-a689-b1fa0149c2aa').value }}"
+    vpn_turn_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'c659f2f6-1096-4b6d-b690-b1ec01268975').value }}"
   hosts:
     172.16.255.253:
       ##### Required for first setup #####
@@ -57,7 +66,15 @@ home:
       deploy_coder: false
       deploy_mqtt: false
       deploy_idp: false
-      deploy_netbird: false
+      deploy_netbird: true
+      # Ad hoc deployments variables #####
+      vpn_deploy_exit_node: false
+      vpn_deploy_jump_node: true
+      vpn_deploy_management_server: false
+      vpn_deploy_dashboard: false
+      vpn_deploy_stun_server: false
+      vpn_deploy_protonvpn: false
+      vpn_deploy_relay_server: true
     172.16.255.252:
       ##### Required for first setup #####
       ansible_user: ansible
@@ -81,6 +98,13 @@ home:
       deploy_idp: true
       deploy_netbird: true
       ##### ad hoc deployments variables #####
+      vpn_deploy_exit_node: true
+      vpn_deploy_jump_node: true
+      vpn_deploy_management_server: true
+      vpn_deploy_dashboard: true
+      vpn_deploy_stun_server: true
+      vpn_deploy_protonvpn: true
+      vpn_deploy_relay_server: true
       containers_netavark_version: v1.11.0
       desec_token: "{{ lookup('community.general.bitwarden_secrets_manager', '47a7f216-1255-46e2-ad18-b19600e95fa1').value }}"
       alertmanager_receiver_email: "{{ lookup('community.general.bitwarden_secrets_manager', '2ef318e4-be55-418f-a87b-b19700f42c73').value }}"
@@ -98,15 +122,6 @@ home:
       plex_claim: "{{ lookup('community.general.bitwarden_secrets_manager', '36cb7482-22ba-45de-bfac-b1af00b2f2db').value }}"
       p2p_radarr_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '8cd45a28-9440-4286-8e92-b1ca010b258e').value }}"
       p2p_radarr_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '9457148c-0f5f-4154-ae18-b1ca010b53eb').value }}"
-      vpn_relay_secret: "{{ lookup('community.general.bitwarden_secrets_manager', 'db0e1fc9-d134-48d6-badb-b1f30120aa22').value }}"
-      vpn_exit_node_setup_key: "{{ lookup('community.general.bitwarden_secrets_manager', '9222ee78-1f5d-48e0-a97b-b1f30122184c').value }}"
-      vpn_jump_node_setup_key: "{{ lookup('community.general.bitwarden_secrets_manager', '01f11a33-838f-4e02-879a-b25900023f8e').value }}"
-      vpn_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"
-      vpn_porkbun_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5').value }}"
-      vpn_acme_email: "{{ lookup('community.general.bitwarden_secrets_manager', '0232eb36-1bb2-4842-83b7-b1f2011fa2f2').value }}"
-      vpn_mgmt_datastore_env_key: "{{ lookup('community.general.bitwarden_secrets_manager', '4f9429fb-e6bb-4c72-ad3b-b2a900b420bd').value }}"
-      vpn_protonvpn_wireguard_privatekey: "{{ lookup('community.general.bitwarden_secrets_manager', 'f677b4d3-2534-4c7e-a689-b1fa0149c2aa').value }}"
-      vpn_turn_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'c659f2f6-1096-4b6d-b690-b1ec01268975').value }}"
       idp_zitadel_db_admin_password: "{{ lookup('community.general.bitwarden_secrets_manager', '2b05dc90-5fbb-4879-b901-b1f400ed722b').value }}"
       idp_zitadel_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '29b9fee6-3315-4932-b28e-b1f400ed5ffb').value }}"
       idp_zitadel_admin_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'ee663db2-6613-47fb-ae53-b1f400ece468').value }}"
