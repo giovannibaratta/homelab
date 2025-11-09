@@ -105,4 +105,4 @@ git -C "${ROOT_DIR}/repo" pull
 BWS_TOKEN=$(cat "${ROOT_DIR}/config/bws_access_token")
 
 log "Running ansible playbook"
-BWS_ACCESS_TOKEN="${BWS_TOKEN}" ansible-playbook --connection=local --inventory "172.16.255.254," --limit "172.16.255.254" "${ROOT_DIR}/repo/ansible/setup_homelab.yaml" -i "${ROOT_DIR}/repo/ansible/inventory/home.yaml" -v
+BWS_ACCESS_TOKEN="${BWS_TOKEN}" ansible-playbook --connection=local --inventory "{{ internal_ip_address }}" --limit "{{ internal_ip_address }}" "${ROOT_DIR}/repo/ansible/setup_homelab.yaml" -i "${ROOT_DIR}/repo/ansible/inventory/home.yaml" -v
