@@ -3,7 +3,6 @@ global_defs {
 }
 
 vrrp_instance VI_1 {
-    state {{ _network_vrrp_state }}
     interface {{ internal_interface }}
     virtual_router_id {{ vrrp_virtual_router_id }}
     priority {{ _network_vrrp_priority }}

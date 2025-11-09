@@ -199,108 +199,7 @@
     backup: true
     create: true
     insertbefore: EOF
-    block: |
-      # Clean existing table and preserve docker tables
-      table ip custom_nat
-      delete table ip custom_nat
-
-      table ip firewall
-      delete table ip firewall
-
-      table ip mss
-      delete table ip mss
-
-      # The source IP for masquerading will be automagically infered based on the
-      # output interface
-      # table ip affects only IPv4
-      table ip custom_nat {
-        chain nat_prerouting {
-          type nat hook prerouting priority 0; policy accept;
-          # Forward external traffic to host ingress (Traefik)
-          iifname { ftth } tcp dport { http } dnat to 172.16.255.254:9080
-          iifname { ftth } tcp dport { https } dnat to 172.16.255.254:9443
-          # Forward external traffic for STUN/TURN
-          iifname { ftth } udp dport { 3478 } dnat to 172.16.255.254:3478
-          iifname { ftth } tcp dport { 5349 } dnat to 172.16.255.254:5349
-          # Forward local traffic to host ingress (Traefik)
-          ip daddr 172.16.255.254 tcp dport { http } dnat to 172.16.255.254:8081
-          ip daddr 172.16.255.254 tcp dport { https } dnat to 172.16.255.254:8443
-          # Forward internal DNS over TLS/QUIC traffic to Traefik
-          iifname { {{ internal_interface }} } tcp dport { 853 } dnat to 172.16.255.254:8853
-          iifname { {{ internal_interface }} } udp dport { 853 } dnat to 172.16.255.254:8854
-        }
-
-        # for all packets to WAN, after routing,
-        # replace source address with primary IP of WAN interface
-        chain nat_postrouting {
-          type nat hook postrouting priority 100; policy accept;
-          oifname ftth masquerade # ftth is the interface name
-        }
-
-        # port-forward traffic originated by the router itself
-        chain nat_output {
-          type nat hook output priority filter; policy accept;
-          ip saddr 172.16.255.254 ip daddr 172.16.255.254 tcp dport { http } redirect to 8081
-          ip saddr 172.16.255.254 ip daddr 172.16.255.254 tcp dport { https } redirect to 8443
-        }
-      }
-
-      # Since we are using PPPOE, the packet size of TCP must be adjusted
-      # Not all client can adjusted the max MTU and TCP MSS, therefore
-      # we do it at the router level
-      table ip mss {
-        chain mss_forward {
-          type filter hook forward priority filter; policy accept;
-          tcp flags syn tcp option maxseg size set rt mtu
-        }
-      }
-
-      table ip firewall {
-
-        include "/app/nftables-geoip/ip-lists/geoip-def-all.nft"
-        include "/app/nftables-geoip/ip-lists/geoip-ipv4-interesting.nft"
-        define ALLOWED_COUNTRIES = { $IT, $IE }
-
-        chain dispatcher {
-          type filter hook input priority 1000;
-          iif lo accept comment "always accept loopback"
-          iifname ftth jump public_traffic # ftth is the interface name
-          iifname {{ internal_interface }} jump internal_traffic
-          iifname "podman*" jump container_traffic
-          log prefix "Unmatched interface "
-          reject
-        }
-
-        # Drop all traffic from internet if not initiated from internal network
-        chain public_traffic {
-          meta mark set ip saddr map @geoip4
-          ct state {established,related} accept
-          ct state invalid log prefix "Invalid state " drop
-          # Filter packet not coming from allowed countries checking the meta mark
-          # set by geoip4. Geoblocking must be performed after the connection tracker
-          # state to avoid blocking legit traffic
-          meta mark != $ALLOWED_COUNTRIES log prefix "Banned country " drop
-          # Accept traffic to system ingress
-          ip daddr 172.16.255.254 tcp dport { 9080, 9443 } accept
-          # Accept traffic for STUN/TURN
-          ip daddr 172.16.255.254 udp dport 3478 accept
-          ip daddr 172.16.255.254 tcp dport 5349 accept
-          log prefix "Public unknown traffic " drop
-        }
-
-        chain internal_traffic {
-          accept
-        }
-
-        chain container_traffic {
-          accept
-        }
-
-        chain output_traffic {
-          type filter hook output priority 1000;
-          accept
-        }
-      }
+    block: "{{ lookup('template', 'nftables-rules.j2') }}"
 
 - name: Reload nftables
   ansible.builtin.command: nft -f /etc/nftables.conf
@@ -338,6 +237,11 @@
     backup: true
   notify:
     - Restart DHCP service
+
+- name: Set DHCP status facts
+  ansible.builtin.set_fact:
+    _dhcp_service_enabled: "{{ true if network_gateway_role == 'primary' else false }}"
+    _dhcp_service_state: "{{ 'started' if network_gateway_role == 'primary' else 'stopped' }}"
 
 - name: Enable DHCP service
   ansible.builtin.service:

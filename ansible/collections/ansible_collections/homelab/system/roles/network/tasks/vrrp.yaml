@@ -6,7 +6,6 @@
 
 - name: Set VRRP variables
   ansible.builtin.set_fact:
-    _network_vrrp_state: "{{ 'MASTER' if network_gateway_role == 'primary' else 'BACKUP' }}"
     _network_vrrp_priority: "{{ 200 if network_gateway_role == 'primary' else 100 }}"
     _network_vrrp_identifier: "{{ 'GW_PRIMARY' if network_gateway_role == 'primary' else 'GW_FALLBACK' }}"
 
