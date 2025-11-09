@@ -30,39 +30,6 @@
     - /app/traefik/work
     - /app/traefik/work/certificates
 
-- name: Copy traefik.yaml configuration
-  ansible.builtin.template:
-    src: traefik.yaml.j2
-
-    dest: /app/traefik/conf/traefik.yaml
-    mode: "0600"
-    owner: "{{ traefik_container_user }}"
-    group: "{{ traefik_container_user }}"
-    backup: yes
-  notify: Restart Traefik service
-
-- name: Copy traefik.env configuration
-  ansible.builtin.template:
-    src: traefik.env.j2
-
-    dest: /app/traefik/conf/traefik.env
-    mode: "0600"
-    owner: "{{ traefik_container_user }}"
-    group: "{{ traefik_container_user }}"
-    backup: yes
-  notify: Restart Traefik service
-
-- name: Copy traefik middleware configuration
-  ansible.builtin.template:
-    src: middleware.yaml.j2
-
-    dest: /app/traefik/conf/dynamic/middleware.yaml
-    mode: "0600"
-    owner: "{{ traefik_container_user }}"
-    group: "{{ traefik_container_user }}"
-    backup: yes
-  notify: Restart Traefik service
-
 - name: Get the group ID of the 'containers' group
   ansible.builtin.getent:
     database: group
@@ -199,6 +166,39 @@
 
 - name: Trigger Handlers for ModSecurity WAF
   ansible.builtin.meta: flush_handlers
+
+- name: Copy traefik.yaml configuration
+  ansible.builtin.template:
+    src: traefik.yaml.j2
+
+    dest: /app/traefik/conf/traefik.yaml
+    mode: "0600"
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
+    backup: yes
+  notify: Restart Traefik service
+
+- name: Copy traefik.env configuration
+  ansible.builtin.template:
+    src: traefik.env.j2
+
+    dest: /app/traefik/conf/traefik.env
+    mode: "0600"
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
+    backup: yes
+  notify: Restart Traefik service
+
+- name: Copy traefik middleware configuration
+  ansible.builtin.template:
+    src: middleware.yaml.j2
+
+    dest: /app/traefik/conf/dynamic/middleware.yaml
+    mode: "0600"
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
+    backup: yes
+  notify: Restart Traefik service
 
 - name: Create Traefik Quadlet
   containers.podman.podman_container:
