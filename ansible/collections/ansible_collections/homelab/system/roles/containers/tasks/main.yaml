@@ -24,17 +24,17 @@
 
 - name: Download netavark archive
   ansible.builtin.get_url:
-    url: https://github.com/containers/netavark/releases/download/v1.11.0/netavark.gz
-    dest: /tmp/netavark.gz
+    url: https://github.com/containers/netavark/releases/download/{{ containers_netavark_version }}/netavark.gz
+    dest: /tmp/netavark_{{ containers_netavark_version }}.gz
     mode: "0644"
 
 - name: Uncompress netavark
   ansible.builtin.command:
-    cmd: gunzip -d -k -f /tmp/netavark.gz
+    cmd: gunzip -d -k -f /tmp/netavark_{{ containers_netavark_version }}.gz
 
 - name: Copy netavark executable
   ansible.builtin.copy:
-    src: /tmp/netavark
+    src: /tmp/netavark_{{ containers_netavark_version }}
     dest: /usr/libexec/podman/netavark
     remote_src: true
     mode: "0755"
@@ -124,6 +124,11 @@
 - name: Ensure group containters exists
   ansible.builtin.group:
     name: containers
+    state: present
+
+- name: Ensure group containters exists
+  ansible.builtin.group:
+    name: docker
     state: present
 
 - name: Ensure podman.socket.d exists

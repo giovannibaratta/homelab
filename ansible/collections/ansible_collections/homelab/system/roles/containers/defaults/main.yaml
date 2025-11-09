@@ -1,3 +1,4 @@
 ---
 containers_storage_dir: /var/lib/containers/storage
 containers_ephemeral_dir: /run/containers/storage
+containers_netavark_version: v1.16.1
