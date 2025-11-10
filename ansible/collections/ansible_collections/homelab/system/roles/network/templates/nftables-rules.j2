@@ -1,6 +1,11 @@
 # Clean existing table and preserve docker tables
-table ip custom_nat
-delete table ip custom_nat
+
+# Avoid delete to fail
+table ip custom_nat {
+  chain nat_postrouting {}
+}
+
+delete chain ip custom_nat nat_postrouting
 
 table ip firewall
 delete table ip firewall
@@ -8,38 +13,14 @@ delete table ip firewall
 table ip mss
 delete table ip mss
 
-# The source IP for masquerading will be automagically infered based on the
-# output interface
-# table ip affects only IPv4
+# Only contains the persistent postrouting chain.
+# The prerouting and output chains for the VIP are loaded dynamically by Keepalived.
 table ip custom_nat {
-  chain nat_prerouting {
-    type nat hook prerouting priority 0; policy accept;
-    # Forward external traffic to host ingress (Traefik)
-    iifname { ftth } tcp dport { http } dnat to {{ network_gateway_virtual_ip }}:9080
-    iifname { ftth } tcp dport { https } dnat to {{ network_gateway_virtual_ip }}:9443
-    # Forward external traffic for STUN/TURN
-    iifname { ftth } udp dport { 3478 } dnat to {{ network_gateway_virtual_ip }}:3478
-    iifname { ftth } tcp dport { 5349 } dnat to {{ network_gateway_virtual_ip }}:5349
-    # Forward local traffic to host ingress (Traefik)
-    ip daddr {{ network_gateway_virtual_ip }} tcp dport { http } dnat to {{ network_gateway_virtual_ip }}:8081
-    ip daddr {{ network_gateway_virtual_ip }} tcp dport { https } dnat to {{ network_gateway_virtual_ip }}:8443
-    # Forward internal DNS over TLS/QUIC traffic to Traefik
-    iifname { {{ internal_interface }} } tcp dport { 853 } dnat to {{ network_gateway_virtual_ip }}:8853
-    iifname { {{ internal_interface }} } udp dport { 853 } dnat to {{ network_gateway_virtual_ip }}:8854
-  }
-
   # for all packets to WAN, after routing,
   # replace source address with primary IP of WAN interface
   chain nat_postrouting {
     type nat hook postrouting priority 100; policy accept;
-    oifname ftth masquerade # ftth is the interface name
-  }
-
-  # port-forward traffic originated by the router itself
-  chain nat_output {
-    type nat hook output priority filter; policy accept;
-    ip saddr {{ network_gateway_virtual_ip }} ip daddr {{ network_gateway_virtual_ip }} tcp dport { http } redirect to 8081
-    ip saddr {{ network_gateway_virtual_ip }} ip daddr {{ network_gateway_virtual_ip }} tcp dport { https } redirect to 8443
+    oifname ftth masquerade
   }
 }
 
@@ -79,10 +60,10 @@ table ip firewall {
     # state to avoid blocking legit traffic
     meta mark != $ALLOWED_COUNTRIES log prefix "Banned country " drop
     # Accept traffic to system ingress
-    ip daddr {{ network_gateway_virtual_ip }} tcp dport { 9080, 9443 } accept
+    ip daddr {{ internal_ip_address }} tcp dport { 9080, 9443 } accept
     # Accept traffic for STUN/TURN
-    ip daddr {{ network_gateway_virtual_ip }} udp dport 3478 accept
-    ip daddr {{ network_gateway_virtual_ip }} tcp dport 5349 accept
+    ip daddr {{ internal_ip_address }} udp dport 3478 accept
+    ip daddr {{ internal_ip_address }} tcp dport 5349 accept
     log prefix "Public unknown traffic " drop
   }
 

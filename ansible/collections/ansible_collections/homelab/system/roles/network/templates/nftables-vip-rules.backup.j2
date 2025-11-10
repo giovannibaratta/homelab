@@ -1,0 +1,13 @@
+# These rules assume that the host that are executing them DO NOT have the VIP assigned to one of their interfaces.
+
+table ip custom_nat {
+  chain nat_prerouting {
+    type nat hook prerouting priority 0; policy accept;
+
+    # Forward external traffic to VIP but we will SNAT in postrouting to the backup host
+    iifname { ftth } tcp dport { http } dnat to {{ network_gateway_virtual_ip }}
+    iifname { ftth } tcp dport { https } dnat to {{ network_gateway_virtual_ip }}
+    iifname { ftth } udp dport { 3478 } dnat to {{ network_gateway_virtual_ip }}
+    iifname { ftth } tcp dport { 5349 } dnat to {{ network_gateway_virtual_ip }}
+  }
+}

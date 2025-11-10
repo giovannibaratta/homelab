@@ -27,119 +27,123 @@
 
 - name: Configure DNS
   ansible.builtin.import_tasks: configure-dns.yaml
+  when: network_is_router
 
-- name: Create VLAN config
-  ansible.builtin.copy:
-    content: |
-      [connection]
-      id=vlan
-      type=vlan
-      autoconnect=true
-      autoconnect-retries=0
+- name: Configure PPPOE over VLAN connection
+  when: network_is_router
+  block:
+    - name: Create VLAN config
+      ansible.builtin.copy:
+        content: |
+          [connection]
+          id=vlan
+          type=vlan
+          autoconnect=true
+          autoconnect-retries=0
 
-      [vlan]
-      id=835
-      parent={{ wan_interface }}
-      flags=1
+          [vlan]
+          id=835
+          parent={{ wan_interface }}
+          flags=1
 
-      [ipv4]
-      method=disabled
+          [ipv4]
+          method=disabled
 
-      [ipv6]
-      method=ignore
-      addr-gen-mode=default
+          [ipv6]
+          method=ignore
+          addr-gen-mode=default
 
-      [ethernet]
+          [ethernet]
 
-      [proxy]
-    dest: /etc/NetworkManager/system-connections/vlan.nmconnection
-    mode: "0600"
+          [proxy]
+        dest: /etc/NetworkManager/system-connections/vlan.nmconnection
+        mode: "0600"
 
-- name: Create PPPOE connection config
-  ansible.builtin.copy:
-    content: |
-      [connection]
-      id=pppoe-ftth
-      type=pppoe
-      interface-name=ftth
-      autoconnect=true
-      autoconnect-retries=0
+    - name: Create PPPOE connection config
+      ansible.builtin.copy:
+        content: |
+          [connection]
+          id=pppoe-ftth
+          type=pppoe
+          interface-name=ftth
+          autoconnect=true
+          autoconnect-retries=0
 
-      [ipv4]
-      method=auto
+          [ipv4]
+          method=auto
 
-      [ipv6]
-      method=auto
-      addr-gen-mode=default
+          [ipv6]
+          method=auto
+          addr-gen-mode=default
 
-      [ethernet]
+          [ethernet]
 
-      [pppoe]
-      parent={{ wan_interface }}.835
-      password="{{ pppoe_password }}"
-      username="{{ pppoe_username }}"
+          [pppoe]
+          parent={{ wan_interface }}.835
+          password="{{ pppoe_password }}"
+          username="{{ pppoe_username }}"
 
-      [proxy]
-    dest: /etc/NetworkManager/system-connections/pppoe.nmconnection
-    mode: "0600"
+          [proxy]
+        dest: /etc/NetworkManager/system-connections/pppoe.nmconnection
+        mode: "0600"
 
-# Required for VLAN tagging
-- name: Load kernel module 8021q
-  community.general.modprobe:
-    name: 8021q
-    state: present
+    # Required for VLAN tagging
+    - name: Load kernel module 8021q
+      community.general.modprobe:
+        name: 8021q
+        state: present
 
-- name: Create /etc/modules-load.d/8021q.conf
-  ansible.builtin.copy:
-    content: 8021q
-    dest: /etc/modules-load.d/8021q.conf
-    mode: "0644"
+    - name: Create /etc/modules-load.d/8021q.conf
+      ansible.builtin.copy:
+        content: 8021q
+        dest: /etc/modules-load.d/8021q.conf
+        mode: "0644"
 
-- name: Install iproute2
-  ansible.builtin.apt:
-    name: iproute2
-    state: present
-    update_cache: true
+    - name: Install iproute2
+      ansible.builtin.apt:
+        name: iproute2
+        state: present
+        update_cache: true
 
-- name: Install network-manager
-  ansible.builtin.apt:
-    name: network-manager
-    state: present
-    update_cache: true
+    - name: Install network-manager
+      ansible.builtin.apt:
+        name: network-manager
+        state: present
+        update_cache: true
 
-- name: Configure Network Manager
-  ansible.builtin.copy:
-    content: |
-      [main]
-      plugins=ifupdown,keyfile
-      monitor-connection-files=yes
+    - name: Configure Network Manager
+      ansible.builtin.copy:
+        content: |
+          [main]
+          plugins=ifupdown,keyfile
+          monitor-connection-files=yes
 
-      [ifupdown]
-      managed=false
+          [ifupdown]
+          managed=false
 
-      [device]
-      wifi.scan-rand-mac-address=no
-    dest: /etc/NetworkManager/NetworkManager.conf
-    mode: "0644"
-  notify:
-    - Restart NetworkManager service
+          [device]
+          wifi.scan-rand-mac-address=no
+        dest: /etc/NetworkManager/NetworkManager.conf
+        mode: "0644"
+      notify:
+        - Restart NetworkManager service
 
-- name: Flush handlers to restart NetworkManager
-  ansible.builtin.meta: flush_handlers
+    - name: Flush handlers to restart NetworkManager
+      ansible.builtin.meta: flush_handlers
 
-# Enable IP forwarding
-- name: Configure routing table
-  ansible.builtin.copy:
-    content: |
-      net.ipv4.ip_forward=1
-    dest: /etc/sysctl.d/20-ip-forward.conf
-    mode: "0644"
+    # Enable IP forwarding
+    - name: Configure routing table
+      ansible.builtin.copy:
+        content: |
+          net.ipv4.ip_forward=1
+        dest: /etc/sysctl.d/20-ip-forward.conf
+        mode: "0644"
 
-- name: Enable IP forwarding
-  ansible.posix.sysctl:
-    name: net.ipv4.ip_forward
-    value: 1
-    state: present
+    - name: Enable IP forwarding
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: 1
+        state: present
 
 - name: Install nftables
   ansible.builtin.apt:
@@ -193,13 +197,27 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
 
-- name: Configure NAT and firewall rules with nftables
+- name: Copy nftables shared rules
   ansible.builtin.blockinfile:
     path: /etc/nftables.conf
     backup: true
     create: true
     insertbefore: EOF
     block: "{{ lookup('template', 'nftables-rules.j2') }}"
+
+- name: Copy nftables VIP rules
+  block:
+    - name: Render nftables VIP rules (MASTER)
+      ansible.builtin.template:
+        src: nftables-vip-rules.master.j2
+        dest: /etc/nftables-vip-rules.master.nft
+        backup: true
+
+    - name: Render nftables VIP rules (BACKUP)
+      ansible.builtin.template:
+        src: nftables-vip-rules.backup.j2
+        dest: /etc/nftables-vip-rules.backup.nft
+        backup: true
 
 - name: Reload nftables
   ansible.builtin.command: nft -f /etc/nftables.conf
@@ -210,57 +228,61 @@
     state: started
     enabled: true
 
-- name: Install Kea
-  ansible.builtin.apt:
-    name: isc-dhcp-server
-    state: present
-    update_cache: true
+- name: Configure DHCP
+  when: network_is_router and network_dhcp_role is defined
+  block:
+    - name: Install Kea
+      ansible.builtin.apt:
+        name: isc-dhcp-server
+        state: present
+        update_cache: true
 
-- name: Configure DHCP server interface
-  ansible.builtin.lineinfile:
-    path: /etc/default/isc-dhcp-server
-    line: INTERFACESv4="{{ internal_interface }}"
-    create: true
-    regexp: ^INTERFACESv4=
+    - name: Configure DHCP server interface
+      ansible.builtin.lineinfile:
+        path: /etc/default/isc-dhcp-server
+        line: INTERFACESv4="{{ internal_interface }}"
+        create: true
+        regexp: ^INTERFACESv4=
 
-- name: Configure DHCP server
-  ansible.builtin.copy:
-    content: |
-      subnet {{ internal_network }} netmask {{ internal_network_netmask }} {
-        range {{ internal_network_dhcp_start }} {{ internal_network_dhcp_end }};
-        option subnet-mask {{ internal_network_netmask }};
-        option routers {{ internal_gateway }};
-        option domain-name-servers 172.16.255.254, 1.1.1.1, 8.8.8.8;
-      }
-    dest: /etc/dhcp/dhcpd.conf
-    mode: "0644"
-    backup: true
-  notify:
-    - Restart DHCP service
+    - name: Set DHCP facts
+      ansible.builtin.set_fact:
+        __network_dhcp_address: "{{ dhcp_primary if network_dhcp_role == 'primary' else dhcp_failover }}"
+        __network_dhcp_peer_address: "{{ dhcp_failover if network_dhcp_role == 'primary' else dhcp_primary }}"
 
-- name: Set DHCP status facts
-  ansible.builtin.set_fact:
-    _dhcp_service_enabled: "{{ true if network_gateway_role == 'primary' else false }}"
-    _dhcp_service_state: "{{ 'started' if network_gateway_role == 'primary' else 'stopped' }}"
+    - name: Configure DHCP server
+      ansible.builtin.template:
+        # https://kb.isc.org/docs/aa-00502
+        src: dhcpd.conf.j2
+        dest: /etc/dhcp/dhcpd.conf
+        mode: "0644"
+        backup: true
+      notify:
+        - Restart DHCP service
 
-- name: Enable DHCP service
-  ansible.builtin.service:
-    name: isc-dhcp-server
-    enabled: true
-    state: started
+    - name: Set DHCP status facts
+      ansible.builtin.set_fact:
+        _dhcp_service_enabled: "{{ true if network_gateway_role == 'primary' else false }}"
+        _dhcp_service_state: "{{ 'started' if network_gateway_role == 'primary' else 'stopped' }}"
 
-- name: Disable DHCP6 service
-  ansible.builtin.service:
-    name: isc-dhcp-server6
-    enabled: false
-    state: stopped
+    - name: Enable DHCP service
+      ansible.builtin.service:
+        name: isc-dhcp-server
+        enabled: true
+        state: started
+
+    - name: Disable DHCP6 service
+      ansible.builtin.service:
+        name: isc-dhcp-server6
+        enabled: false
+        state: stopped
 
 - name: SSH hardening
   ansible.builtin.import_tasks: hardening-ssh.yaml
 
 - name: Dynamic DNS
   ansible.builtin.import_tasks: configure-dyn-dns.yaml
+  when: network_is_router
 
 - name: Configure VRRP
   ansible.builtin.import_tasks: vrrp.yaml
-  when: network_gateway_role is defined and network_gateway_role
+  when: network_is_router and network_gateway_role

@@ -1,0 +1,23 @@
+# These rules assume that the host that are executing them have the VIP assigned to one of their interfaces.
+
+table ip custom_nat {
+
+  chain nat_prerouting {
+    type nat hook prerouting priority 0; policy accept;
+
+    # Forward external traffic to host ingress (Traefik)
+    iifname { ftth } tcp dport { http } dnat to {{ internal_ip_address }}:9080
+    iifname { ftth } tcp dport { https } dnat to {{ internal_ip_address }}:9443
+    # Forward external traffic for STUN/TURN
+    iifname { ftth } udp dport { 3478 } dnat to {{ internal_ip_address }}:3478
+    iifname { ftth } tcp dport { 5349 } dnat to {{ internal_ip_address }}:5349
+    # Forward local traffic to host ingress (Traefik)
+    ip daddr {{ network_gateway_virtual_ip }} tcp dport { http } dnat to {{ internal_ip_address }}:8081
+    ip daddr {{ network_gateway_virtual_ip }} tcp dport { https } dnat to {{ internal_ip_address }}:8443
+    ip daddr {{ internal_ip_address }} tcp dport { http } dnat to {{ internal_ip_address }}:8081
+    ip daddr {{ internal_ip_address }} tcp dport { https } dnat to {{ internal_ip_address }}:8443
+    # Forward internal DNS over TLS/QUIC traffic to Traefik
+    ip daddr {{ network_gateway_virtual_ip }} tcp dport { 853 } dnat to {{ internal_ip_address }}:8853
+    ip daddr {{ network_gateway_virtual_ip }} udp dport { 853 } dnat to {{ internal_ip_address }}:8854
+  }
+}

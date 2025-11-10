@@ -1,0 +1,30 @@
+failover peer "dhcp-ha" {
+  {{ network_dhcp_role }};
+  address {{ __network_dhcp_address }};
+  peer address {{ __network_dhcp_peer_address }};
+  max-response-delay 60;
+  max-unacked-updates 10;
+{% if network_dhcp_role == "primary" %}
+  load balance max seconds 3;
+  mclt 3600;
+  split 128;
+{% endif %}
+}
+
+subnet {{ internal_network }} netmask {{ internal_network_netmask }} {
+  pool {
+    failover peer "dhcp-ha";
+    range {{ internal_network_dhcp_start }} {{ internal_network_dhcp_end }};
+  }
+  option subnet-mask {{ internal_network_netmask }};
+  option routers {{ internal_gateway }};
+  option domain-name-servers 172.16.255.252, 172.16.255.253, 1.1.1.1, 8.8.8.8;
+}
+
+omapi-port 7911;
+omapi-key omapi_key;
+
+key "omapi_key" {
+	algorithm hmac-md5;
+	secret "{{ network_dhcp_omapi_secret }}";
+};

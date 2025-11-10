@@ -74,8 +74,12 @@
     recreate: true
     network: ddclient
 
-    volumes:
-      "{{ ddclient_work_dir }}:/config"
+    # Use custom DNS server to avoid dependency on host DNS resolution
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+
+    volumes: "{{ ddclient_work_dir }}:/config"
 
     uidmap:
       - 0:4000000000:1000

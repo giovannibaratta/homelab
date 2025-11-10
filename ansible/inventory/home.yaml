@@ -2,6 +2,7 @@
 home:
   vars:
     ##### Required for first setup #####
+    network_is_router: false
     pppoe_username: "{{ lookup('community.general.bitwarden_secrets_manager', 'bd0b9603-45e4-40a1-a9f7-b19600edd71c').value }}"
     pppoe_password: "{{ lookup('community.general.bitwarden_secrets_manager', '15745580-f311-499b-a07c-b19600ee0739').value }}"
     internal_network: 172.16.0.0
@@ -15,10 +16,8 @@ home:
     network_gateway_virtual_ip: 172.16.255.254
     network_vrrp_auth_pass: "{{ lookup('community.general.bitwarden_secrets_manager', '1630ccec-e351-48bc-b7e9-b38f012974ea').value }}"
     adguardhome_hashed_password: "{{ lookup('community.general.bitwarden_secrets_manager', '1cc495f1-1ec9-47eb-b698-b1a000de76d1').value }}"
+    network_dhcp_omapi_secret: "{{ lookup('community.general.bitwarden_secrets_manager', 'c7934727-e146-4624-af9b-b39300af6b17').value }}"
     ##### END Required for first setup #####
-    auto_remediation_bws_access_token: "{{ lookup('community.general.bitwarden_secrets_manager', 'fa2de49e-d606-44d5-8314-b25b00d440cc').value }}"
-    ingress_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"
-    ingress_porkbun_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5').value }}"
     ##### Deployment preferences defaults to false for safety #####
     deploy_grafana: false
     deploy_prometheus: false
@@ -31,6 +30,9 @@ home:
     deploy_idp: false
     deploy_netbird: false
     #### Shared deployment variables #####
+    auto_remediation_bws_access_token: "{{ lookup('community.general.bitwarden_secrets_manager', 'fa2de49e-d606-44d5-8314-b25b00d440cc').value }}"
+    ingress_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"
+    ingress_porkbun_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5c2066b8-3ee2-4410-a8ba-b1e6011843a5').value }}"
     logging_aws_cloud_watch_access_key: "{{ lookup('community.general.bitwarden_secrets_manager', '98b22309-34ba-48ec-8025-b228014a9294').value }}"
     logging_aws_cloud_watch_secret_key: "{{ lookup('community.general.bitwarden_secrets_manager', '2e0329dc-7f83-42ab-a22c-b228014ab2ad').value }}"
     acme_email: "{{ lookup('community.general.bitwarden_secrets_manager', '0f8cfc8a-1daa-4bea-9ace-b19600eebb2a').value }}"
@@ -45,8 +47,39 @@ home:
     vpn_protonvpn_wireguard_privatekey: "{{ lookup('community.general.bitwarden_secrets_manager', 'f677b4d3-2534-4c7e-a689-b1fa0149c2aa').value }}"
     vpn_turn_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'c659f2f6-1096-4b6d-b690-b1ec01268975').value }}"
   hosts:
+    172.16.255.251:
+      ##### Required for first setup #####
+      network_is_router: false
+      ansible_user: ansible
+      ansible_ssh_private_key_file: ~/.ssh/ansible
+      ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
+      wan_interface: enp1s0
+      internal_interface: eno1
+      dyn_dns_entry: "ingress-fallback"
+      ##### Required for first setup #####
+      system_update_day: 5
+      ##### Deployment preferences #####
+      deploy_grafana: false
+      deploy_prometheus: false
+      deploy_alertmanager: false
+      deploy_mediastack: false
+      deploy_logging: false
+      deploy_home_assistant: false
+      deploy_coder: false
+      deploy_mqtt: false
+      deploy_idp: false
+      deploy_netbird: true
+      # Ad hoc deployments variables #####
+      vpn_deploy_exit_node: false
+      vpn_deploy_jump_node: true
+      vpn_deploy_management_server: false
+      vpn_deploy_dashboard: false
+      vpn_deploy_stun_server: false
+      vpn_deploy_protonvpn: false
+      vpn_deploy_relay_server: false
     172.16.255.253:
       ##### Required for first setup #####
+      network_is_router: true
       ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/ansible
       ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
@@ -54,6 +87,7 @@ home:
       internal_interface: enp1s0
       dyn_dns_entry: "ingress-fallback"
       network_gateway_role: secondary
+      network_dhcp_role: secondary
       ##### Required for first setup #####
       system_update_day: 6
       ##### Deployment preferences #####
@@ -77,6 +111,7 @@ home:
       vpn_deploy_relay_server: true
     172.16.255.252:
       ##### Required for first setup #####
+      network_is_router: true
       ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/ansible
       ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
@@ -84,6 +119,7 @@ home:
       internal_interface: enp1s0
       dyn_dns_entry: "ingress-primary"
       network_gateway_role: primary
+      network_dhcp_role: primary
       ##### END Required for first setup #####
       system_update_day: 3
       #### deployment preferences

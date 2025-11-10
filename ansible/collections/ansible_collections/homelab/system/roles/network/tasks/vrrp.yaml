@@ -9,6 +9,14 @@
     _network_vrrp_priority: "{{ 200 if network_gateway_role == 'primary' else 100 }}"
     _network_vrrp_identifier: "{{ 'GW_PRIMARY' if network_gateway_role == 'primary' else 'GW_FALLBACK' }}"
 
+- name: Copy VRRP nft handler script
+  ansible.builtin.copy:
+    src: keepalived-nft-manager.sh
+    dest: /etc/keepalived/keepalived-nft-manager.sh
+    owner: root
+    group: root
+    mode: "0700"
+
 - name: Configure keepalived
   ansible.builtin.template:
     src: keepalived.conf.j2

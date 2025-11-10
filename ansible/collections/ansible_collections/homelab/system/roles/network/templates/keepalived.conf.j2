@@ -1,5 +1,14 @@
 global_defs {
    router_id {{ _network_vrrp_identifier }}
+   script_user root
+   enable_script_security
+
+   # --- Allow keepalived to increase its priority to prevent flapping under load ---
+   max_auto_priority
+
+   # --- Scripts to run on daemon start/stop ---
+   startup_script "/etc/keepalived/keepalived-nft-manager.sh startup"
+   shutdown_script "/etc/keepalived/keepalived-nft-manager.sh shutdown"
 }
 
 vrrp_instance VI_1 {
@@ -17,4 +26,10 @@ vrrp_instance VI_1 {
     virtual_ipaddress {
         {{ network_gateway_virtual_ip }}
     }
+
+    # --- Call the manager script on state changes ---
+    notify_master "/etc/keepalived/keepalived-nft-manager.sh master"
+    notify_backup "/etc/keepalived/keepalived-nft-manager.sh backup"
+    notify_fault "/etc/keepalived/keepalived-nft-manager.sh fault"
+    notify_stop "/etc/keepalived/keepalived-nft-manager.sh vrrp_stop"
 }

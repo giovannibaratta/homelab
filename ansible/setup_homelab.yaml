@@ -9,10 +9,37 @@
     media_data_dir: /external/media
 
   tasks:
-
-    - name: Get IP of the specified internal interface
+    - name: Gather data and set facts
       ansible.builtin.set_fact:
         internal_ip_address: "{{ ansible_facts[internal_interface].ipv4.address }}"
+      tags:
+        - always
+
+    - name: Gather network roles and set dynamic facts (run_once)
+      ansible.builtin.set_fact:
+        dhcp_primary: "{{ primary_host_obj.inventory_hostname }}"
+        dhcp_failover: "{{ secondary_host_obj.inventory_hostname }}"
+
+      vars:
+        primary_host_obj: >-
+          {{
+            groups['all']
+            | map('extract', hostvars)
+            | selectattr('network_dhcp_role', 'defined')
+            | selectattr('network_dhcp_role', 'equalto', 'primary')
+            | first
+          }}
+
+        secondary_host_obj: >-
+          {{
+            groups['all']
+            | map('extract', hostvars)
+            | selectattr('network_dhcp_role', 'defined')
+            | selectattr('network_dhcp_role', 'equalto', 'secondary')
+            | first
+          }}
+
+      run_once: true
       tags:
         - always
 
@@ -120,7 +147,9 @@
       become: true
       tags: monitoring
 
-    - ansible.builtin.import_role:
+    - name: Deploy AdGuard Home
+      when: deploy_adguard
+      ansible.builtin.import_role:
         name: homelab.apps.adguard
       become: true
       tags:
