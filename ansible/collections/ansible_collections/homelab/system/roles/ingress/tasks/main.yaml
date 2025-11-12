@@ -34,7 +34,7 @@
   ansible.builtin.getent:
     database: group
     key: containers
-    split: ':'
+    split: ":"
 
 - name: Create Traefik network
   containers.podman.podman_network:
@@ -42,8 +42,7 @@
     state: present
     # Enable DNS resolution based on container names
     disable_dns: false
-    dns:
-      - "{{ internal_gateway }}"
+    dns: "{{ podman_dns }}"
     driver: bridge
     force: false
     recreate: false
@@ -89,7 +88,7 @@
     network: traefik
 
     ports:
-      - "40375:2375"  # Map internal port 2375 to host port 40375
+      - "40375:2375" # Map internal port 2375 to host port 40375
 
     env:
       POST: 0
@@ -135,7 +134,7 @@
     image: docker.io/owasp/modsecurity-crs:{{ ingress_waf_version }}
 
     ports:
-      - "18080:8080"  # Expose ModSecurity on port 18080 for Traefik plugin
+      - "18080:8080" # Expose ModSecurity on port 18080 for Traefik plugin
 
     env:
       PARANOIA: "{{ ingress_waf_paranoia_level }}"
@@ -146,7 +145,7 @@
       MODSEC_AUDIT_LOG_FORMAT: "{{ ingress_waf_audit_log_format }}"
       MODSEC_RULE_ENGINE: "{{ ingress_waf_rule_engine }}"
       PORT: "8080"
-      SSL_ENGINE: "off"  # Disable SSL in ModSecurity, Traefik handles TLS
+      SSL_ENGINE: "off" # Disable SSL in ModSecurity, Traefik handles TLS
 
     recreate: true
     network: waf-network

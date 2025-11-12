@@ -29,6 +29,7 @@ home:
     deploy_mqtt: false
     deploy_idp: false
     deploy_netbird: false
+    deploy_adguard: false
     #### Shared deployment variables #####
     auto_remediation_bws_access_token: "{{ lookup('community.general.bitwarden_secrets_manager', 'fa2de49e-d606-44d5-8314-b25b00d440cc').value }}"
     ingress_porkbun_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae67cda8-2d6d-4d9c-b86c-b1e601182b8e').value }}"
@@ -88,6 +89,7 @@ home:
       dyn_dns_entry: "ingress-fallback"
       network_gateway_role: secondary
       network_dhcp_role: secondary
+      deploy_adguard: true
       ##### Required for first setup #####
       system_update_day: 6
       ##### Deployment preferences #####
@@ -120,6 +122,7 @@ home:
       dyn_dns_entry: "ingress-primary"
       network_gateway_role: primary
       network_dhcp_role: primary
+      deploy_adguard: true
       ##### END Required for first setup #####
       system_update_day: 3
       #### deployment preferences

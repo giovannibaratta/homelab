@@ -41,7 +41,7 @@
     dest: "{{ home_assistant_conf_dir }}/custom_components/yi_hack/"
     owner: "{{ home_assistant_container_user }}"
     group: "{{ home_assistant_container_user }}"
-    mode: '0644'
+    mode: "0644"
     remote_src: yes
 
 - name: Clean up temporary clone
@@ -63,8 +63,7 @@
     state: quadlet
     # Enable DNS resolution based on container names
     disable_dns: false
-    dns:
-      - "{{ internal_gateway }}"
+    dns: "{{ podman_dns }}"
     driver: bridge
     force: true
     recreate: true

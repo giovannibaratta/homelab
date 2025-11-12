@@ -5,8 +5,7 @@
     state: quadlet
     # Enable DNS resolution based on container names
     disable_dns: false
-    dns:
-      - "{{ internal_gateway }}"
+    dns: "{{ podman_dns }}"
     driver: bridge
     force: true
     recreate: true

@@ -1,4 +1,28 @@
 ---
+- name: Gather the list of installed systemd services
+  ansible.builtin.service_facts:
+
+- name: Disable BIND9 and its variants if they exist
+  block:
+    # List of common service names for BIND on Debian/Ubuntu systems.
+    # 'bind9' is the main service unit, 'named' is often a symlink or alias.
+    # Other variations are less common but included for completeness.
+    - name: Stop and disable BIND services
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      loop:
+        - named
+        - bind9
+        - named-chroot
+      when: "item in ansible_facts.services"
+
+  rescue:
+    - name: BIND service check resulted in an error (informational)
+      ansible.builtin.debug:
+        msg: "Could not disable one of the BIND services, which is expected if it was not installed. No action needed."
+
 - name: Create /app/adguardhome/work directory
   ansible.builtin.file:
     path: /app/adguardhome/work

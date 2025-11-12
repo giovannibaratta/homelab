@@ -19,6 +19,7 @@
       ansible.builtin.set_fact:
         dhcp_primary: "{{ primary_host_obj.inventory_hostname }}"
         dhcp_failover: "{{ secondary_host_obj.inventory_hostname }}"
+        podman_dns: "{{ adguard_host_objs | map(attribute='inventory_hostname') | list }}"
 
       vars:
         primary_host_obj: >-
@@ -39,6 +40,14 @@
             | first
           }}
 
+        adguard_host_objs: >-
+          {{
+            groups['all']
+            | map('extract', hostvars)
+            | selectattr('deploy_adguard', 'defined')
+            | selectattr('deploy_adguard', 'equalto', true)
+            | list
+          }}
       run_once: true
       tags:
         - always
