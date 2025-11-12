@@ -9,3 +9,4 @@ __base_packages_to_install:
   - software-properties-common # Apt keyring
   - python3-pip # Run Ansible within auto-remediation
   - python3-venv # Run Ansible within auto-remediation
+validate_health_before_update: []

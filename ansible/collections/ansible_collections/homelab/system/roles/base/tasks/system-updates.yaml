@@ -1,13 +1,21 @@
 ---
+
+- name: Copy the update and reboot script to the remote host
+  ansible.builtin.copy:
+    src: update-and-reboot.sh
+    dest: /usr/local/bin/update-and-reboot.sh
+    owner: root
+    group: root
+    mode: '0700'
+
 - name: Create cron job for update and reboot
   ansible.builtin.cron:
     name: update-reboot
     job: >
-      DEBIAN_FRONTEND=noninteractive apt update &&
-      DEBIAN_FRONTEND=noninteractive apt upgrade -y &&
-      DEBIAN_FRONTEND=noninteractive apt autoremove -y &&
-      DEBIAN_FRONTEND=noninteractive apt autoclean -y &&
-      reboot
+      /usr/local/bin/update-and-reboot.sh
+      {% if validate_health_before_update is defined and validate_health_before_update | length > 0 %}
+      --validate-health {{ validate_health_before_update | join(',') }}
+      {% endif %} | /usr/bin/logger -t 'update-and-reboot'
     minute: "00"
     hour: "03"
     weekday: "{{ system_update_day }}"

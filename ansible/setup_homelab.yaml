@@ -1,6 +1,11 @@
 ---
 - name: Configure home lab
   hosts: all
+  gather_facts: true
+  gather_subset:
+    - '!all'
+    - min
+    - network
 
   vars:
     # This group will be used to grant read access to media files between different applications
@@ -20,12 +25,18 @@
         dhcp_primary: "{{ primary_host_obj.inventory_hostname }}"
         dhcp_failover: "{{ secondary_host_obj.inventory_hostname }}"
         podman_dns: "{{ adguard_host_objs | map(attribute='inventory_hostname') | list }}"
+        validate_health_before_update: "{{ other_routers if network_is_router is defined and network_is_router else [] }}"
 
       vars:
-        primary_host_obj: >-
+        all_groups_hostvars: >-
           {{
             groups['all']
             | map('extract', hostvars)
+          }}
+
+        primary_host_obj: >-
+          {{
+            all_groups_hostvars
             | selectattr('network_dhcp_role', 'defined')
             | selectattr('network_dhcp_role', 'equalto', 'primary')
             | first
@@ -33,8 +44,7 @@
 
         secondary_host_obj: >-
           {{
-            groups['all']
-            | map('extract', hostvars)
+            all_groups_hostvars
             | selectattr('network_dhcp_role', 'defined')
             | selectattr('network_dhcp_role', 'equalto', 'secondary')
             | first
@@ -42,12 +52,22 @@
 
         adguard_host_objs: >-
           {{
-            groups['all']
-            | map('extract', hostvars)
+            all_groups_hostvars
             | selectattr('deploy_adguard', 'defined')
             | selectattr('deploy_adguard', 'equalto', true)
             | list
           }}
+
+        other_routers: >-
+          {{
+            all_groups_hostvars
+            | selectattr('network_is_router', 'defined')
+            | selectattr('network_is_router', 'equalto', true)
+            | rejectattr('inventory_hostname', 'equalto', inventory_hostname)
+            | map(attribute='inventory_hostname')
+            | list
+          }}
+
       run_once: true
       tags:
         - always

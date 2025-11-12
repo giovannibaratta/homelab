@@ -91,7 +91,7 @@ home:
       network_dhcp_role: secondary
       deploy_adguard: true
       ##### Required for first setup #####
-      system_update_day: 6
+      system_update_day: 3
       ##### Deployment preferences #####
       deploy_grafana: true
       deploy_prometheus: false
@@ -124,7 +124,7 @@ home:
       network_dhcp_role: primary
       deploy_adguard: true
       ##### END Required for first setup #####
-      system_update_day: 3
+      system_update_day: 6
       #### deployment preferences
       deploy_grafana: false
       deploy_prometheus: false
