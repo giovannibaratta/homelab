@@ -111,12 +111,21 @@
       - 0:{{ ansible_facts.getent_group.containers[1] }}:1
       - 1:4000000000:100000
 
+    healthcheck: "wget -q -O - http://localhost:2375/_ping > /dev/null"
+    healthcheck_interval: "30s"
+    healthcheck_timeout: "5s"
+    healthcheck_retries: 3
+    healthcheck_start_period: "10s"
+    healthcheck_failure_action: "restart"
+
     quadlet_options:
       - |
         [Install]
         WantedBy=default.target
+
         [Unit]
         StartLimitIntervalSec=0
+
         [Service]
         Restart=always
         RestartSec=60s
