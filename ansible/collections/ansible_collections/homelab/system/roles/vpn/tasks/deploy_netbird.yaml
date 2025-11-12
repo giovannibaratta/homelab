@@ -344,11 +344,11 @@
 
         uidmap:
           - 0:{{ vpn_netbird_relay_container_user_result.uid }}:1
-          - 1:4000000000:10000
+          - 1:4000000000:65535
 
         gidmap:
           - 0:{{ vpn_netbird_relay_container_user_result.group }}:1
-          - 1:4000000000:10000
+          - 1:4000000000:65536
 
         labels:
           traefik.enable: true
