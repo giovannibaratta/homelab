@@ -97,7 +97,7 @@
   ansible.builtin.cron:
     name: auto-ansible
     job: /app/auto-ansible/artifacts/auto-ansible.sh | /usr/bin/logger -t 'auto-ansible'
-    hour: "*/4"
+    hour: "{{ auto_ansible_hour_schedule }}"
     minute: "30"
     state: present
     user: root

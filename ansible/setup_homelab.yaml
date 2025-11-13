@@ -20,6 +20,18 @@
       tags:
         - always
 
+    - name: Fetch hostvars
+      ansible.builtin.set_fact:
+        all_groups_hostvars: >-
+          {{
+            groups['all']
+            | map('extract', hostvars)
+            | list
+          }}
+      tags:
+        - always
+      run_once: true
+
     - name: Gather network roles and set dynamic facts (run_once)
       ansible.builtin.set_fact:
         dhcp_primary: "{{ primary_host_obj.inventory_hostname }}"
@@ -28,12 +40,6 @@
         validate_health_before_update: "{{ other_routers if network_is_router is defined and network_is_router else [] }}"
 
       vars:
-        all_groups_hostvars: >-
-          {{
-            groups['all']
-            | map('extract', hostvars)
-          }}
-
         primary_host_obj: >-
           {{
             all_groups_hostvars

@@ -111,6 +111,7 @@ home:
       vpn_deploy_stun_server: false
       vpn_deploy_protonvpn: false
       vpn_deploy_relay_server: true
+      auto_ansible_hour_schedule: "3,7,11,15,19,23"
     172.16.255.252:
       ##### Required for first setup #####
       network_is_router: true
@@ -145,6 +146,7 @@ home:
       vpn_deploy_protonvpn: true
       vpn_deploy_relay_server: true
       containers_netavark_version: v1.11.0
+      auto_ansible_hour_schedule: "1,5,9,13,17,21"
       desec_token: "{{ lookup('community.general.bitwarden_secrets_manager', '47a7f216-1255-46e2-ad18-b19600e95fa1').value }}"
       alertmanager_receiver_email: "{{ lookup('community.general.bitwarden_secrets_manager', '2ef318e4-be55-418f-a87b-b19700f42c73').value }}"
       alertmanager_sender: "{{ lookup('community.general.bitwarden_secrets_manager', 'e96e03b0-6f8b-487c-9e39-b30a014aa6ce').value }}"
