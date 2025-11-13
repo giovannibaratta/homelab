@@ -5,7 +5,7 @@
   ignore_errors: true
   register: user_lookup
 
-- name: Set shell for user {{ item.username}}
+- name: Set shell for user {{ item }}
   ansible.builtin.user:
     name: "{{ item }}"
     shell: "{{ custom_shell_path }}"
