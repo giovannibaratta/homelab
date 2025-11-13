@@ -285,4 +285,4 @@
 
 - name: Configure VRRP
   ansible.builtin.import_tasks: vrrp.yaml
-  when: network_is_router and network_gateway_role
+  when: network_is_router and network_gateway_role is defined
