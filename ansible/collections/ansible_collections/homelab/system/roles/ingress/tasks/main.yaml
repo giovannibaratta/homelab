@@ -39,7 +39,7 @@
 - name: Create Traefik network
   containers.podman.podman_network:
     name: traefik
-    state: present
+    state: quadlet
     # Enable DNS resolution based on container names
     disable_dns: false
     dns: "{{ podman_dns }}"
@@ -51,11 +51,45 @@
     interface_name: podman-traefik
     opt:
       isolate: true
+  notify:
+    - Reload systemd daemons for traefik role
+    - Restart waf network
 
 - name: Create WAF network
   containers.podman.podman_network:
+    name: waf
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns: "{{ podman_dns }}"
+    driver: bridge
+    force: false
+    recreate: false
+    # Need to be reachable by other services
+    internal: false
+    interface_name: podman-waf
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for traefik role
+    - Restart waf network
+
+- name: Trigger Handlers for Bittorrent network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start Traefik network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: traefik-network
+    state: started
+    enabled: true
+
+- name: Start WAF network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
     name: waf-network
-    state: present
+    state: started
+    enabled: true
 
 - name: Create dummy backend container
   containers.podman.podman_container:
@@ -64,7 +98,7 @@
     image: docker.io/traefik/whoami:latest
 
     recreate: true
-    network: waf-network
+    network: waf
 
     uidmap:
       - 0:4000000000:100000
@@ -157,7 +191,7 @@
       SSL_ENGINE: "off" # Disable SSL in ModSecurity, Traefik handles TLS
 
     recreate: true
-    network: waf-network
+    network: waf
 
     uidmap:
       - 0:4000000000:100000

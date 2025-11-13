@@ -22,3 +22,13 @@
   ansible.builtin.service:
     name: traefik.service
     state: restarted
+
+- name: Restart Traefik network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: traefik-network
+
+- name: Restart WAF network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: waf-network
