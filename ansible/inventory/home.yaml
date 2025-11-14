@@ -127,9 +127,9 @@ home:
       ##### END Required for first setup #####
       system_update_day: 6
       #### deployment preferences
-      deploy_grafana: false
-      deploy_prometheus: false
-      deploy_alertmanager: false
+      deploy_grafana: true
+      deploy_prometheus: true
+      deploy_alertmanager: true
       deploy_mediastack: true
       deploy_logging: true
       deploy_home_assistant: true

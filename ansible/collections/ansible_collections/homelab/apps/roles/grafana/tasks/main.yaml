@@ -111,58 +111,41 @@
     group: root
   notify: Restart Grafana service
 
-- name: Create grafana.service file
-  ansible.builtin.copy:
-    content: |
-      [Unit]
-      Description=Podman container-grafana.service
-      Documentation=man:podman-generate-systemd(1)
-      Wants=network-online.target
-      After=network-online.target
-      RequiresMountsFor=%t/containers
+- name: Create Grafana Quadlet
+  containers.podman.podman_container:
+    name: grafana
+    state: quadlet
+    image: "docker.io/grafana/grafana-oss:{{ grafana_version }}"
+    recreate: true
+    rm: true
+    restart_policy: "on-failure"
+    dns: "{{ podman_dns }}"
 
-      [Service]
-      Environment=PODMAN_SYSTEMD_UNIT=%n
-      Restart=on-failure
-      TimeoutStopSec=70
-      # Available versions https://hub.docker.com/r/grafana/grafana-oss/tags
-      ExecStart=/usr/bin/podman run \
-              --cidfile=%t/%n.ctr-id \
-              --cgroups=no-conmon \
-              --rm \
-              --sdnotify=conmon \
-              --replace \
-              -d \
-              --name grafana \
-              -v /app/grafana/conf:/opt/grafana/conf \
-              -e "GF_PATHS_CONFIG=/opt/grafana/conf/grafana.ini" \
-              -e "GF_PATHS_PROVISIONING=/opt/grafana/conf/provisioning" \
-              --label="traefik.enable=true" \
-              --label="traefik.http.routers.grafana.rule=Host(`grafana.{{ internal_domain }}`)" \
-              --label="traefik.http.routers.grafana.entrypoints=websecure" \
-              --label="traefik.http.routers.grafana.tls.certresolver=letsencrypt" \
-              --label="traefik.http.routers.grafana.tls.domains[0].main=grafana.{{ internal_domain }}" \
-              --label="traefik.http.services.grafana.loadbalancer.server.port=3000" \
-              --dns=172.16.255.254 \
-              docker.io/grafana/grafana-oss:12.0.2
-      ExecStop=/usr/bin/podman stop \
-              --ignore -t 10 \
-              --cidfile=%t/%n.ctr-id
-      ExecStopPost=/usr/bin/podman rm \
-              -f \
-              --ignore -t 10 \
-              --cidfile=%t/%n.ctr-id
-      Type=notify
-      NotifyAccess=all
+    volumes:
+      - "/app/grafana/conf:/opt/grafana/conf"
 
-      [Install]
-      WantedBy=default.target
-    dest: /etc/systemd/system/grafana.service
-    mode: "0644"
-  register: grafana_service_unit
+    env:
+      GF_PATHS_CONFIG: "/opt/grafana/conf/grafana.ini"
+      GF_PATHS_PROVISIONING: "/opt/grafana/conf/provisioning"
+
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.grafana.rule: "Host(`grafana.{{ internal_domain }}`)"
+      traefik.http.routers.grafana.entrypoints: "websecure"
+      traefik.http.routers.grafana.tls.certresolver: "letsencrypt"
+      traefik.http.routers.grafana.tls.domains[0].main: "grafana.{{ internal_domain }}"
+      traefik.http.services.grafana.loadbalancer.server.port: "3000"
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
   notify:
     - Reload systemd daemons
     - Restart Grafana service
+
+- name: Flush handlers for Grafana
+  ansible.builtin.meta: flush_handlers
 
 - name: Enable and start grafana service
   ansible.builtin.systemd_service:
