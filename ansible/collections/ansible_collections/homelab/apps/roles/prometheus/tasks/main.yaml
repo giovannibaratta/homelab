@@ -128,7 +128,7 @@
               --label="traefik.http.routers.prometheus.tls.certresolver=letsencrypt" \
               --label="traefik.http.routers.prometheus.tls.domains[0].main=prometheus.{{ internal_domain }}" \
               --label="traefik.http.services.prometheus.loadbalancer.server.port=9090" \
-              --dns=172.16.255.254 \
+              --dns=172.16.255.252,172.16.255.253 \
               docker.io/prom/prometheus:v2.52.0 \
               --config.file=/opt/prometheus/conf/prometheus.yaml \
               --storage.tsdb.path=/opt/prometheus/work \
@@ -181,7 +181,7 @@
               --label="traefik.http.routers.alertmanager.tls.certresolver=letsencrypt" \
               --label="traefik.http.routers.alertmanager.tls.domains[0].main=alertmanager.{{ internal_domain }}" \
               --label="traefik.http.services.alertmanager.loadbalancer.server.port=9093" \
-              --dns=172.16.255.254 \
+              --dns=172.16.255.252,172.16.255.253 \
               quay.io/prometheus/alertmanager:v0.27.0 \
               --config.file=/opt/alertmanager/conf/alertmanager.yaml \
               --log.level=debug \

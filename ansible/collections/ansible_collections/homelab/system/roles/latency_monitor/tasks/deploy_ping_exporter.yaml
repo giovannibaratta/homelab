@@ -52,7 +52,7 @@
 
       dns:
         refresh: 2m15s
-        nameserver: 172.16.255.254
+        nameserver: 172.16.255.252
 
       ping:
         interval: 1s
