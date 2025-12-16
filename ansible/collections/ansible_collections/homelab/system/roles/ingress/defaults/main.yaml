@@ -1,10 +1,10 @@
 ---
 # Available versions https://hub.docker.com/_/traefik/tags
-ingress_traefik_version: v3.6.0
+ingress_traefik_version: v3.6.4
 
 # WAF Configuration
 # Available versions https://hub.docker.com/r/owasp/modsecurity-crs/tags
-ingress_waf_version: 4.20.0-nginx-alpine-202511100111
+ingress_waf_version: 4.21.0-nginx-alpine-202512071012
 # ModSecurity plugin version https://github.com/madebymode/traefik-modsecurity-plugin/releases
 ingress_waf_plugin_version: v1.6.0
 
@@ -28,13 +28,13 @@ ingress_waf_audit_log_format: "JSON"
 
 # Rate Limiting Configuration
 # Controls request frequency per IP to prevent abuse and DDoS attacks
-ingress_waf_rate_limit_average: 50    # Average requests per second per IP
-ingress_waf_rate_limit_period: "1s"    # Time period for rate calculation
-ingress_waf_rate_limit_burst: 100      # Allow temporary bursts up to this amount
+ingress_waf_rate_limit_average: 50 # Average requests per second per IP
+ingress_waf_rate_limit_period: "1s" # Time period for rate calculation
+ingress_waf_rate_limit_burst: 100 # Allow temporary bursts up to this amount
 
 # In-Flight Request Limiting Configuration
 # Controls concurrent connections per IP to prevent resource exhaustion
-ingress_waf_inflight_limit: 50       # Maximum concurrent requests per IP
+ingress_waf_inflight_limit: 50 # Maximum concurrent requests per IP
 
 # Socket proxy configuration for secure Docker access
 ingress_socket_proxy_version: latest
