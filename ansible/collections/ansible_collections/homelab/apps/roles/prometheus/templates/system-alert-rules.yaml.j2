@@ -1,22 +1,23 @@
 groups:
 - name: System
   rules:
-  - expr: count by (job) (sum by (job, cpu) (node_cpu_seconds_total))
+  - expr: count by (instance) (sum by (instance, cpu) (node_cpu_seconds_total))
     record: node_num_cpu
   - alert: HostHighCpuLoad
-    expr: 1 - (sum by (job) (rate(node_cpu_seconds_total{mode="idle"}[1m]))) / node_num_cpu > 0.80
+    expr: 1 - (sum by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) / node_num_cpu) > 0.80
     for: 15m
     annotations:
       summary: Host high CPU load (instance {{ '{{' }} $labels.job {{ '}}' }})
       description: "CPU load is > 80%\n  VALUE = {{ '{{' }}  $value {{ '}}' }}\n  LABELS = {{ '{{' }}  $labels {{ '}}' }}"
   - alert: HostNoWeeklyReboot
-    # 619200 = 7 days and 4 hours
-    expr: sum by (job) (node_time_seconds - node_boot_time_seconds) > 619200
+    # 619200 = 7 days and 4 hours (randomization of reboot time)
+    expr: (node_time_seconds - node_boot_time_seconds) > 619200
+    for: 1h
     annotations:
-      summary: Host did not complete weekly reboot (instance {{ '{{' }} $labels.job {{ '}}' }}).
+      summary: Host did not complete weekly reboot (instance {{ '{{' }} $labels.instance {{ '}}' }}).
       description: "Host has not been rebooted for {{ '{{' }}  $value {{ '}}' }} seconds."
   - alert: HostLowFreeSpace
-    expr: sum by (job, mountpoint) (((node_filesystem_avail_bytes{device!~"tmpfs",mountpoint!~"/boot.*"}) / node_filesystem_size_bytes) * 100) < 20
+    expr: sum by (instance, mountpoint) (((node_filesystem_avail_bytes{device!~"tmpfs",mountpoint!~"/boot.*"}) / node_filesystem_size_bytes) * 100) < 20
     for: 30m
     annotations:
       summary: Host has low free disk space (instance {{ '{{' }} $labels.job {{ '}}' }})
@@ -44,9 +45,9 @@ groups:
     for: 30m
     annotations:
       summary: "Systemd unit {{ '{{' }} $labels.name {{ '}}' }} failed"
-      description: "Systemd unit {{ '{{' }} $labels.name {{ '}}' }} is in failed state for over 30 minutes."
+      description: "Systemd unit {{ '{{' }} $labels.name {{ '}}' }} is in failed state for over 30 minutes for host {{ '{{' }} $labels.instance {{ '}}' }}"
   - alert: HighCPUTemperature
-    expr: node_hwmon_temp_celsius{chip="pci0000:00_0000:00:18_3", sensor="temp1"} > 85
+    expr: remapped_node_cpu_temp_celsius > 85
     for: 15m
     labels:
       severity: critical
@@ -65,4 +66,4 @@ groups:
       severity: critical
     annotations:
       summary: "High upload speed detected on ftth interface"
-      description: "The upload speed on the 'ftth' network interface has exceeded 400 Mbps (50 MB/s) for more than 15 minutes. Current value: {{ '{{' }} $value {{ '}}' }} bytes/s"
+      description: "The upload speed on the 'ftth' network interface for instance {{ '{{' }} $labels.instance {{ '}}' }} has exceeded 400 Mbps (50 MB/s) for more than 15 minutes. Current value: {{ '{{' }} $value {{ '}}' }} bytes/s"
