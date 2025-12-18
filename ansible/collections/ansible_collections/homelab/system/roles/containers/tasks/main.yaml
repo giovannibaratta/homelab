@@ -148,8 +148,26 @@
     - Reload systemd daemon
     - Restart podman.socket service
 
+- name: Ensure podman.service.d exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/podman.service.d
+    mode: "0740"
+    state: directory
+
+- name: Set Podman log level to warn
+  ansible.builtin.copy:
+    content: |
+      [Service]
+      Environment=LOGGING="--log-level=warn"
+    dest: /etc/systemd/system/podman.service.d/logging.conf
+    mode: "0640"
+  notify:
+    - Reload systemd daemon
+    - Restart podman service
+
 - name: Ensure Docker socket is assigned to the right group
   ansible.builtin.copy:
     # override /usr/lib/tmpfiles.d/podman-docker.conf
     dest: /etc/tmpfiles.d/podman-docker.conf
     content: L+  %t/docker.sock   -    root    containers     -   %t/podman/podman.sock
+
