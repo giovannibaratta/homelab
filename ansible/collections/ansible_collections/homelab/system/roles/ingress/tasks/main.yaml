@@ -109,6 +109,15 @@
       - |
         [Install]
         WantedBy=default.target
+
+        [Unit]
+        # Disable restart rate limiting
+        StartLimitIntervalSec=0
+
+        [Service]
+        Restart=always
+        # Quick restart for the dummy service since it's lightweight
+        RestartSec=5s
   notify:
     - Reload systemd daemons for ingress role
     - Restart WAF dummy service
@@ -202,6 +211,18 @@
       - |
         [Install]
         WantedBy=default.target
+
+        [Unit]
+        # Disable restart rate limiting
+        StartLimitIntervalSec=0
+        # Dependency: Fail if waf-dummy is missing
+        Requires=waf-dummy.service
+        # Ordering: Wait for waf-dummy to start before starting this
+        After=waf-dummy.service
+
+        [Service]
+        Restart=always
+        RestartSec=15s
   notify:
     - Reload systemd daemons for ingress role
     - Restart ModSecurity WAF service
