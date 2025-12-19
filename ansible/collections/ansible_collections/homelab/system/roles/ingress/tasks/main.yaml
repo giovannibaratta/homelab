@@ -17,6 +17,16 @@
     append: true
   register: ingress_socket_proxy_container_user_result
 
+- name: Add user {{ modsecurity_container_user }}
+  ansible.builtin.user:
+    name: "{{ modsecurity_container_user }}"
+    comment: User used to run modsecurity for Traefik
+    create_home: false
+    shell: /usr/sbin/nologin
+    groups: docker
+    append: true
+  register: modsecurity_user_result
+
 - name: Create Traefik directories
   ansible.builtin.file:
     path: "{{ item }}"
@@ -29,6 +39,7 @@
     - /app/traefik/conf/dynamic
     - /app/traefik/work
     - /app/traefik/work/certificates
+    - /app/traefik/conf/modsecurity-waf
 
 - name: Get the group ID of the 'containers' group
   ansible.builtin.getent:
@@ -179,6 +190,22 @@
 - name: Trigger Handlers for traefik-socket-proxy
   ansible.builtin.meta: flush_handlers
 
+- name: Create NGINX Logging Configuration File
+  ansible.builtin.copy:
+    dest: /app/traefik/conf/modsecurity-waf/logging.conf.template
+    owner: "{{ modsecurity_user_result.uid }}"
+    group: "{{ modsecurity_user_result.group }}"
+    mode: "0644"
+    content: |
+      log_format main '$realip_remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+      access_log off;
+
+      error_log ${ERRORLOG} ${LOGLEVEL};
+  notify: Restart ModSecurity WAF service
+
 - name: Create ModSecurity WAF Quadlet
   containers.podman.podman_container:
     name: modsecurity-waf
@@ -196,16 +223,24 @@
       REPORTING_LEVEL: "{{ ingress_waf_reporting_level }}"
       MODSEC_AUDIT_LOG_FORMAT: "{{ ingress_waf_audit_log_format }}"
       MODSEC_RULE_ENGINE: "{{ ingress_waf_rule_engine }}"
+      LOGLEVEL: "warn"
       PORT: "8080"
       SSL_ENGINE: "off" # Disable SSL in ModSecurity, Traefik handles TLS
 
     recreate: true
     network: waf
 
+    volumes:
+      # Mount custom logging configuration and overwrite the existing one
+      - "/app/traefik/conf/modsecurity-waf/logging.conf.template:/etc/nginx/templates/conf.d/logging.conf.template"
+
     uidmap:
-      - 0:4000000000:100000
+      - 0:{{ modsecurity_user_result.uid }}:1
+      - 1:4000000000:100000
+
     gidmap:
-      - 0:4000000000:100000
+      - 0:{{ modsecurity_user_result.group }}:1
+      - 1:4000000000:100000
 
     quadlet_options:
       - |

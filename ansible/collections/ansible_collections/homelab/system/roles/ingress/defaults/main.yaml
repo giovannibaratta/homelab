@@ -20,7 +20,7 @@ ingress_waf_anomaly_inbound: 10
 ingress_waf_anomaly_outbound: 5
 
 # Reporting Level: Controls what gets logged (0=none, 1=errors, 2=warnings, 3=notices, 4=info)
-ingress_waf_reporting_level: 2
+ingress_waf_reporting_level: 4
 # Rule Engine: Controls ModSecurity operation (On=enforce, DetectionOnly=log only, Off=disabled)
 ingress_waf_rule_engine: "On"
 # Audit Log Format: JSON provides structured logging for better analysis
@@ -39,3 +39,5 @@ ingress_waf_inflight_limit: 50 # Maximum concurrent requests per IP
 # Socket proxy configuration for secure Docker access
 ingress_socket_proxy_version: latest
 ingress_socket_proxy_container_user: traefik-socket-proxy
+
+modsecurity_container_user: modsecurity-waf
