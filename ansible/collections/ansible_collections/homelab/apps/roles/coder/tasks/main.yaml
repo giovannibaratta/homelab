@@ -2,6 +2,7 @@
 - name: Set server URLs
   ansible.builtin.set_fact:
     _coder_fqdn: "https://coder.{{ internal_domain }}"
+    _coder_internal_url: "https://coder.{{ internal_domain }}:8443"
 
 - name: "Deploy Coder"
   ansible.builtin.import_tasks: deploy_coder.yaml
