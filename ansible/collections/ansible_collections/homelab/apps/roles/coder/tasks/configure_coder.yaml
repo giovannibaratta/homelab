@@ -23,7 +23,7 @@
 
     - name: Wait for Coder deployment to be healthy (authenticated)
       ansible.builtin.uri:
-        url: "{{ _coder_fqdn }}/api/v2/debug/health"
+        url: "{{ _coder_internal_url }}/api/v2/debug/health"
         method: GET
         status_code: 200
         return_content: true
@@ -41,7 +41,7 @@
   block:
     - name: Wait for Coder service to become responsive
       ansible.builtin.uri:
-        url: "{{ _coder_fqdn }}/api/v2/debug/health"
+        url: "{{ _coder_internal_url }}/api/v2/debug/health"
         method: GET
         status_code: [200, 401, 403] # Success if API is responsive (even if auth is required)
         headers:
@@ -54,7 +54,7 @@
 # The rest of the playbook remains the same
 - name: Query Coder for existing first User
   ansible.builtin.uri:
-    url: "{{ _coder_fqdn }}/api/v2/users/first"
+    url: "{{ _coder_internal_url }}/api/v2/users/first"
     status_code: [200, 404]
     return_content: true
     headers:
@@ -78,7 +78,7 @@
   block:
     - name: Create first user
       ansible.builtin.uri:
-        url: "{{ _coder_fqdn }}/api/v2/users/first"
+        url: "{{ _coder_internal_url }}/api/v2/users/first"
         method: POST
         status_code: 201
         body: "{{ lookup('ansible.builtin.template', 'create-first-user-body-request.json.j2') }}"
@@ -89,7 +89,7 @@
 
     - name: Login to coder
       ansible.builtin.uri:
-        url: "{{ _coder_fqdn }}/api/v2/users/login"
+        url: "{{ _coder_internal_url }}/api/v2/users/login"
         method: POST
         status_code: 201
         body: "{{ lookup('ansible.builtin.template', 'login-body-request.json.j2') }}"
@@ -106,7 +106,7 @@
 
     - name: Generate API key
       ansible.builtin.uri:
-        url: "{{ _coder_fqdn }}/api/v2/users/admin/keys/tokens"
+        url: "{{ _coder_internal_url }}/api/v2/users/admin/keys/tokens"
         method: POST
         status_code: 201
         return_content: true

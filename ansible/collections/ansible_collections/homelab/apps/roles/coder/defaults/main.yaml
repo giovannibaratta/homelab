@@ -1,5 +1,5 @@
 ---
 # Available versions https://github.com/coder/coder/pkgs/container/coder
-coder_version: v2.28.3
+coder_version: v2.29.1
 coder_conf_dir: /app/coder/conf
 coder_work_dir: /app/coder/work
