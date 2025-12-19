@@ -47,13 +47,35 @@
           type: file
           disableDeletion: true
           # how often Grafana will scan for changed dashboards
-          updateIntervalSeconds: 10
+          updateIntervalSeconds: 300
           allowUiUpdates: false
           options:
             path: /opt/grafana/conf/provisioning/dashboards/system/node_exporter_full.json
             foldersFromFilesStructure: true
 
     dest: /app/grafana/conf/provisioning/dashboards/node_exporter.yaml
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: Copy process_exporter dashboard config
+  ansible.builtin.copy:
+    content: |
+      apiVersion: 1
+
+      providers:
+        - name: prometheus_ds
+          folder: 'system'
+          type: file
+          disableDeletion: true
+          # how often Grafana will scan for changed dashboards
+          updateIntervalSeconds: 300
+          allowUiUpdates: false
+          options:
+            path: /opt/grafana/conf/provisioning/dashboards/system/process_exporter.json
+            foldersFromFilesStructure: true
+
+    dest: /app/grafana/conf/provisioning/dashboards/process_exporter.yaml
     mode: "0644"
     owner: root
     group: root
@@ -69,7 +91,7 @@
           type: file
           disableDeletion: true
           # how often Grafana will scan for changed dashboards
-          updateIntervalSeconds: 10
+          updateIntervalSeconds: 300
           allowUiUpdates: false
           options:
             path: /opt/grafana/conf/provisioning/dashboards/system/ping_exporter.json
@@ -85,6 +107,15 @@
     # https://grafana.com/grafana/dashboards/1860-node-exporter-full/
     src: dashboards/node_exporter_full_1860_rev37.json
     dest: /app/grafana/conf/provisioning/dashboards/system/node_exporter_full.json
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: Copy process_exporter dashboard
+  ansible.builtin.copy:
+    # https://grafana.com/grafana/dashboards/4202-named-processes-by-interval-processes-host/
+    src: dashboards/process_exporter_4202_rev1.json
+    dest: /app/grafana/conf/provisioning/dashboards/system/process_exporter.json
     mode: "0644"
     owner: root
     group: root

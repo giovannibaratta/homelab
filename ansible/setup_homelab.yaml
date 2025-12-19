@@ -3,7 +3,7 @@
   hosts: all
   gather_facts: true
   gather_subset:
-    - '!all'
+    - "!all"
     - min
     - interfaces
     - mounts
@@ -203,6 +203,15 @@
       become: true
       vars:
         node_exporter_web_listen_address: "{{ internal_ip_address }}:9100"
+        node_exporter_version: "1.10.2"
+      tags: prometheus
+
+    - ansible.builtin.import_role:
+        name: prometheus.prometheus.process_exporter
+      become: true
+      vars:
+        process_exporter_web_listen_address: "{{ internal_ip_address }}:9101"
+        process_exporter_version: "0.8.7"
       tags: prometheus
 
     - when: deploy_grafana

@@ -37,6 +37,8 @@
           static_configs:
             - targets: ['172.16.255.252:9100']
             - targets: ['172.16.255.253:9100']
+            - targets: ['172.16.255.252:9101']
+            - targets: ['172.16.255.253:9101']
           metric_relabel_configs:
             # Different host models report CPU temperature metrics differently.
             # We remap them to a common metric name for alerting purposes.
