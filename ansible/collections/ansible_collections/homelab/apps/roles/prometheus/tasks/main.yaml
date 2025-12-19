@@ -64,7 +64,7 @@
             - targets: ['pingexporter.{{ internal_domain }}']
 
         - job_name: 'idp'
-          scrape_interval: 1s
+          scrape_interval: 5s
           scheme: https
           metrics_path: "/debug/metrics"
           static_configs:
