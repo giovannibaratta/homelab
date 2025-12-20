@@ -10,7 +10,7 @@ home_assistant_db_user: homeassistant
 home_assistant_database_dir: /app/home-assistant/database
 home_assistant_recorder_db_url: "postgresql://{{ home_assistant_db_user }}:{{ home_assistant_db_password }}@home-assistant-db:5432/{{ home_assistant_db_name }}"
 home_assistant_timezone: "Europe/Rome"
-home_assistant_internal_url: "https://ha.{{ internal_domain }}"
+home_assistant_internal_url: "https://ha.{{ internal_domain }}:8443"
 home_assistant_external_url: "https://ha.{{ internal_domain }}"
 
 # Zigbee2MQTT configuration https://github.com/koenkk/zigbee2mqtt/pkgs/container/zigbee2mqtt

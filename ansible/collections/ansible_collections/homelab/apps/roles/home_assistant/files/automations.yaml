@@ -65,3 +65,51 @@
           "Produzione totale di oggi: <b>{{ states('sensor.dailysolarproduction')
           | round(2) }}</b> kWh"
   mode: single
+- id: '1766243679440'
+  alias: Spegnere luce in cucina
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.sensorepresenzacucina_occupancy
+    to:
+    - 'off'
+    for:
+      hours: 0
+      minutes: 5
+      seconds: 0
+  conditions: []
+  actions:
+  - action: telegram_bot.send_message
+    metadata: {}
+    data:
+      config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+      message: Sto spegnendo la luce in cucina
+  - action: switch.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id: switch.0x983268fffe9a877d
+  mode: single
+- id: '1766244153053'
+  alias: Accendi luce cucina
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.sensorepresenzacucina_occupancy
+    to:
+    - 'on'
+  conditions: []
+  actions:
+  - action: telegram_bot.send_message
+    metadata: {}
+    data:
+      config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+      message: Sto accendendo la luce in cucina
+  - action: switch.turn_on
+    metadata: {}
+    data: {}
+    target:
+      entity_id: switch.0x983268fffe9a877d
+  mode: single
