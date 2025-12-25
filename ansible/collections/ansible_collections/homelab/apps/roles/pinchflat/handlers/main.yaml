@@ -1,0 +1,14 @@
+---
+- name: Reload systemd daemons for pinchflat role
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart pinchflat network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: pinchflat-network
+
+- name: Restart pinchflat service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: pinchflat

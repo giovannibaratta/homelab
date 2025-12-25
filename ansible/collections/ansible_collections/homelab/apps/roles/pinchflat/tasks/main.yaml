@@ -1,0 +1,101 @@
+---
+- name: Add user {{ pinchflat_user }}
+  ansible.builtin.user:
+    name: "{{ pinchflat_user }}"
+    comment: User used to run pinchflat
+    create_home: false
+    shell: /usr/sbin/nologin
+    groups: "{{ media_shared_group }}"
+    append: true
+  register: pinchflat_user_result
+
+- name: Create pinchflat directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ pinchflat_user }}"
+    group: "{{ media_shared_group }}"
+  with_items:
+    - "{{ pinchflat_conf_dir }}"
+    - "{{ pinchflat_media_dir }}"
+
+- name: Create pinchflat network Quadlet
+  containers.podman.podman_network:
+    name: pinchflat
+    state: quadlet
+    disable_dns: false
+    dns: "{{ podman_dns }}"
+    driver: bridge
+    force: true
+    recreate: true
+    internal: false
+    interface_name: podman-pinchflat
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for pinchflat role
+    - Restart pinchflat network
+
+- name: Trigger Handlers for pinchflat network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start pinchflat network
+  ansible.builtin.systemd_service:
+    name: pinchflat-network
+    state: started
+    enabled: true
+
+- name: Copy pinchflat.env file
+  ansible.builtin.template:
+    src: pinchflat.env.j2
+    dest: "{{ pinchflat_conf_dir }}/pinchflat.env"
+    mode: "0640"
+  notify:
+    - Restart pinchflat service
+
+- name: Create pinchflat Quadlet
+  containers.podman.podman_container:
+    name: pinchflat
+    state: quadlet
+    image: "{{ pinchflat_image }}"
+    env_file: "{{ pinchflat_conf_dir }}/pinchflat.env"
+    recreate: true
+    network: pinchflat
+
+    volumes:
+      - "{{ pinchflat_conf_dir }}:/config"
+      - "{{ pinchflat_media_dir }}:/downloads"
+
+    uidmap:
+      - 0:{{ pinchflat_user_result.uid }}:1
+      - 1:4000000001:100000
+
+    gidmap:
+      - 0:{{ pinchflat_user_result.group }}:1
+      - 1:4000000001:100000
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.pinchflat.rule: Host(`yt.{{ internal_domain }}`)
+      traefik.http.routers.pinchflat.entrypoints: websecure
+      traefik.http.routers.pinchflat.tls.certresolver: letsencrypt
+      traefik.http.routers.pinchflat.tls.domains[0].main: yt.{{ internal_domain }}
+      traefik.http.services.pinchflat.loadbalancer.server.port: 8945
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for pinchflat role
+    - Restart pinchflat service
+
+- name: Trigger Handlers for pinchflat
+  ansible.builtin.meta: flush_handlers
+
+- name: Start pinchflat
+  ansible.builtin.systemd_service:
+    name: pinchflat
+    state: started
+    enabled: true

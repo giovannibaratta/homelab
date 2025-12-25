@@ -1,0 +1,8 @@
+---
+pinchflat_version: latest
+pinchflat_image: ghcr.io/kieraneglin/pinchflat:{{ pinchflat_version }}
+pinchflat_user: pinchflat
+pinchflat_group: "{{ media_shared_group }}"
+pinchflat_conf_dir: /app/pinchflat/conf
+pinchflat_media_dir: "{{ media_data_dir }}/youtube/videos"
+pinchflat_tz: Europe/Rome

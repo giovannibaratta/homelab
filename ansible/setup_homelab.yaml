@@ -256,3 +256,10 @@
         p2p_radarr_media_dir: "{{ media_data_dir }}/movies"
       become: true
       tags: p2p
+
+    - name: Deploy Pinchflat
+      when: deploy_pinchflat | default(false)
+      ansible.builtin.import_role:
+        name: homelab.apps.pinchflat
+      become: true
+      tags: pinchflat
