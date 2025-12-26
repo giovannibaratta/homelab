@@ -76,8 +76,8 @@
         - "off"
       for:
         hours: 0
-        minutes: 5
-        seconds: 0
+        minutes: 0
+        seconds: 45
   conditions: []
   actions:
     - action: switch.turn_off
