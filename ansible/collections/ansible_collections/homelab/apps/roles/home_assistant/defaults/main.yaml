@@ -1,6 +1,6 @@
 ---
 # Available versions https://github.com/home-assistant/core/releases
-home_assistant_version: "2025.11.1"
+home_assistant_version: "2025.12.4"
 home_assistant_conf_dir: /app/home-assistant/conf
 home_assistant_data_dir: /app/home-assistant/data
 home_assistant_container_user: home-assistant
@@ -14,7 +14,7 @@ home_assistant_internal_url: "https://ha.{{ internal_domain }}:8443"
 home_assistant_external_url: "https://ha.{{ internal_domain }}"
 
 # Zigbee2MQTT configuration https://github.com/koenkk/zigbee2mqtt/pkgs/container/zigbee2mqtt
-zigbee2mqtt_version: "2.6.3"
+zigbee2mqtt_version: "2.7.1"
 zigbee2mqtt_container_user: "zigbee2mqtt"
 zigbee2mqtt_conf_dir: "/app/zigbee2mqtt/conf"
 zigbee2mqtt_data_dir: "/app/zigbee2mqtt/data"
