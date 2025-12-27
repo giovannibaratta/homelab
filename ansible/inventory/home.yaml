@@ -88,8 +88,8 @@ home:
       ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/ansible
       ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
-      wan_interface: enp1s0
-      internal_interface: enp1s0
+      wan_interface: enp2s0
+      internal_interface: enp2s0
       dyn_dns_entry: "ingress-primary"
       network_gateway_role: primary
       network_dhcp_role: primary
