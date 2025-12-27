@@ -142,6 +142,7 @@
       vars:
         logging_enable_aws_cloudwatch: true
       tags: system-logging
+      ignore_errors: yes
 
     - ansible.builtin.import_role:
         name: homelab.system.ingress
@@ -170,17 +171,20 @@
         - ansible.builtin.import_role:
             name: homelab.system.remote_control
           become: true
+          ignore_errors: yes
           tags: remote-control
 
     - when: deploy_netbird
       ansible.builtin.import_role:
         name: homelab.system.vpn
       become: true
+      ignore_errors: yes
       tags: vpn
 
     - ansible.builtin.import_role:
         name: homelab.system.latency_monitor
       become: true
+      ignore_errors: yes
       tags: monitoring
 
     - name: Deploy AdGuard Home
@@ -196,6 +200,7 @@
       ansible.builtin.import_role:
         name: homelab.apps.prometheus
       become: true
+      ignore_errors: yes
       tags: prometheus
 
     - ansible.builtin.import_role:
@@ -204,6 +209,7 @@
       vars:
         node_exporter_web_listen_address: "{{ internal_ip_address }}:9100"
         node_exporter_version: "1.10.2"
+      ignore_errors: yes
       tags: prometheus
 
     - ansible.builtin.import_role:
@@ -212,30 +218,35 @@
       vars:
         process_exporter_web_listen_address: "{{ internal_ip_address }}:9101"
         process_exporter_version: "0.8.7"
+      ignore_errors: yes
       tags: prometheus
 
     - when: deploy_grafana
       ansible.builtin.import_role:
         name: homelab.apps.grafana
       become: true
+      ignore_errors: yes
       tags: grafana
 
     - when: deploy_mqtt
       ansible.builtin.import_role:
         name: homelab.apps.mqtt_broker
       become: true
+      ignore_errors: yes
       tags: mqtt-broker
 
     - when: deploy_home_assistant
       ansible.builtin.import_role:
         name: homelab.apps.home_assistant
       become: true
+      ignore_errors: yes
       tags: home-assistant
 
     - when: deploy_coder
       ansible.builtin.import_role:
         name: homelab.apps.coder
       become: true
+      ignore_errors: yes
       tags: coder
 
     - when: deploy_mediastack
@@ -244,6 +255,7 @@
       vars:
         media_server_media_dir: "{{ media_data_dir }}"
       become: true
+      ignore_errors: yes
       tags: media-server
 
     - when: deploy_mediastack
@@ -255,6 +267,7 @@
         p2p_sonarr_media_dir: "{{ media_data_dir }}/tv"
         p2p_radarr_media_dir: "{{ media_data_dir }}/movies"
       become: true
+      ignore_errors: yes
       tags: p2p
 
     - name: Deploy Pinchflat
@@ -262,4 +275,5 @@
       ansible.builtin.import_role:
         name: homelab.apps.pinchflat
       become: true
+      ignore_errors: yes
       tags: pinchflat
