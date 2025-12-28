@@ -69,7 +69,7 @@ home:
       deploy_mediastack: true
       deploy_logging: true
       deploy_home_assistant: true
-      deploy_coder: true
+      deploy_coder: false
       deploy_mqtt: true
       deploy_idp: true
       deploy_netbird: true
