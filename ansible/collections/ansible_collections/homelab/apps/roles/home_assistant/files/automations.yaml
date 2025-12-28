@@ -103,3 +103,69 @@
       target:
         entity_id: switch.0x983268fffe9a877d
   mode: single
+- id: '1766936565071'
+  alias: PortaIngressoAperta
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.sensorecontatto3_contact
+    from:
+    - 'on'
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 5
+  conditions:
+    - condition: and
+      conditions:
+        - condition: state
+          entity_id: person.loredana
+          state: not_home
+        - condition: state
+          entity_id: person.antonio
+          state: not_home
+  actions:
+  - action: telegram_bot.send_message
+    metadata: {}
+    data:
+      config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+      message: Porta di ingresso aperta
+  mode: single
+- id: '1766942281806'
+  alias: ReminderChiudereCancelli
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    hours: '21'
+  conditions:
+  - condition: or
+    conditions:
+    - condition: state
+      entity_id: binary_sensor.sensorecontatto1_contact_2
+      state:
+      - 'on'
+    - condition: state
+      entity_id: binary_sensor.sensorecontatto2_contact
+      state:
+      - 'on'
+    - condition: state
+      entity_id: binary_sensor.sensorecontatto3_contact
+      state:
+      - 'on'
+  actions:
+  - action: tts.speak
+    metadata: {}
+    data:
+      cache: true
+      media_player_entity_id: media_player.salotto
+      message: Chiudi i cancelli
+      language: it
+    target:
+      entity_id: tts.google_translate_en_com
+  - action: telegram_bot.send_message
+    metadata: {}
+    data:
+      config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+      message: Chiudi i cancelli
+  mode: single
