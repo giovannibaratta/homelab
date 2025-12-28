@@ -120,3 +120,5 @@ home:
       telegram_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5234d8de-1d5a-4a6d-a6ae-b34500df7551').value }}"
       zigbee_usb_device: /dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03318564-if00-port0
       zigbee2mqtt_network_key: "{{ lookup('community.general.bitwarden_secrets_manager', '77392e92-62c7-42a6-baeb-b34c014db768').value }}"
+
+      p2p_deploy_bitmagnet: false

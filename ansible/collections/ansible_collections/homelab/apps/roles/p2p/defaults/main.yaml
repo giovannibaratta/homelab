@@ -1,4 +1,5 @@
 ---
+p2p_deploy_bitmagnet: true
 bitmagnet_version: v0.10.0
 bitmagnet_conf_dir: /app/bitmagnet/conf
 bitmagnet_work_dir: /app/bitmagnet/work

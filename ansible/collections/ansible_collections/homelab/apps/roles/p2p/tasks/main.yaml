@@ -23,6 +23,7 @@
   ansible.builtin.import_tasks: deploy_bittorrent.yaml
 
 - name: Deploy Bitmagnet
+  when: p2p_deploy_bitmagnet
   ansible.builtin.import_tasks: deploy_bitmagnet.yaml
 
 - name: Deploy FlareSolverr
