@@ -169,3 +169,27 @@
       config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
       message: Chiudi i cancelli
   mode: single
+- id: '1767521506139'
+  alias: PortaGarageAperta
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.sensorecontatto4_contact
+    to:
+    - 'on'
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 5
+  conditions:
+  - condition: time
+    after: '21:00:00'
+    before: 05:00:00
+  actions:
+  - action: telegram_bot.send_message
+    metadata: {}
+    data:
+      config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+      message: Porta del garage aperta
+  mode: single
