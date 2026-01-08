@@ -281,7 +281,7 @@
 
 - name: Dynamic DNS
   ansible.builtin.import_tasks: configure-dyn-dns.yaml
-  when: network_is_router
+  when: network_is_router and dyn_dns_entry is defined
 
 - name: Configure VRRP
   ansible.builtin.import_tasks: vrrp.yaml
