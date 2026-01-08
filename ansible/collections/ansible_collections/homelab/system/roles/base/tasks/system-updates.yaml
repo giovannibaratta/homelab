@@ -18,8 +18,8 @@
       {% endif %} | /usr/bin/logger -t 'update-and-reboot'
     minute: "00"
     hour: "03"
-    weekday: "{{ system_update_day }}"
-    state: present
+    weekday: "{{ system_update_day if system_update_day != 'never' else omit }}"
+    state: "{{ 'absent' if system_update_day == 'never' else 'present' }}"
     user: root
 
 - name: Reboot Traefik
