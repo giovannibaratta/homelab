@@ -48,6 +48,80 @@ home:
     vpn_protonvpn_wireguard_privatekey: "{{ lookup('community.general.bitwarden_secrets_manager', 'f677b4d3-2534-4c7e-a689-b1fa0149c2aa').value }}"
     vpn_turn_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'c659f2f6-1096-4b6d-b690-b1ec01268975').value }}"
   hosts:
+    172.16.255.251:
+      ##### Required for first setup #####
+      network_is_router: true
+      ansible_user: ansible
+      ansible_ssh_private_key_file: ~/.ssh/ansible
+      ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
+      wan_interface: enp1s0
+      internal_interface: enp1s0
+      dyn_dns_entry: "ingress-fallback"
+      network_gateway_role: secondary
+      network_dhcp_role: secondary
+      deploy_adguard: true
+      ##### END Required for first setup #####
+      system_update_day: 3
+      #### deployment preferences
+      deploy_grafana: false
+      deploy_prometheus: false
+      deploy_alertmanager: false
+      deploy_mediastack: false
+      deploy_logging: false
+      deploy_home_assistant: false
+      deploy_coder: false
+      deploy_mqtt: false
+      deploy_idp: false
+      deploy_netbird: false
+      deploy_pinchflat: false
+      ##### ad hoc deployments variables #####
+      vpn_deploy_exit_node: true
+      vpn_deploy_jump_node: true
+      vpn_deploy_management_server: false
+      vpn_deploy_dashboard: false
+      vpn_deploy_stun_server: true
+      vpn_deploy_protonvpn: true
+      vpn_deploy_relay_server: true
+      #containers_netavark_version: v1.11.0
+      auto_ansible_hour_schedule: "1,5,9,13,17,21"
+      desec_token: "{{ lookup('community.general.bitwarden_secrets_manager', '47a7f216-1255-46e2-ad18-b19600e95fa1').value }}"
+      alertmanager_receiver_email: "{{ lookup('community.general.bitwarden_secrets_manager', '2ef318e4-be55-418f-a87b-b19700f42c73').value }}"
+      alertmanager_sender: "{{ lookup('community.general.bitwarden_secrets_manager', 'e96e03b0-6f8b-487c-9e39-b30a014aa6ce').value }}"
+      alertmanager_smtp_auth_password: "{{ lookup('community.general.bitwarden_secrets_manager', '6de74413-d287-4996-8a2a-b30a014ade6b').value }}"
+      coder_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '90f228e2-5405-4cfb-ada2-b199009f2d39').value }}"
+      bitmagnet_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '119f3c7b-3b7a-4fb2-96d4-b1ac00cd1a02').value }}"
+      tmdb_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', 'd1995ff6-fb11-490b-b397-b1ac00d9d02b').value }}"
+      prowlarr_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'af9f1b09-6d7f-4313-9fa7-b1ad011e4fcc').value }}"
+      prowlarr_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '530f6e0e-e7e9-4b3b-a1e7-b1ad011e87aa').value }}"
+      bittorrent_webui_encoded_password: "{{ lookup('community.general.bitwarden_secrets_manager', '9cb41826-5d10-420c-bad5-b1ae00e27f81').value }}"
+      bittorrent_webui_decoded_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'ae195da0-88ab-4ac5-b338-b1ae01189354').value }}"
+      sonarr_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '97e77f61-cb02-4845-8c55-b1ae0110b056').value }}"
+      sonarr_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '822bf760-4d47-43e0-99a7-b1ae0110d100').value }}"
+      plex_claim: "{{ lookup('community.general.bitwarden_secrets_manager', '36cb7482-22ba-45de-bfac-b1af00b2f2db').value }}"
+      p2p_radarr_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '8cd45a28-9440-4286-8e92-b1ca010b258e').value }}"
+      p2p_radarr_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '9457148c-0f5f-4154-ae18-b1ca010b53eb').value }}"
+      idp_zitadel_db_admin_password: "{{ lookup('community.general.bitwarden_secrets_manager', '2b05dc90-5fbb-4879-b901-b1f400ed722b').value }}"
+      idp_zitadel_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', '29b9fee6-3315-4932-b28e-b1f400ed5ffb').value }}"
+      idp_zitadel_admin_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'ee663db2-6613-47fb-ae53-b1f400ece468').value }}"
+      idp_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '6de74413-d287-4996-8a2a-b30a014ade6b').value }}"
+      idp_smtp_from: "{{ lookup('community.general.bitwarden_secrets_manager', 'e96e03b0-6f8b-487c-9e39-b30a014aa6ce').value }}"
+      p2p_requestor_user_email: "{{ lookup('community.general.bitwarden_secrets_manager', 'c7f467b8-5262-4bc1-842f-b1fb00e89eef').value }}"
+      p2p_smtp_sender: "{{ lookup('community.general.bitwarden_secrets_manager', 'e96e03b0-6f8b-487c-9e39-b30a014aa6ce').value }}"
+      p2p_smtp_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '6de74413-d287-4996-8a2a-b30a014ade6b').value }}"
+
+      coder_admin_user_email: "{{ lookup('community.general.bitwarden_secrets_manager', '5c14666c-e754-427c-9ea0-b28d0183fcb9').value }}"
+      coder_admin_user_password: "{{ lookup('community.general.bitwarden_secrets_manager', '4beb759e-3bd1-4b23-a56b-b28d018441d4').value }}"
+
+      mqtt_admin_password_hash: "{{ lookup('community.general.bitwarden_secrets_manager', '94d9095f-8bbf-4a6a-a19b-b31e00a3055f').value }}"
+      mqtt_admin_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'a8d6721c-a444-40cf-b1e2-b34c014d484e').value }}"
+
+      home_assistant_db_password: "{{ lookup('community.general.bitwarden_secrets_manager', 'a09f27e7-2e7c-48ec-8e73-b34500ba8400').value }}"
+      home_assistant_telegram_chat_id: "{{ lookup('community.general.bitwarden_secrets_manager', 'a281fc4b-da3d-4860-be26-b34c014cd0d7').value }}"
+      telegram_api_key: "{{ lookup('community.general.bitwarden_secrets_manager', '5234d8de-1d5a-4a6d-a6ae-b34500df7551').value }}"
+      zigbee_usb_device: /dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03318564-if00-port0
+      zigbee2mqtt_network_key: "{{ lookup('community.general.bitwarden_secrets_manager', '77392e92-62c7-42a6-baeb-b34c014db768').value }}"
+
+      p2p_deploy_bitmagnet: false
     172.16.255.252:
       ##### Required for first setup #####
       network_is_router: true
@@ -61,7 +135,7 @@ home:
       network_dhcp_role: primary
       deploy_adguard: true
       ##### END Required for first setup #####
-      system_update_day: 6
+      system_update_day: "never"
       #### deployment preferences
       deploy_grafana: true
       deploy_prometheus: true
@@ -122,3 +196,34 @@ home:
       zigbee2mqtt_network_key: "{{ lookup('community.general.bitwarden_secrets_manager', '77392e92-62c7-42a6-baeb-b34c014db768').value }}"
 
       p2p_deploy_bitmagnet: false
+    172.16.255.253:
+      ##### Required for first setup #####
+      network_is_router: true
+      ansible_user: ansible
+      ansible_ssh_private_key_file: ~/.ssh/ansible
+      ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
+      wan_interface: enp1s0
+      internal_interface: enp1s0
+      deploy_adguard: false
+      ##### Required for first setup #####
+      system_update_day: 1
+      ##### Deployment preferences #####
+      deploy_grafana: false
+      deploy_prometheus: false
+      deploy_alertmanager: false
+      deploy_mediastack: false
+      deploy_logging: true
+      deploy_home_assistant: false
+      deploy_coder: false
+      deploy_mqtt: false
+      deploy_idp: false
+      deploy_netbird: false
+      # Ad hoc deployments variables #####
+      vpn_deploy_exit_node: false
+      vpn_deploy_jump_node: false
+      vpn_deploy_management_server: false
+      vpn_deploy_dashboard: false
+      vpn_deploy_stun_server: false
+      vpn_deploy_protonvpn: false
+      vpn_deploy_relay_server: false
+      auto_ansible_hour_schedule: "3,7,11,15,19,23"
