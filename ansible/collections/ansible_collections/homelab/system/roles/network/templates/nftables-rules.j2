@@ -38,7 +38,7 @@ table ip firewall {
 
   include "/app/nftables-geoip/ip-lists/geoip-def-all.nft"
   include "/app/nftables-geoip/ip-lists/geoip-ipv4-interesting.nft"
-  define ALLOWED_COUNTRIES = { $IT, $IE }
+  define ALLOWED_COUNTRIES = { $IT, $IE, $US }
 
   chain dispatcher {
     type filter hook input priority 1000;
