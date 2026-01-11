@@ -179,7 +179,7 @@
 
 - name: Generate list of allowed IPs
   ansible.builtin.shell: |
-    /app/nftables-geoip/repo/nft_geoip.py --download -c es,fr,pt,it,de,ie,gb,ch,se,no --output-dir /app/nftables-geoip/ip-lists --file-location /app/nftables-geoip/repo/location.csv
+    /app/nftables-geoip/repo/nft_geoip.py --download -c es,fr,pt,it,de,ie,gb,ch,se,no,us --output-dir /app/nftables-geoip/ip-lists --file-location /app/nftables-geoip/repo/location.csv
 
 - name: Create override directory for nftables service
   ansible.builtin.file:
