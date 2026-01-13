@@ -171,3 +171,15 @@
     dest: /etc/tmpfiles.d/podman-docker.conf
     content: L+  %t/docker.sock   -    root    containers     -   %t/podman/podman.sock
 
+- name: Set sysctl container flags
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/60-containers-tuning.conf
+    state: present
+    reload: true
+  loop:
+    # Increase the value to avoid hitting "too many open files" errors
+    - { key: "fs.inotify.max_user_instances", value: "4096" }
+    - { key: "fs.inotify.max_queued_events", value: "32768" }
+    - { key: "fs.inotify.max_user_watches", value: "524288" }
