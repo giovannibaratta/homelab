@@ -131,19 +131,13 @@
     - name: Flush handlers to restart NetworkManager
       ansible.builtin.meta: flush_handlers
 
-    # Enable IP forwarding
-    - name: Configure routing table
-      ansible.builtin.copy:
-        content: |
-          net.ipv4.ip_forward=1
-        dest: /etc/sysctl.d/20-ip-forward.conf
-        mode: "0644"
-
     - name: Enable IP forwarding
       ansible.posix.sysctl:
         name: net.ipv4.ip_forward
-        value: 1
+        value: '1'
+        sysctl_file: /etc/sysctl.d/20-ip-forward.conf
         state: present
+        reload: true
 
 - name: Install nftables
   ansible.builtin.apt:
