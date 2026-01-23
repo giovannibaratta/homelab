@@ -196,6 +196,7 @@ home:
       zigbee2mqtt_network_key: "{{ lookup('community.general.bitwarden_secrets_manager', '77392e92-62c7-42a6-baeb-b34c014db768').value }}"
 
       p2p_deploy_bitmagnet: false
+      logging_enable_aws_cloudwatch: false
     172.16.255.253:
       ##### Required for first setup #####
       network_is_router: true
@@ -227,3 +228,4 @@ home:
       vpn_deploy_protonvpn: false
       vpn_deploy_relay_server: false
       auto_ansible_hour_schedule: "3,7,11,15,19,23"
+      logging_enable_aws_cloudwatch: false
