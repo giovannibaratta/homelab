@@ -169,6 +169,11 @@
         [Unit]
         Requires=coder-db.service
         Requires=zitadel.service
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=180s
 
   notify:
     - Reload systemd daemons
