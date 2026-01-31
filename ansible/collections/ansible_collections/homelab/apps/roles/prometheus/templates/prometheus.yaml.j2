@@ -1,0 +1,67 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'hosts'
+    scrape_interval: 10s
+    static_configs:
+      # Node exporter
+      {% for host_ip in prometheus_targets %}
+      - targets: ['{{ host_ip }}:9100']
+        labels:
+          instance: '{{ host_ip }}'
+          # Lookup the reboot preference from the inventory hostvars
+          reboot_enabled: "{{ 'false' if hostvars[host_ip]['system_update_day'] | default('') == 'never' else 'true' }}"
+      {% endfor %}
+
+      # Process exporter
+      {% for host_ip in prometheus_targets %}
+      - targets: ['{{ host_ip }}:9101']
+        labels:
+          instance: '{{ host_ip }}'
+      {% endfor %}
+
+    metric_relabel_configs:
+      # Different host models report CPU temperature metrics differently.
+      # We remap them to a common metric name for alerting purposes.
+      - source_labels: [__name__, chip, sensor]
+        # Match the specific metric name AND the specific label values
+        regex: 'node_hwmon_temp_celsius;pci0000:00_0000:00:18_3;temp1'
+        # The target label is __name__, which holds the metric name itself
+        target_label: __name__
+        # The new abstract name you want to use
+        replacement: 'remapped_node_cpu_temp_celsius'
+      - source_labels: [__name__, chip, sensor]
+        # Match the specific metric name AND the specific label values
+        regex: 'node_hwmon_temp_celsius;platform_coretemp_0;temp1'
+        # The target label is __name__, which holds the metric name itself
+        target_label: __name__
+        # The new abstract name you want to use
+        replacement: 'remapped_node_cpu_temp_celsius'
+
+  - job_name: 'pingexporter'
+    scrape_interval: 1s
+    scheme: https
+    static_configs:
+      - targets: ['pingexporter.{{ internal_domain }}']
+
+  - job_name: 'idp'
+    scrape_interval: 5s
+    scheme: https
+    metrics_path: "/debug/metrics"
+    static_configs:
+      - targets: ['idp.{{ internal_domain }}']
+
+rule_files:
+  - /opt/prometheus/conf/rules/*.yaml
+
+alerting:
+  alertmanagers:
+    - scheme: https
+      static_configs:
+        - targets: ['alertmanager.{{ internal_domain }}']
