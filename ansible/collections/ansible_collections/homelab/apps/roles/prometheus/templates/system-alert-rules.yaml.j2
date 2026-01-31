@@ -57,6 +57,12 @@ groups:
       description: |
         The CPU temperature on instance {{ '{{' }} $labels.instance {{ '}}' }} has exceeded 85°C for more than 15 minutes.
         Current value: {{ '{{' }} $value {{ '}}' }}°C
+  - alert: AutoAnsibleFailingFrequently
+    expr: increase(auto_ansible_failures_total[1d]) > 2
+    for: 5m
+    annotations:
+      summary: "Auto-Ansible is failing frequently on {{ '{{' }} $labels.instance {{ '}}' }}"
+      description: "Auto-Ansible has failed {{ '{{' }} $value {{ '}}' }} times in the last 24 hours on instance {{ '{{' }} $labels.instance {{ '}}' }}."
 - name: Security
   rules:
   - alert: HighUploadSpeed

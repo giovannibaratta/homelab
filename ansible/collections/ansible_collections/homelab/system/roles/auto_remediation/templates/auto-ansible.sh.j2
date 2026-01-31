@@ -106,3 +106,50 @@ BWS_TOKEN=$(cat "${ROOT_DIR}/config/bws_access_token")
 
 log "Running ansible playbook"
 BWS_ACCESS_TOKEN="${BWS_TOKEN}" ansible-playbook --connection=local --inventory "{{ internal_ip_address }}" --limit "{{ internal_ip_address }}" "${ROOT_DIR}/repo/ansible/setup_homelab.yaml" -i "${ROOT_DIR}/repo/ansible/inventory/home.yaml" -v
+EXIT_CODE=$?
+
+# Prometheus metrics export
+METRICS_DIR="/var/lib/node_exporter/textfile_collector"
+METRICS_FILE="${METRICS_DIR}/auto_ansible.prom"
+
+log "Exporting metrics to ${METRICS_FILE}"
+mkdir -p "${METRICS_DIR}"
+
+# Initialize counters if they don't exist
+RUNS=0
+FAILURES=0
+if [ -f "$METRICS_FILE" ]; then
+    RUNS=$(grep "^auto_ansible_runs_total " "$METRICS_FILE" | cut -d' ' -f2 || echo 0)
+    FAILURES=$(grep "^auto_ansible_failures_total " "$METRICS_FILE" | cut -d' ' -f2 || echo 0)
+fi
+
+RUNS=$((RUNS + 1))
+STATUS=1
+if [ $EXIT_CODE -ne 0 ]; then
+    FAILURES=$((FAILURES + 1))
+    STATUS=0
+    log "Ansible playbook failed with exit code ${EXIT_CODE}"
+else
+    log "Ansible playbook completed successfully"
+fi
+
+# Use a temporary file to avoid partial reads by node_exporter
+TEMP_METRICS_FILE="${METRICS_FILE}.tmp"
+cat <<EOF > "${TEMP_METRICS_FILE}"
+# HELP auto_ansible_last_run_timestamp_seconds Timestamp of the last auto-ansible run.
+# TYPE auto_ansible_last_run_timestamp_seconds gauge
+auto_ansible_last_run_timestamp_seconds $(date +%s)
+# HELP auto_ansible_last_run_status Status of the last auto-ansible run (1=success, 0=failure).
+# TYPE auto_ansible_last_run_status gauge
+auto_ansible_last_run_status $STATUS
+# HELP auto_ansible_runs_total Total number of auto-ansible runs.
+# TYPE auto_ansible_runs_total counter
+auto_ansible_runs_total $RUNS
+# HELP auto_ansible_failures_total Total number of auto-ansible failures.
+# TYPE auto_ansible_failures_total counter
+auto_ansible_failures_total $FAILURES
+EOF
+
+mv "${TEMP_METRICS_FILE}" "${METRICS_FILE}"
+
+exit $EXIT_CODE
