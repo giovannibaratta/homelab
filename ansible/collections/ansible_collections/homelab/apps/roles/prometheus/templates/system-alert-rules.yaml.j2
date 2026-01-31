@@ -11,7 +11,7 @@ groups:
       description: "CPU load is > 80%\n  VALUE = {{ '{{' }}  $value {{ '}}' }}\n  LABELS = {{ '{{' }}  $labels {{ '}}' }}"
   - alert: HostNoWeeklyReboot
     # 619200 = 7 days and 4 hours (randomization of reboot time)
-    expr: (node_time_seconds - node_boot_time_seconds) > 619200
+    expr: (node_time_seconds - node_boot_time_seconds{reboot_enabled="true"}) > 619200
     for: 1h
     annotations:
       summary: Host did not complete weekly reboot (instance {{ '{{' }} $labels.instance {{ '}}' }}).
