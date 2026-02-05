@@ -77,6 +77,7 @@
     src: bittorrent.conf.j2
     dest: "{{ bittorrent_work_dir }}/qBittorrent/qBittorrent.conf"
     mode: "0640"
+    backup: yes
     owner: "{{ bittorrent_container_user }}"
     group: "{{ bittorrent_container_user }}"
   notify:

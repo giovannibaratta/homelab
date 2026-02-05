@@ -1,3 +1,6 @@
+{% filter regex_replace('(?m)^#.*\n?', '') -%}
+# The instruction above removes all comment lines starting with '#'
+
 [Application]
 FileLogger\Age=1
 FileLogger\AgeType=1
@@ -16,31 +19,26 @@ program=
 
 [BitTorrent]
 Session\AddExtensionToIncompleteFiles=true
-Session\ResumeDataStorageType=SQLite
+Session\AddTorrentStopped=false
 Session\AlternativeGlobalDLSpeedLimit=80000
 Session\AlternativeGlobalUPSpeedLimit=25000
+# AsyncIOThreads: Wiki recommends 4x hardware threads for SHA-1 hashing performance
+# For 4-core/8-thread CPU: set to 16, adjust based on your CPU specs
+# Improves performance during torrent verification and hashing operations
+Session\AsyncIOThreads=16
 Session\BandwidthSchedulerEnabled=true
+# CoalesceReads/Writes: Combine small I/O operations into larger sequential ones
+# HDDs perform much better with large sequential operations vs many small random ones
+# Reduces disk fragmentation and improves overall system responsiveness for Plex
+Session\CoalesceReads=true
+Session\CoalesceWrites=true
+
+# ConnectionsLimit: Increased for high-speed connections to maximize throughput
+# With high-speed internet available, more connections = better bandwidth utilization
+Session\ConnectionsLimit=1000
+Session\ConnectionsLimitPerTorrent=200
 Session\DefaultSavePath=/downloads/
 Session\DisableAutoTMMByDefault=false
-Session\Encryption=1
-Session\ExcludedFileNames=*.exe,*.bat,*.cmd,*.com,*.pif,*.scr,*.vbs,*.js,*.jar,*.app,*.deb,*.rpm,*.dmg,*.pkg,*.msi,*.dll,*.sys,*.drv,*.ocx,*.cpl,*.inf,*.reg,*.ps1,*.psm1,*.psd1,*.ps1xml,*.psc1,*.sh,*.bash,*.zsh,*.fish,*.csh,*.tcsh,*.py,*.pl,*.rb,*.php,*.asp,*.aspx,*.jsp,*.html,*.htm,*.hta
-Session\IgnoreSlowTorrentsForQueueing=true
-Session\MaxActiveCheckingTorrents=2
-Session\MaxActiveDownloads=10
-Session\MaxActiveTorrents=30
-Session\MaxActiveUploads=10
-Session\MaxUploads=30
-Session\MaxUploadsPerTorrent=5
-Session\Port={{ bittorrent_port }}
-Session\Preallocation=true
-Session\QueueingSystemEnabled=true
-Session\SlowTorrentsDownloadRate=150
-Session\SlowTorrentsUploadRate=150
-Session\TempPath=/downloads/incomplete/
-Session\TempPathEnabled=true
-Session\UseAlternativeGlobalSpeedLimit=true
-Session\Interface=protonwire0
-
 # Disk I/O optimizations for large HDD + Plex media server setup
 # These settings reduce disk seeks and minimize interference with Plex streaming
 
@@ -52,65 +50,60 @@ Session\DiskCacheSize=512
 # DiskCacheTTL: Keep data in cache for 10 minutes to batch writes and reduce HDD wear
 # Longer TTL = fewer write operations = less competition with Plex for disk I/O
 Session\DiskCacheTTL=600
-
-# UseOSCache: Keep ENABLED per wiki recommendation for better performance
-# Wiki states OS cache is "enabled by default" and recommended for performance
-# Helps with read operations that benefit both qBittorrent and Plex
-Session\UseOSCache=true
-
-# CoalesceReads/Writes: Combine small I/O operations into larger sequential ones
-# HDDs perform much better with large sequential operations vs many small random ones
-# Reduces disk fragmentation and improves overall system responsiveness for Plex
-Session\CoalesceReads=true
-Session\CoalesceWrites=true
-
-# Connection management optimized for high-speed internet
-# OutgoingConnectionsPerSecond: Increased for high-bandwidth connections
-# Higher rate to establish connections faster and utilize available bandwidth
-Session\OutgoingConnectionsPerSecond=50
-
-# ConnectionsLimit: Increased for high-speed connections to maximize throughput
-# With high-speed internet available, more connections = better bandwidth utilization
-Session\ConnectionsLimit=1000
-Session\ConnectionsLimitPerTorrent=200
-
-# GlobalMaxRatio: Set reasonable ratio limit for private trackers
-# Higher upload capacity allows for better ratios
-Session\GlobalMaxRatio=2.0
-
-# SeedChokingAlgorithm: Use fastest upload algorithm (1) for efficient seeding
-# Faster seeding = less time active = reduced disk competition with Plex
-# Options: 0=round-robin, 1=fastest-upload, 2=anti-leech
-Session\SeedChokingAlgorithm=1
-
+Session\Encryption=1
+Session\ExcludedFileNames=*.exe,*.bat,*.cmd,*.com,*.pif,*.scr,*.vbs,*.js,*.jar,*.app,*.deb,*.rpm,*.dmg,*.pkg,*.msi,*.dll,*.sys,*.drv,*.ocx,*.cpl,*.inf,*.reg,*.ps1,*.psm1,*.psd1,*.ps1xml,*.psc1,*.sh,*.bash,*.zsh,*.fish,*.csh,*.tcsh,*.py,*.pl,*.rb,*.php,*.asp,*.aspx,*.jsp,*.html,*.htm,*.hta
 # File handling optimization for large media libraries on HDD
 # FilePoolSize: Wiki default is 5000, reducing to 500 for conservative memory usage
 # Higher value reduces file system operations when handling large torrents
 Session\FilePoolSize=500
-
-# AsyncIOThreads: Wiki recommends 4x hardware threads for SHA-1 hashing performance
-# For 4-core/8-thread CPU: set to 16, adjust based on your CPU specs
-# Improves performance during torrent verification and hashing operations
-Session\AsyncIOThreads=16
-
-# Memory usage optimization for high-speed connections
-# SocketReceiveBufferSize: 4MB receive buffer for high-bandwidth connections
-Session\SocketReceiveBufferSize=4194304
-
-# SocketSendBufferSize: 4MB send buffer for high-speed internet
-Session\SocketSendBufferSize=4194304
-
+# GlobalMaxRatio: Set reasonable ratio limit for private trackers
+# Higher upload capacity allows for better ratios
+Session\GlobalMaxRatio=2.0
+Session\IgnoreSlowTorrentsForQueueing=true
+Session\Interface=tun0
+Session\MaxActiveCheckingTorrents=2
+Session\MaxActiveDownloads=10
+Session\MaxActiveTorrents=30
+Session\MaxActiveUploads=10
 # MaxPeerlistSize: Increased for high-speed connections to maintain more peers
 # More peers = better bandwidth distribution across your high-speed connection
 Session\MaxPeerlistSize=8000
+Session\MaxUploads=30
+Session\MaxUploadsPerTorrent=5
+# Connection management optimized for high-speed internet
+# OutgoingConnectionsPerSecond: Increased for high-bandwidth connections
+# Higher rate to establish connections faster and utilize available bandwidth
+Session\OutgoingConnectionsPerSecond=50
+Session\Port={{ bittorrent_port }}
+Session\Preallocation=true
+Session\QueueingSystemEnabled=true
+Session\ResumeDataStorageType=SQLite
+# SeedChokingAlgorithm: Use fastest upload algorithm (1) for efficient seeding
+# Faster seeding = less time active = reduced disk competition with Plex
+# Options: 0=round-robin, 1=fastest-upload, 2=anti-leech
+Session\SeedChokingAlgorithm=1
+# SendBufferLowWatermark: Low watermark for upload ramp-up (default 10 KiB)
+# Higher value for faster initial upload speed on high-bandwidth connections
+Session\SendBufferLowWatermark=102400
 
 # SendBufferWatermark: High watermark for upload buffer (default 500 KiB)
 # Wiki warns to adjust carefully - set higher for gigabit upload capacity
 Session\SendBufferWatermark=2097152
-
-# SendBufferLowWatermark: Low watermark for upload ramp-up (default 10 KiB)
-# Higher value for faster initial upload speed on high-bandwidth connections
-Session\SendBufferLowWatermark=102400
+Session\ShareLimitAction=Stop
+Session\SlowTorrentsDownloadRate=150
+Session\SlowTorrentsUploadRate=150
+# Memory usage optimization for high-speed connections
+# SocketReceiveBufferSize: 4MB receive buffer for high-bandwidth connections
+Session\SocketReceiveBufferSize=4194304
+# SocketSendBufferSize: 4MB send buffer for high-speed internet
+Session\SocketSendBufferSize=4194304
+Session\TempPath=/downloads/incomplete/
+Session\TempPathEnabled=true
+Session\UseAlternativeGlobalSpeedLimit=true
+# UseOSCache: Keep ENABLED per wiki recommendation for better performance
+# Wiki states OS cache is "enabled by default" and recommended for performance
+# Helps with read operations that benefit both qBittorrent and Plex
+Session\UseOSCache=true
 
 [Core]
 AutoDeleteAddedTorrentFile=IfAdded
@@ -119,7 +112,7 @@ AutoDeleteAddedTorrentFile=IfAdded
 Accepted=true
 
 [Meta]
-MigrationVersion=6
+MigrationVersion=8
 
 [Network]
 PortForwardingEnabled=false
@@ -138,7 +131,7 @@ MailNotification\req_auth=true
 Scheduler\end_time=@Variant(\0\0\0\xf\x5%q\xa0)
 Scheduler\start_time=@Variant(\0\0\0\xf\x1I\x97\0)
 WebUI\Address=*
-WebUI\AuthSubnetWhitelist=@Invalid()
+WebUI\AuthSubnetWhitelist=172.16.0.0/16
 WebUI\BanDuration=60
 WebUI\Password_PBKDF2="@ByteArray({{ bittorrent_webui_encoded_password }})"
 WebUI\ServerDomains=bittorrent.{{ internal_domain }}
@@ -146,3 +139,4 @@ WebUI\ServerDomains=bittorrent.{{ internal_domain }}
 [RSS]
 AutoDownloader\DownloadRepacks=true
 AutoDownloader\SmartEpisodeFilter=s(\\d+)e(\\d+), (\\d+)x(\\d+), "(\\d{4}[.\\-]\\d{1,2}[.\\-]\\d{1,2})", "(\\d{1,2}[.\\-]\\d{1,2}[.\\-]\\d{4})"
+{%- endfilter %}

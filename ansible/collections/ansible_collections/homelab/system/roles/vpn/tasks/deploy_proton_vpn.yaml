@@ -11,7 +11,7 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: "0770"
+    mode: "0700" # Gluetun requires strict permissions
     owner: "{{ vpn_protonvpn_container_user }}"
     group: "{{ vpn_protonvpn_container_user }}"
   with_items:
@@ -50,14 +50,6 @@
     src: protonvpn.env.j2
     dest: "{{ vpn_protonvpn_conf_dir }}/protonvpn.env"
     mode: "0600"
-  notify:
-    - Restart protonvpn service
-
-- name: Copy protonvpn private key
-  ansible.builtin.template:
-    src: protonvpn.privatekey.j2
-    dest: "{{ vpn_protonvpn_conf_dir }}/protonvpn.privatekey"
-    mode: "0600"
     owner: "{{ vpn_protonvpn_container_user }}"
     group: "{{ vpn_protonvpn_container_user }}"
   notify:
@@ -67,7 +59,7 @@
   containers.podman.podman_container:
     name: protonvpn
     state: quadlet
-    image: ghcr.io/tprasadtp/protonwire:{{ vpn_protonvpn_version }}
+    image: docker.io/qmcgaw/gluetun:latest
     env_file: "{{ vpn_protonvpn_conf_dir }}/protonvpn.env"
     recreate: true
     network: protonvpn
@@ -76,23 +68,30 @@
     delete_depend: true
     delete_time: 60
 
+    # Required for VPN tunnel creation
     cap_add:
       - "NET_ADMIN"
 
+    # Required for Tun interface
+    device:
+      - "/dev/net/tun:/dev/net/tun"
+
     sysctl:
       net.ipv4.conf.all.rp_filter: 2
+      # Gluetun usually handles ipv6 internally, but this is safe to keep
       net.ipv6.conf.all.disable_ipv6: 1
 
-    healthcheck: protonwire check --service-status-file --silent
+    # Gluetun exposes an internal API on port 8000 for health status
+    healthcheck: wget -q --spider http://127.0.0.1:8000/v1/public/ip || exit 1
     healthcheck_failure_action: stop
     healthcheck_interval: 120s
     healthcheck_start_period: 20s
 
+    # Mount the config dir to /gluetun so it can store server cache/state
     volumes:
-      - "{{ vpn_protonvpn_conf_dir}}/protonvpn.privatekey:/etc/protonwire/private-key:ro"
+      - "{{ vpn_protonvpn_conf_dir}}:/gluetun:Z"
 
-    # For more info on the flags used https://github.com/tprasadtp/protonvpn-docker?tab=readme-ov-file#podman
-
+    # User mapping to keep files on host owned by the specific user
     uidmap:
       - 0:{{ vpn_protonvpn_container_user_result.uid }}:1
       - 1:4000000000:100000
@@ -108,6 +107,7 @@
         [Service]
         Restart=always
         RestartSec=120s
+        # ExecStop cleanups
         ExecStop=/usr/bin/podman rm -v -f -i --cidfile=%t/%N.cid --depend
         ExecStopPost=-/usr/bin/podman rm -v -f -i --cidfile=%t/%N.cid --depend
 
