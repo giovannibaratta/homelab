@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y curl gpg ca-certificates \
 
 # python3-yaml required by Podman compose
 # gettext-base for installing envsubst
+# openssh-client for signing commits
 
 RUN apt-get update \
         && apt-get install -y \
@@ -31,7 +32,8 @@ RUN apt-get update \
         jq \
         tmux \
         python3-yaml \
-        gettext-base
+        gettext-base \
+        openssh-client
 
 RUN touch /etc/containers/nodocker \
         && curl -fsSL -o /tmp/netavark.gz https://github.com/containers/netavark/releases/download/v1.16.1/netavark.gz \
