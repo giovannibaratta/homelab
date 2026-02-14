@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y curl gpg ca-certificates \
         && printf "Package: podman\nPin: version 5.*\nPin-Priority: 1001\n" > /etc/apt/preferences.d/podman-pin
 
 # python3-yaml required by Podman compose
+# gettext-base for installing envsubst
 
 RUN apt-get update \
         && apt-get install -y \
@@ -29,7 +30,8 @@ RUN apt-get update \
         uidmap \
         jq \
         tmux \
-        python3-yaml
+        python3-yaml \
+        gettext-base
 
 RUN touch /etc/containers/nodocker \
         && curl -fsSL -o /tmp/netavark.gz https://github.com/containers/netavark/releases/download/v1.16.1/netavark.gz \
