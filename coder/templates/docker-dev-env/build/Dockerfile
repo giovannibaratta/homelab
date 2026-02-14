@@ -2,29 +2,61 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+ARG USER=coder
+
+# Add Podman 5.x repository and pin the version
+RUN apt-get update && apt-get install -y curl gpg ca-certificates \
+        && curl -fsSL http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/home_alvistack.gpg \
+        && echo "deb http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /" > /etc/apt/sources.list.d/home:alvistack.list \
+        && printf "Package: podman\nPin: version 5.*\nPin-Priority: 1001\n" > /etc/apt/preferences.d/podman-pin
+
+# python3-yaml required by Podman compose
+
 RUN apt-get update \
         && apt-get install -y \
         apt-transport-https \
-        curl \
         git \
         sudo \
         vim \
         wget \
-        gpg \
         podman \
         podman-docker \
+        aardvark-dns \
+        passt \
         python3-setuptools \
         fuse-overlayfs \
         slirp4netns \
         uidmap \
         jq \
-        tmux
+        tmux \
+        python3-yaml
+
+RUN touch /etc/containers/nodocker \
+        && curl -fsSL -o /tmp/netavark.gz https://github.com/containers/netavark/releases/download/v1.16.1/netavark.gz \
+        && gunzip /tmp/netavark.gz \
+        && mkdir -p /usr/libexec/podman \
+        && mv /tmp/netavark /usr/libexec/podman/netavark \
+        && chmod +x /usr/libexec/podman/netavark
+
+# Create user after uidmap is installed to ensure subuid/subgid files are handled correctly
+RUN useradd --groups sudo -m --shell /bin/bash ${USER} \
+        && echo "${USER} ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/${USER} \
+        && chmod 0440 /etc/sudoers.d/${USER} \
+        && groupadd -f containers \
+        && usermod -aG containers ${USER}
+
+# Manually ensure subuid/subgid entries exist for rootless Podman
+RUN echo "${USER}:100000:65536" >> /etc/subuid && \
+        echo "${USER}:100000:65536" >> /etc/subgid
 
 # Use podman-compose instead of docker-compose. Docker compose requires a socket to be
 # available, creating the socket in the container is not so easy.
 RUN curl -o /usr/local/bin/podman-compose \
         https://raw.githubusercontent.com/containers/podman-compose/main/podman_compose.py && \
         chmod +x /usr/local/bin/podman-compose
+
+RUN apt-get install -y python3-yaml \
+        python3-dotenv
 
 ENV PODMAN_COMPOSE_PROVIDER=/usr/local/bin/podman-compose
 
@@ -39,29 +71,15 @@ location = "docker.io"
 EOF
 
 # Podman configurations to run container as non-root user
-ENV CONTAINERS_ROOT_DIR=/ephermeral/podman/containers
-ENV CONTAINERS_STORAGE_CONF=${CONTAINERS_ROOT_DIR}/storage.conf
-ENV CONTAINERS_GRAPHROOT=${CONTAINERS_ROOT_DIR}/storage
-
-RUN mkdir -p "${CONTAINERS_ROOT_DIR}" && \
-        mkdir -p "${CONTAINERS_GRAPHROOT}" && \
-        echo '[storage]' > ${CONTAINERS_STORAGE_CONF} && \
-        echo 'driver = "overlay"' >> ${CONTAINERS_STORAGE_CONF} && \
-        echo "graphroot = \"${CONTAINERS_GRAPHROOT}\"" >> ${CONTAINERS_STORAGE_CONF} && \
-        chown -R ${USER}:${USER} "${CONTAINERS_ROOT_DIR}"
+RUN mkdir -p /ephermeral/podman/storage /ephermeral/podman/run && \
+        chown -R ${USER}:containers /ephermeral && \
+        chmod -R 775 /ephermeral && \
+        printf "[storage]\ndriver = \"overlay\"\ngraphroot = \"/ephermeral/podman/storage\"\nrunroot = \"/ephermeral/podman/run\"\n" > /etc/containers/storage.conf
 
 # Install developer tools
 RUN apt-get install -y \
         golang \
         openjdk-17-jre
-
-RUN rm -rf /var/lib/apt/lists/*
-
-ARG USER=coder
-
-RUN useradd --groups sudo -m --shell /bin/bash ${USER} \
-        && echo "${USER} ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/${USER} \
-        && chmod 0440 /etc/sudoers.d/${USER}
 
 # Install NVM
 SHELL ["/bin/bash", "-c"]
