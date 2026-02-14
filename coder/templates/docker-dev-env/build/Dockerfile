@@ -33,7 +33,8 @@ RUN apt-get update \
         tmux \
         python3-yaml \
         gettext-base \
-        openssh-client
+        openssh-client \
+        zsh
 
 RUN touch /etc/containers/nodocker \
         && curl -fsSL -o /tmp/netavark.gz https://github.com/containers/netavark/releases/download/v1.16.1/netavark.gz \
@@ -43,7 +44,7 @@ RUN touch /etc/containers/nodocker \
         && chmod +x /usr/libexec/podman/netavark
 
 # Create user after uidmap is installed to ensure subuid/subgid files are handled correctly
-RUN useradd --groups sudo -m --shell /bin/bash ${USER} \
+RUN useradd --groups sudo -m --shell /bin/zsh ${USER} \
         && echo "${USER} ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/${USER} \
         && chmod 0440 /etc/sudoers.d/${USER} \
         && groupadd -f containers \
@@ -110,6 +111,12 @@ RUN mkdir -p /workspace && \
         chown -R ${USER}:${USER} /workspace
 
 USER ${USER}
+
+# Install Oh My Zsh and zsh-autosuggestions
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
+        git clone https://github.com/zsh-users/zsh-autosuggestions /home/${USER}/.oh-my-zsh/custom/plugins/zsh-autosuggestions && \
+        sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions)/' /home/${USER}/.zshrc && \
+        chown -R ${USER}:${USER} /home/${USER}/.oh-my-zsh /home/${USER}/.zshrc
 
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g corepack
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g @google/gemini-cli
