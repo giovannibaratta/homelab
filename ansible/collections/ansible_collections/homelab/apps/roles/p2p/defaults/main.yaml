@@ -31,5 +31,14 @@ p2p_radarr_main_db_name: radarrmain
 p2p_radarr_logs_db_name: radarrlogs
 p2p_radarr_db_container_user: postgres_radarr
 p2p_radarr_container_user: radarr
+# Available versions https://hub.docker.com/r/linuxserver/bazarr/tags
+p2p_bazarr_version: 1.5.5
+p2p_bazarr_conf_dir: /app/bazarr/conf
+p2p_bazarr_work_dir: /app/bazarr/work
+p2p_bazarr_container_user: bazarr
+p2p_bazarr_database_dir: "{{ p2p_bazarr_work_dir }}/database"
+p2p_bazarr_db_user: bazarr
+p2p_bazarr_db_name: bazarr
+p2p_bazarr_db_container_user: postgres_bazarr
 p2p_flaresolverr_container_user: flaresolverr
 p2p_flaresolverr_image: 21hsmw/flaresolverr:nodrivertest

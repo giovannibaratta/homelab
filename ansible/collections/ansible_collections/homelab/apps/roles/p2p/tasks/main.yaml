@@ -41,6 +41,9 @@
 - name: Deploy Overseerr
   ansible.builtin.import_tasks: deploy_overseerr.yaml
 
+- name: Deploy Bazarr
+  ansible.builtin.import_tasks: deploy_bazarr.yaml
+
 - name: Configure Sonarr
   ansible.builtin.import_tasks: configure_sonarr.yaml
   delegate_to: localhost

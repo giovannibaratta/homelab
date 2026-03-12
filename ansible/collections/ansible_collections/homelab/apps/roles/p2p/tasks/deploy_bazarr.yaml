@@ -1,0 +1,185 @@
+---
+- name: Add user {{ p2p_bazarr_container_user }}
+  ansible.builtin.user:
+    name: "{{ p2p_bazarr_container_user }}"
+    comment: User used to run bazarr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: p2p_bazarr_container_user_result
+
+- name: Add user {{ p2p_bazarr_db_container_user }}
+  ansible.builtin.user:
+    name: "{{ p2p_bazarr_db_container_user }}"
+    comment: User used to run the PostgreSQL database for bazarr
+    create_home: false
+    shell: /usr/sbin/nologin
+  register: p2p_bazarr_db_container_user_result
+
+- name: Create bazarr directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0770"
+    owner: "{{ p2p_bazarr_container_user }}"
+    group: "{{ p2p_bazarr_container_user }}"
+  with_items:
+    - "{{ p2p_bazarr_conf_dir }}"
+    - "{{ p2p_bazarr_work_dir }}"
+
+- name: Change ownership for {{ p2p_bazarr_database_dir }}
+  ansible.builtin.file:
+    path: "{{ p2p_bazarr_database_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ p2p_bazarr_db_container_user }}"
+    group: "{{ p2p_bazarr_db_container_user }}"
+
+- name: Create bazarr network Quadlet
+  containers.podman.podman_network:
+    name: bazarr
+    state: quadlet
+    # Enable DNS resolution based on container names
+    disable_dns: false
+    dns: "{{ podman_dns }}"
+    driver: bridge
+    force: true
+    recreate: true
+    # Need to be reachable by Traefik
+    internal: false
+    interface_name: podman-bazarr
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart bazarr network
+
+- name: Trigger Handlers for bazarr network
+  ansible.builtin.meta: flush_handlers
+
+- name: Start bazarr network
+  ansible.builtin.systemd_service:
+    # The name is the name of the network + network suffix
+    name: bazarr-network
+    state: started
+    enabled: true
+
+- name: Copy bazarr-db.env file
+  ansible.builtin.template:
+    src: bazarr-db.env.j2
+    dest: "{{ p2p_bazarr_conf_dir }}/bazarr-db.env"
+    mode: "0640"
+  notify:
+    - Restart bazarr DB service
+
+- name: Create bazarr database Quadlet
+  containers.podman.podman_container:
+    name: bazarr-db
+    image: docker.io/postgres:16.3-alpine
+    state: quadlet
+
+    volumes:
+      - "{{ p2p_bazarr_database_dir }}:/var/lib/postgresql/data"
+    env_file: "{{ p2p_bazarr_conf_dir }}/bazarr-db.env"
+    network: bazarr
+    delete_depend: true
+
+    # bazarr-db runs as root:root but /var/lib/postgresql/data must be assigned to postgres (70:70)
+    # We map the root container user to the bazarr-db user running on the host
+    # to give access to configuration and database files
+    uidmap:
+      - 0:4000000000:70
+      - 70:{{ p2p_bazarr_db_container_user_result.uid }}:1
+      - 71:4000000071:100000
+
+    gidmap:
+      - 0:4000000000:100000
+      - +70:@{{ p2p_bazarr_db_container_user_result.group }}:1
+
+    recreate: true
+
+    healthcheck: pg_isready -U {{ p2p_bazarr_db_user }} -d {{ p2p_bazarr_db_name }}
+    healthcheck_interval: 5s
+    healthcheck_timeout: 5s
+    healthcheck_retries: 5
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart bazarr DB service
+
+- name: Trigger Handlers for bazarr DB
+  ansible.builtin.meta: flush_handlers
+
+- name: Start bazarr DB
+  ansible.builtin.systemd_service:
+    name: bazarr-db
+    state: started
+    enabled: true
+
+- name: Copy bazarr.env file
+  ansible.builtin.template:
+    src: bazarr.env.j2
+    dest: "{{ p2p_bazarr_conf_dir }}/bazarr.env"
+    mode: "0640"
+  notify:
+    - Restart bazarr service
+
+- name: Create bazarr Quadlet
+  containers.podman.podman_container:
+    name: bazarr
+    state: quadlet
+    image: lscr.io/linuxserver/bazarr:{{ p2p_bazarr_version }}
+    env_file: "{{ p2p_bazarr_conf_dir }}/bazarr.env"
+    recreate: true
+    network: bazarr
+
+    volumes:
+      - "{{ p2p_bazarr_work_dir }}:/config"
+      - "{{ p2p_sonarr_media_dir }}:/tv"
+      - "{{ p2p_radarr_media_dir }}:/movies"
+
+    # bazarr runs as the user indicated in the env file.
+    # We map the container root user to the bazarr user running on the host
+    uidmap:
+      - 0:4000000000:1000
+      - 1000:{{ p2p_bazarr_container_user_result.uid }}:1
+      - 1001:4000001001:100000
+
+    gidmap:
+      - 0:4000000000:1000
+      - +1000:@{{ media_gid }}:1
+      - 1001:4000001001:100000
+
+    labels:
+      traefik.enable: true
+      traefik.http.routers.bazarr.rule: Host(`bazarr.{{ internal_domain }}`)
+      traefik.http.routers.bazarr.entrypoints: websecure
+      traefik.http.routers.bazarr.tls.certresolver: letsencrypt
+      traefik.http.routers.bazarr.tls.domains[0].main: bazarr.{{ internal_domain }}
+      traefik.http.services.bazarr.loadbalancer.server.port: 6767
+
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        Requires=bazarr-db.service
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
+  notify:
+    - Reload systemd daemons for p2p role
+    - Restart bazarr service
+
+- name: Trigger Handlers for bazarr
+  ansible.builtin.meta: flush_handlers
+
+- name: Start bazarr
+  ansible.builtin.systemd_service:
+    name: bazarr
+    state: started
+    enabled: true

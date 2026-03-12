@@ -92,3 +92,18 @@
   ansible.builtin.systemd_service:
     state: restarted
     name: overseerr
+
+- name: Restart bazarr network
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: bazarr-network
+
+- name: Restart bazarr DB service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: bazarr-db
+
+- name: Restart bazarr service
+  ansible.builtin.systemd_service:
+    state: restarted
+    name: bazarr
