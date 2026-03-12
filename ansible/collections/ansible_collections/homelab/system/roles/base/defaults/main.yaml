@@ -9,4 +9,5 @@ __base_packages_to_install:
   - software-properties-common # Apt keyring
   - python3-pip # Run Ansible within auto-remediation
   - python3-venv # Run Ansible within auto-remediation
+  - python3-requests # Required by nftables-geoip
 validate_health_before_update: []

@@ -63,7 +63,7 @@
     opt:
       isolate: true
   notify:
-    - Reload systemd daemons for traefik role
+    - Reload systemd daemons for ingress role
     - Restart waf network
 
 - name: Create WAF network
@@ -82,8 +82,8 @@
     opt:
       isolate: true
   notify:
-    - Reload systemd daemons for traefik role
-    - Restart waf network
+    - Reload systemd daemons for ingress role
+    - Restart WAF network
 
 - name: Trigger Handlers for Bittorrent network
   ansible.builtin.meta: flush_handlers
