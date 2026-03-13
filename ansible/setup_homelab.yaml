@@ -14,6 +14,12 @@
     # The directory is used to save finished media that can be served
     media_data_dir: /external/media
 
+  pre_tasks:
+    - ansible.builtin.import_role:
+        name: homelab.utils.render_variables
+      tags:
+        - always
+
   tasks:
     - name: Gather data and set facts
       ansible.builtin.set_fact:
@@ -29,15 +35,16 @@
             | map('extract', hostvars)
             | list
           }}
+      no_log: true
       tags:
         - always
       run_once: true
 
     - name: Gather network roles and set dynamic facts (run_once)
       ansible.builtin.set_fact:
-        dhcp_primary: "{{ primary_host_obj.inventory_hostname }}"
-        dhcp_failover: "{{ secondary_host_obj.inventory_hostname }}"
-        podman_dns: "{{ adguard_host_objs | map(attribute='inventory_hostname') | list }}"
+        dhcp_primary: "{{ primary_host_obj.ansible_host }}"
+        dhcp_failover: "{{ secondary_host_obj.ansible_host }}"
+        podman_dns: "{{ adguard_host_objs | map(attribute='ansible_host') | list }}"
         validate_health_before_update: "{{ other_routers if network_is_router is defined and network_is_router else [] }}"
 
       vars:
@@ -70,8 +77,8 @@
             all_groups_hostvars
             | selectattr('network_is_router', 'defined')
             | selectattr('network_is_router', 'equalto', true)
-            | rejectattr('inventory_hostname', 'equalto', inventory_hostname)
-            | map(attribute='inventory_hostname')
+            | rejectattr('ansible_host', 'equalto', ansible_host)
+            | map(attribute='ansible_host')
             | list
           }}
 

@@ -19,6 +19,7 @@
 1. Install the collections
 
     ```bash
+    ansible-galaxy collection install collections/ansible_collections/homelab/utils
     ansible-galaxy collection install collections/ansible_collections/homelab/system
     ansible-galaxy collection install collections/ansible_collections/homelab/apps
     ```

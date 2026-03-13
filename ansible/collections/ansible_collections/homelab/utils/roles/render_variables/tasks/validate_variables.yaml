@@ -1,0 +1,21 @@
+---
+- name: Render variables | check for empty values
+  assert:
+    that:
+      - "lookup('vars', item) | length > 0"
+      - "lookup('vars', item) != 'None'"
+    fail_msg: "CRITICAL: The secret '{{ item }}' is empty or null. Check Bitwarden!"
+    success_msg: "Secret '{{ item }}' validated."
+  loop: "{{ __secret_keys_list }}"
+  no_log: true
+
+- name: Render variables | check "ghost" quotes
+  assert:
+    that:
+      # Regex: Ensure it does NOT start (^) and end ($) with "
+      - "not lookup('vars', item) | string is regex('^\\\".*\\\"$')"
+    fail_msg: >
+      CRITICAL: Secret '{{ item }}' failed validation! 
+      Value is either empty or wrapped in literal double quotes.
+    success_msg: "Secret '{{ item }}' passed integrity check."
+  loop: "{{ __secret_keys_list }}"

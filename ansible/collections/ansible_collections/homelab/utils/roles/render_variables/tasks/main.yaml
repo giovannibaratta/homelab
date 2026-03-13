@@ -1,0 +1,6 @@
+---
+- name: "Render variables | unpack variables"
+  ansible.builtin.import_tasks: unpack_variables.yaml
+
+- name: "Render variables | validate variables"
+  ansible.builtin.import_tasks: validate_variables.yaml

@@ -1,0 +1,16 @@
+---
+- name: Render variables | unpack variables
+  set_fact:
+    # We fetch the value, parse it as YAML
+    __secrets_bundle_dict: "{{ secret_bundle | from_yaml }}"
+  no_log: true
+
+- name: Render variables | set secrets as facts
+  set_fact:
+    "{{ item.key }}": "{{ item.value }}"
+  loop: "{{ __secrets_bundle_dict | dict2items }}"
+  no_log: true
+
+- name: Render variables | Create meta variable of secret keys
+  set_fact:
+    __secret_keys_list: "{{ __secrets_bundle_dict.keys() | list }}"

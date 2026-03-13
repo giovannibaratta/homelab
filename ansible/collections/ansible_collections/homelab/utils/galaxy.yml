@@ -1,0 +1,9 @@
+---
+namespace: homelab
+name: utils
+version: 1.0.0
+readme: README.md
+authors:
+  - Giovanni Baratta
+license:
+  - MIT
