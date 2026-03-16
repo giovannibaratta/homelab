@@ -81,6 +81,8 @@
           traefik.http.routers.netbird.tls.certresolver: letsencrypt
           traefik.http.routers.netbird.tls.domains[0].main: netbird.{{ internal_domain }}
           traefik.http.services.netbird.loadbalancer.server.port: 80
+          # Lower the priority to allow more specific rules to take precedence
+          traefik.http.routers.netbird.priority: 10
 
         quadlet_options:
           - |
@@ -352,11 +354,12 @@
 
         labels:
           traefik.enable: true
-          traefik.http.routers.netbird-relay.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/relay`)
+          traefik.http.routers.netbird-relay.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/relay`)"'
           traefik.http.routers.netbird-relay.entrypoints: websecure,public-secure
           traefik.http.routers.netbird-relay.middlewares: netbird-chain@file
           traefik.http.routers.netbird-relay.tls.domains[0].main: netbird.{{ internal_domain }}
           traefik.http.services.netbird-relay.loadbalancer.server.port: 8443
+          traefik.http.routers.netbird-relay.priority: 50
 
         quadlet_options:
           - |
@@ -544,11 +547,12 @@
 
         labels:
           traefik.enable: true
-          traefik.http.routers.netbird-signal.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/signalexchange.SignalExchange/`)
+          traefik.http.routers.netbird-signal.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/signalexchange.SignalExchange/`)"'
           traefik.http.routers.netbird-signal.entrypoints: websecure,public-secure
           traefik.http.routers.netbird-signal.middlewares: netbird-chain@file
           traefik.http.routers.netbird-signal.tls.domains[0].main: netbird.{{ internal_domain }}
           traefik.http.services.netbird-signal.loadbalancer.server.port: 80
+          traefik.http.routers.netbird-signal.priority: 50
           # gRPC scheme
           traefik.http.services.netbird-signal.loadbalancer.server.scheme: h2c
 
@@ -616,16 +620,18 @@
 
         labels:
           traefik.enable: true
-          traefik.http.routers.netbird-api.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/api`)
+          traefik.http.routers.netbird-api.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/api`)"'
           traefik.http.routers.netbird-api.service: netbird-api
           traefik.http.routers.netbird-api.middlewares: netbird-chain@file
           traefik.http.services.netbird-api.loadbalancer.server.port: 8080
           traefik.http.routers.netbird-api.entrypoints: websecure,public-secure
           traefik.http.routers.netbird-api.tls.certresolver: letsencrypt
-          traefik.http.routers.netbird-management.rule: Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/management.ManagementService/`)
+          traefik.http.routers.netbird-api.priority: 50
+          traefik.http.routers.netbird-management.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/management.ManagementService/`)"'
           traefik.http.routers.netbird-management.service: netbird-management
           traefik.http.routers.netbird-management.middlewares: netbird-chain@file
           traefik.http.services.netbird-management.loadbalancer.server.port: 8080
+          traefik.http.routers.netbird-management.priority: 50
           # gRPC scheme
           traefik.http.services.netbird-management.loadbalancer.server.scheme: h2c
           traefik.http.routers.netbird-management.entrypoints: websecure,public-secure
