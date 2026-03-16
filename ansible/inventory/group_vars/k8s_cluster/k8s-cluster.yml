@@ -1,0 +1,56 @@
+---
+# ==============================================================================
+# CORE KUBERNETES & COEXISTENCE SETTINGS WITH PODMAN
+# ==============================================================================
+
+# [Kubernetes Version]
+kube_version: 1.34.3
+runc_version: 1.3.4
+
+# As per documentation, when using Cilium the kube owner must be set to root to prevent
+# crash loopback errors.
+# https://github.com/kubernetes-sigs/kubespray/blob/release-2.30/docs/CNI/cilium.md
+kube_owner: root
+
+#[Network Subnets]
+# IMPORTANT: These must NEVER overlap with {{ internal_network }}
+# or your Podman bridge defaults (10.88.0.0/16).
+kube_pods_subnet: 10.213.64.0/18
+kube_service_addresses: 10.213.0.0/18
+
+#[Network Plugin: Cilium]
+# We use Cilium instead of Calico/Flannel. Cilium uses eBPF (kernel-level routing).
+# This prevents Kubernetes from injecting hundreds of rules into 'nftables' and potentially
+# messing up with the Podman installation
+kube_network_plugin: cilium
+
+kube_network_plugin_mtu: 1350
+
+# By removing kube-proxy entirely, we guarantee K8s will not touch the iptables/nftables
+# NAT chains.
+kube_proxy_remove: true
+
+# Dummy variable to bypass MetalLB strictARP pre-flight check when kube-proxy is removed
+kube_proxy_strict_arp: true
+
+nat_outbound: false
+kube_proxy_masquerade_all: false
+
+# [DNS Configuration]
+# Point Kubernetes upstream DNS to your AdGuard instances.
+# This allows pods to resolve external internet addresses and your custom domain apps.
+upstream_dns_servers:
+  - 172.16.255.252
+  - 172.16.255.253
+
+# CAUTION: 'resolvconf_mode: none' is strictly required for Podman coexistence!
+# It stops Kubespray from rewriting your host's /etc/resolv.conf. If Kubespray modifies
+# that file, your host OS and Podman containers might lose DNS resolution.
+resolvconf_mode: none
+
+# [Container Runtime]
+# Use containerd for K8s. Podman uses crun/runc and its own /var/lib/containers directory.
+# This ensures K8s and Podman run completely isolated from each other on the same physical disk.
+container_manager: containerd
+
+etcd_data_dir: "/app/k8s-etcd"

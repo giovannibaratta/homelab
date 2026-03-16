@@ -1,0 +1,54 @@
+- name: Network | Create K8s control plan interface
+  ansible.builtin.copy:
+    content: |
+      [connection]
+      id=k8s-cp
+      uuid=5e2144e9-800f-4514-b628-c76f8e95b843
+      type=veth
+      interface-name=k8s-cp
+
+      [veth]
+      # Link it to the bridge
+      peer=veth-k8s-br
+
+      [ipv4]
+      method=manual
+      address1={{ network_k8s_ip }}/{{ k8s_cp_netmask }}
+    dest: /etc/NetworkManager/system-connections/k8s-control-plan.nmconnection
+    mode: "0600"
+    backup: true
+  notify:
+    - Restart NetworkManager service
+
+- name: Network | Create K8s bridge veth
+  ansible.builtin.copy:
+    content: |
+      [connection]
+      id=k8s-bridge-plug
+      uuid=f323bad5-ef94-4b03-9af0-4b4d5af0f1fb
+      type=veth
+      interface-name=veth-k8s-br
+      master={{ bridge_name }}
+      slave-type=bridge
+
+      [veth]
+      peer=k8s-cp
+    dest: /etc/NetworkManager/system-connections/k8s-bridge-plug.nmconnection
+    mode: "0600"
+    backup: true
+  notify:
+    - Restart NetworkManager service
+
+- name: Flush handlers to restart NetworkManager
+  ansible.builtin.meta: flush_handlers
+
+- name: Network | Enable forwarding for specific k8s interfaces
+  ansible.posix.sysctl:
+    name: "net.ipv4.conf.{{ item }}.forwarding"
+    value: '1'
+    sysctl_file: /etc/sysctl.d/30-ip-forward-{{ item }}.conf
+    state: present
+    reload: yes
+  loop:
+    - veth-k8s-br
+    - k8s-cp

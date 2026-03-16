@@ -9,6 +9,8 @@ home:
     internal_network_dhcp_start: 172.16.200.0
     internal_network_dhcp_end: 172.16.200.254
     network_gateway_virtual_ip: 172.16.255.254
+    k8s_cp_network: 172.20.0.0
+    k8s_cp_netmask: 16
     ##### END Required for first setup #####
     ##### Deployment preferences defaults to false for safety #####
     deploy_grafana: false
@@ -37,9 +39,10 @@ home:
       internal_ip: 172.16.255.251
       dyn_dns_entry: "ingress-fallback"
       network_gateway_role: secondary
+      network_k8s_ip: 172.20.0.1
       network_dhcp_role: secondary
       deploy_adguard: true
-      system_update_day: 3
+      system_update_day: "never"
       ##### END Required for first setup #####
       #### deployment preferences
       deploy_grafana: false
@@ -76,6 +79,7 @@ home:
       internal_interface: enp1s0
       internal_ip: 172.16.255.252
       dyn_dns_entry: "ingress-primary"
+      network_k8s_ip: 172.20.0.2
       network_gateway_role: primary
       network_dhcp_role: primary
       deploy_adguard: true
@@ -115,10 +119,11 @@ home:
       ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
       ##### Required for first setup #####
       network_is_router: true
+      network_k8s_ip: 172.20.0.3
       internal_interface: enp1s0
       internal_ip: 172.16.255.253
       deploy_adguard: false
-      system_update_day: 1
+      system_update_day: "never"
       ##### Required for first setup #####
       ##### Deployment preferences #####
       deploy_grafana: false
@@ -141,3 +146,26 @@ home:
       vpn_deploy_relay_server: false
       auto_ansible_hour_schedule: "3,7,11,15,19,23"
       logging_enable_aws_cloudwatch: false
+
+kube_control_plane:
+  hosts:
+    node1:
+    node2:
+    node3:
+
+kube_node:
+  hosts:
+    node1:
+    node2:
+    node3:
+
+etcd:
+  hosts:
+    node1:
+    node2:
+    node3:
+
+k8s_cluster:
+  children:
+    kube_control_plane:
+    kube_node:

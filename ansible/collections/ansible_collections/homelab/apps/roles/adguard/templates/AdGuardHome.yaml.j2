@@ -149,6 +149,16 @@ filtering:
   rewrites:
     - domain: '*.{{ internal_domain }}'
       answer: 172.16.255.254
+    # For now we hardcode the values, but these
+    # should be extracted from the inventory
+    - domain: node-test
+      answer: 172.20.0.252
+    - domain: node1
+      answer: 172.20.0.1
+    - domain: node2
+      answer: 172.20.0.2
+    - domain: node3
+      answer: 172.20.0.3
   safe_fs_patterns:
     - /opt/adguardhome/work/data/userfilters/*
   safebrowsing_cache_size: 1048576

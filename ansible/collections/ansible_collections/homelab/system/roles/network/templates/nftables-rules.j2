@@ -57,7 +57,12 @@ table ip firewall {
     iifname ftth jump public_traffic # ftth is the interface name
 {% endif %}
     iifname {{ bridge_name }} jump internal_traffic
+    iifname k8s-cp jump internal_traffic
     iifname "podman*" jump container_traffic
+    # K8s interfaces when using Cilium
+    iifname "cilium*" jump container_traffic
+    iifname "nodelocaldns" jump container_traffic
+    iifname "lxc*" jump container_traffic
     log prefix "Unmatched interface "
     reject
   }

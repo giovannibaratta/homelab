@@ -1,0 +1,26 @@
+---
+# ==============================================================================
+# KUBERNETES ADDONS
+# ==============================================================================
+
+# Disable Kubespray's built-in NGINX Ingress.
+ingress_nginx_enabled: false
+
+# [Layer 2 Load Balancer: MetalLB]
+# MetalLB listens to Kubernetes Services of type "LoadBalancer" and assigns them
+# a physical IP from your home network. When you deploy Traefik later, it will 
+# ask for a LoadBalancer IP, and MetalLB will hand it.
+metallb_enabled: true
+metallb_speaker_enabled: true
+
+#[MetalLB IP Pool Configuration]
+# We dedicate 10 IPs (240 to 249) from your home network purely for K8s services.
+# IMPORTANT: These IPs MUST be excluded from your router's DHCP range!
+metallb_config:
+  address_pools:
+    primary:
+      ip_range:
+        - 172.16.255.230-172.16.255.239
+      auto_assign: true
+  layer2:
+    - primary

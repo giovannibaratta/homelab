@@ -1,0 +1,23 @@
+---
+# ==============================================================================
+# CILIUM eBPF SETTINGS (NFTABLES PROTECTION)
+# ==============================================================================
+
+# Option should actually not be in use since native routing is enabled
+cilium_tunnel_mode: "vxlan"
+
+cilium_auto_direct_node_routes: "true"
+cilium_native_routing_cidr: "172.20.0.0/16"
+
+# Instructs Cilium to take over the job of kube-proxy using eBPF hooks.
+# This handles LoadBalancers, NodePorts, and ClusterIPs natively in the kernel.
+cilium_kube_proxy_replacement: "true"
+cilium_enable_host_firewall: false
+cilium_enable_host_legacy_routing: false
+
+cilium_enable_bpf_masquerade: false
+
+cilium_agent_extra_args:
+  - "--routing-mode=native"
+  - "--devices=k8s-cp"
+  - "--direct-routing-device=k8s-cp"

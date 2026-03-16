@@ -5,3 +5,4 @@ bitwarden-sdk>=1.0.0
 radarr-py
 prowlarr-py
 ansible
+distlib

@@ -3,50 +3,55 @@
 ## Prerequisites
 
 - Install Python packages
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    python3 -m pip install -r requirements.txt
-    ```
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  python3 -m pip install -r requirements.txt
+  ```
 - (optional) If you use Bitwarden Secret Manager to store variables, you have to install the SDK (see [here](https://github.com/bitwarden/sdk-sm)) and configure an access token.
-    ```bash
-    export BWS_ACCESS_TOKEN=""
-    ```
+  ```bash
+  export BWS_ACCESS_TOKEN=""
+  ```
 - Terraform
 
 ## Run playbook
 
 1. Install the collections
 
-    ```bash
-    ansible-galaxy collection install collections/ansible_collections/homelab/utils
-    ansible-galaxy collection install collections/ansible_collections/homelab/system
-    ansible-galaxy collection install collections/ansible_collections/homelab/apps
-    ```
+   ```bash
+   ansible-galaxy collection install collections/ansible_collections/homelab/utils
+   ansible-galaxy collection install collections/ansible_collections/homelab/system
+   ansible-galaxy collection install -r collections/ansible_collections/homelab/system/requirements.yml
+   ansible-galaxy collection install collections/ansible_collections/homelab/apps
+   ```
 
 1. Run the playbook
-    ```bash
-    ansible-playbook "setup_homelab.yaml" -i inventory/home.yaml -v
-    ```
+   ```bash
+   ansible-playbook "setup_homelab.yaml" -i inventory/home.yaml -v
+   ```
 
 ## Manual setup to enable Ansible
 
 1. Create a group for passwordless sudo
+
 ```bash
 groupadd wheel
 ```
 
 1. Allow passwordless sudo for the group
+
 ```bash
 echo "%wheel ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/wheel
 ```
 
 1. Create ansible user
+
 ```bash
 useradd -s /bin/bash ansible
 ```
 
 1. Add the user to the group
+
 ```bash
 usermod -aG wheel ansible
 ```
@@ -62,6 +67,26 @@ chmod 755 /home/ansible/.ssh/*
 chown -R ansible:ansible /home/ansible
 ```
 
+## Kubernetes
+
+### Deploy
+
+```bash
+ansible-playbook --become "install_kubernetes.yaml" -i inventory/home.yaml
+```
+
+### Clean up
+
+````bash
+ansible-playbook --become -i inventory/home.yaml ~/.ansible/collections/ansible_collections/kubernetes_sigs/kubespray/playbooks/reset.yml --extra-vars "reset_confirmation=yes"
+```bash
+
+### Manual testing
+
+```bash
+kubectl run test-net --rm -ti --image=alpine -- ping -c 4 8.8.8.8
+kubectl run test-dns --rm -ti --image=alpine -- nslookup google.com
+````
 
 ### FAQ
 

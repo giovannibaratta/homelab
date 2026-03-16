@@ -1,0 +1,17 @@
+---
+# ==============================================================================
+# GLOBAL CLUSTER VARIABLES
+# ==============================================================================
+
+# [High Availability API Proxy]
+# In an HA setup (3 masters), worker nodes and local kubectl commands need to
+# know which API server to talk to. Instead of setting up an external HAProxy,
+# Kubespray runs a tiny local NGINX proxy on EVERY node.
+loadbalancer_apiserver_localhost: true
+
+# The fake local domain name used by the local NGINX proxy to route API traffic.
+# Keep this as the default '.local'. Do not use your real custom domain here.
+apiserver_loadbalancer_domain_name: "lb-apiserver.kubernetes.local"
+
+# Do not interfere with the NPT already deployed
+ntp_enabled: false

@@ -287,3 +287,6 @@
 - name: Configure VRRP
   ansible.builtin.import_tasks: vrrp.yaml
   when: network_is_router and network_gateway_role is defined
+
+- name: Configure K8s network resources
+  ansible.builtin.import_tasks: k8s.yaml

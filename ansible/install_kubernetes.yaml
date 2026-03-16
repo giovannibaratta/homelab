@@ -1,0 +1,20 @@
+- name: Prepare custom etcd data directory
+  hosts: etcd
+  become: yes
+
+  tasks:
+    - name: Ensure the custom etcd directory exists
+      file:
+        path: "{{ etcd_data_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+- name: Install Kubernetes
+  ansible.builtin.import_playbook: kubernetes_sigs.kubespray.cluster
+  vars:
+    maximal_ansible_version: 2.19.0 # Force check on ansible version to avoid downgrading
+    ip: "{{ network_k8s_ip }}"
+    access_ip: "{{ network_k8s_ip }}"
+  tags: k8s
