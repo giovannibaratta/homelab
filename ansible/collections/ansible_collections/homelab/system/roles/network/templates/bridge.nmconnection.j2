@@ -1,0 +1,27 @@
+[connection]
+id={{ bridge_name }}
+uuid=8d22d6e3-b097-4034-888a-021938bdf210
+type=bridge
+interface-name={{ bridge_name }}
+
+[bridge]
+stp=false
+
+[ipv4]
+{% if network_is_router %}
+address1={{ internal_ip }}/16
+{% else %}
+address1={{ internal_ip }}/16;{{ internal_gateway }}
+{% endif %}
+
+method=manual
+{% if network_is_router %}
+dns=1.1.1.1;8.8.8.8
+{% else %}
+dns=172.16.255.252;172.16.255.253
+{% endif %}
+
+dns-priority=1
+
+[ipv6]
+method=ignore

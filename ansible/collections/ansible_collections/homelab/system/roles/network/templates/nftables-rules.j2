@@ -1,18 +1,23 @@
 # Clean existing table and preserve docker tables
 
-# Avoid delete to fail
+{% if network_is_router %}
+# Avoid delete to fail
 table ip custom_nat {
   chain nat_postrouting {}
 }
 
 delete chain ip custom_nat nat_postrouting
+{% endif %}
 
 table ip firewall
 delete table ip firewall
 
+{% if network_is_router %}
 table ip mss
 delete table ip mss
+{% endif %}
 
+{% if network_is_router %}
 # Only contains the persistent postrouting chain.
 # The prerouting and output chains for the VIP are loaded dynamically by Keepalived.
 table ip custom_nat {
@@ -23,7 +28,9 @@ table ip custom_nat {
     oifname ftth masquerade
   }
 }
+{% endif %}
 
+{% if network_is_router %}
 # Since we are using PPPOE, the packet size of TCP must be adjusted
 # Not all client can adjusted the max MTU and TCP MSS, therefore
 # we do it at the router level
@@ -33,23 +40,29 @@ table ip mss {
     tcp flags syn tcp option maxseg size set rt mtu
   }
 }
+{% endif %}
 
 table ip firewall {
 
+{% if network_is_router %}
   include "/app/nftables-geoip/ip-lists/geoip-def-all.nft"
   include "/app/nftables-geoip/ip-lists/geoip-ipv4-interesting.nft"
   define ALLOWED_COUNTRIES = { $IT, $IE }
+{% endif %}
 
   chain dispatcher {
     type filter hook input priority 1000;
     iif lo accept comment "always accept loopback"
+{% if network_is_router %}
     iifname ftth jump public_traffic # ftth is the interface name
-    iifname {{ internal_interface }} jump internal_traffic
+{% endif %}
+    iifname {{ bridge_name }} jump internal_traffic
     iifname "podman*" jump container_traffic
     log prefix "Unmatched interface "
     reject
   }
 
+{% if network_is_router %}
   # Drop all traffic from internet if not initiated from internal network
   chain public_traffic {
     meta mark set ip saddr map @geoip4
@@ -66,6 +79,7 @@ table ip firewall {
     ip daddr {{ internal_ip_address }} tcp dport 5349 accept
     log prefix "Public unknown traffic " drop
   }
+{% endif %}
 
   chain internal_traffic {
     accept

@@ -23,11 +23,79 @@
   ansible.builtin.lineinfile:
     path: /usr/lib/systemd/system/systemd-networkd-wait-online.service
     regexp: ^ExecStart.+
-    line: /usr/lib/systemd/systemd-networkd-wait-online --interface={{ internal_interface }}
+    line: /usr/lib/systemd/systemd-networkd-wait-online --interface={{ bridge_name }}
 
 - name: Configure DNS
   ansible.builtin.import_tasks: configure-dns.yaml
   when: network_is_router
+
+- name: Network | Install network-manager
+  ansible.builtin.apt:
+    name: network-manager
+    state: present
+    update_cache: true
+
+- name: Network | Configure Network Manager
+  ansible.builtin.copy:
+    content: |
+      [main]
+      plugins=ifupdown,keyfile
+      monitor-connection-files=yes
+
+      [ifupdown]
+      managed=false
+
+      [device]
+      wifi.scan-rand-mac-address=no
+    dest: /etc/NetworkManager/NetworkManager.conf
+    mode: "0644"
+  notify:
+    - Restart NetworkManager service
+
+- name: Network | Create bridge
+  ansible.builtin.template:
+    src: bridge.nmconnection.j2
+    dest: /etc/NetworkManager/system-connections/{{ bridge_name }}.nmconnection
+    mode: "0600"
+    backup: true
+  notify:
+    - Restart NetworkManager service
+
+
+- name: Network | Create internal interface
+  ansible.builtin.copy:
+    content: |
+      [connection]
+      id={{ internal_interface }}
+      uuid=3e20c816-61a6-30e8-9cc7-cc3f2ef80ffb
+      type=ethernet
+      interface-name={{ internal_interface }}
+      master={{ bridge_name }}
+      slave-type=bridge
+    dest: /etc/NetworkManager/system-connections/internal-interface.nmconnection
+    mode: "0600"
+    backup: true
+  notify:
+    - Restart NetworkManager service
+
+
+- name: Network | Create managed devices
+  ansible.builtin.copy:
+    content: |
+      [main]
+      managed=true
+
+      [device]
+      match-device=*
+      managed=1
+    dest: /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
+    mode: "0600"
+    backup: true
+  notify:
+    - Restart NetworkManager service
+
+- name: Flush handlers to restart NetworkManager
+  ansible.builtin.meta: flush_handlers
 
 - name: Configure PPPOE over VLAN connection
   when: network_is_router
@@ -38,12 +106,13 @@
           [connection]
           id=vlan
           type=vlan
+          interface-name={{ bridge_name }}.835
           autoconnect=true
           autoconnect-retries=0
 
           [vlan]
           id=835
-          parent={{ wan_interface }}
+          parent={{ bridge_name }}
           flags=1
 
           [ipv4]
@@ -79,7 +148,7 @@
           [ethernet]
 
           [pppoe]
-          parent={{ wan_interface }}.835
+          parent={{ bridge_name }}.835
           password="{{ pppoe_password }}"
           username="{{ pppoe_username }}"
 
@@ -104,29 +173,6 @@
         name: iproute2
         state: present
         update_cache: true
-
-    - name: Install network-manager
-      ansible.builtin.apt:
-        name: network-manager
-        state: present
-        update_cache: true
-
-    - name: Configure Network Manager
-      ansible.builtin.copy:
-        content: |
-          [main]
-          plugins=ifupdown,keyfile
-          monitor-connection-files=yes
-
-          [ifupdown]
-          managed=false
-
-          [device]
-          wifi.scan-rand-mac-address=no
-        dest: /etc/NetworkManager/NetworkManager.conf
-        mode: "0644"
-      notify:
-        - Restart NetworkManager service
 
     - name: Flush handlers to restart NetworkManager
       ansible.builtin.meta: flush_handlers

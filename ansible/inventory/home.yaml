@@ -26,15 +26,15 @@ home:
   hosts:
     node1:
       ansible_host: 172.16.255.251
-      ip: 172.16.255.251
-      access_ip: 172.16.255.251
       ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/ansible
       ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
       ##### Required for first setup #####
       network_is_router: true
-      wan_interface: enp1s0
-      internal_interface: enp1s0
+      #wan_interface: br0
+      internal_interface: enp4s0
+      #physical_interface: enp4s0
+      internal_ip: 172.16.255.251
       dyn_dns_entry: "ingress-fallback"
       network_gateway_role: secondary
       network_dhcp_role: secondary
@@ -68,15 +68,13 @@ home:
 
     node2:
       ansible_host: 172.16.255.252
-      ip: 172.16.255.252
-      access_ip: 172.16.255.252
       ##### Required for first setup #####
       network_is_router: true
       ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/ansible
       ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
-      wan_interface: enp1s0
       internal_interface: enp1s0
+      internal_ip: 172.16.255.252
       dyn_dns_entry: "ingress-primary"
       network_gateway_role: primary
       network_dhcp_role: primary
@@ -112,15 +110,13 @@ home:
 
     node3:
       ansible_host: 172.16.255.253
-      ip: 172.16.255.253
-      access_ip: 172.16.255.253
-      ##### Required for first setup #####
-      network_is_router: true
       ansible_user: ansible
       ansible_ssh_private_key_file: ~/.ssh/ansible
       ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
-      wan_interface: enp1s0
+      ##### Required for first setup #####
+      network_is_router: true
       internal_interface: enp1s0
+      internal_ip: 172.16.255.253
       deploy_adguard: false
       system_update_day: 1
       ##### Required for first setup #####

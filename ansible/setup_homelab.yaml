@@ -13,6 +13,7 @@
     media_shared_group: media
     # The directory is used to save finished media that can be served
     media_data_dir: /external/media
+    bridge_name: br0
 
   pre_tasks:
     - ansible.builtin.import_role:
@@ -23,7 +24,7 @@
   tasks:
     - name: Gather data and set facts
       ansible.builtin.set_fact:
-        internal_ip_address: "{{ ansible_facts[internal_interface].ipv4.address }}"
+        internal_ip_address: "{{ internal_ip }}"
       tags:
         - always
 

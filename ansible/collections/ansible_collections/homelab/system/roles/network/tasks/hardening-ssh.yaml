@@ -1,7 +1,7 @@
 ---
 - name: Get internal interface IP address
   ansible.builtin.set_fact:
-    internal_interface_ip: "{{ ansible_facts[internal_interface]['ipv4']['address'] }}"
+    internal_interface_ip: "{{ ansible_facts[bridge_name]['ipv4']['address'] }}"
 
 - name: Create sshd_config.d file for internal interface
   ansible.builtin.copy:
