@@ -1,10 +1,10 @@
 ---
 # Available versions https://hub.docker.com/_/traefik/tags
-ingress_traefik_version: v3.6.4
+ingress_traefik_version: v3.6.10
 
 # WAF Configuration
 # Available versions https://hub.docker.com/r/owasp/modsecurity-crs/tags
-ingress_waf_version: 4.21.0-nginx-alpine-202512071012
+ingress_waf_version: 4.24.1-nginx-alpine-202603150103
 # ModSecurity plugin version https://github.com/madebymode/traefik-modsecurity-plugin/releases
 ingress_waf_plugin_version: v1.6.0
 
