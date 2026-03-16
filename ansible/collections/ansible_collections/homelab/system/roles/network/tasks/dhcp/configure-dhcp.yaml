@@ -1,0 +1,11 @@
+- name: Network | Set DHCP facts
+  ansible.builtin.set_fact:
+    __dhcp_service_enabled: "{{ network_is_router and network_dhcp_role is defined }}"
+
+- when: __dhcp_service_enabled
+  name: Network | Enable DHCP
+  ansible.builtin.import_tasks: enable-dhcp.yaml
+
+- when: not __dhcp_service_enabled
+  name: Network | Disable DHCP
+  ansible.builtin.import_tasks: disable-dhcp.yaml

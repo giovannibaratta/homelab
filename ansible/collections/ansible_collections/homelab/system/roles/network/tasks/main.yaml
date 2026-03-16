@@ -223,52 +223,7 @@
     enabled: true
 
 - name: Configure DHCP
-  when: network_is_router and network_dhcp_role is defined
-  block:
-    - name: Install Kea
-      ansible.builtin.apt:
-        name: isc-dhcp-server
-        state: present
-        update_cache: true
-
-    - name: Configure DHCP server interface
-      ansible.builtin.lineinfile:
-        path: /etc/default/isc-dhcp-server
-        line: INTERFACESv4="{{ internal_interface }}"
-        create: true
-        regexp: ^INTERFACESv4=
-
-    - name: Set DHCP facts
-      ansible.builtin.set_fact:
-        __network_dhcp_address: "{{ dhcp_primary if network_dhcp_role == 'primary' else dhcp_failover }}"
-        __network_dhcp_peer_address: "{{ dhcp_failover if network_dhcp_role == 'primary' else dhcp_primary }}"
-
-    - name: Configure DHCP server
-      ansible.builtin.template:
-        # https://kb.isc.org/docs/aa-00502
-        src: dhcpd.conf.j2
-        dest: /etc/dhcp/dhcpd.conf
-        mode: "0644"
-        backup: true
-      notify:
-        - Restart DHCP service
-
-    - name: Set DHCP status facts
-      ansible.builtin.set_fact:
-        _dhcp_service_enabled: "{{ true if network_gateway_role == 'primary' else false }}"
-        _dhcp_service_state: "{{ 'started' if network_gateway_role == 'primary' else 'stopped' }}"
-
-    - name: Enable DHCP service
-      ansible.builtin.service:
-        name: isc-dhcp-server
-        enabled: true
-        state: started
-
-    - name: Disable DHCP6 service
-      ansible.builtin.service:
-        name: isc-dhcp-server6
-        enabled: false
-        state: stopped
+  ansible.builtin.import_tasks: dhcp/configure-dhcp.yaml
 
 - name: SSH hardening
   ansible.builtin.import_tasks: hardening-ssh.yaml

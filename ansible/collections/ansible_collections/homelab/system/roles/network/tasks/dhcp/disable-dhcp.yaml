@@ -1,0 +1,17 @@
+- name: Network | Populate service facts
+  ansible.builtin.service_facts:
+
+- name: Network | Disable DHCP service if present
+  when: "'isc-dhcp-server.service' in services"
+  block:
+    - name: Network | Disable DHCP service
+      ansible.builtin.service:
+        name: isc-dhcp-server
+        enabled: false
+        state: stopped
+
+    - name: Network | Disable DHCP6 service
+      ansible.builtin.service:
+        name: isc-dhcp-server6
+        enabled: false
+        state: stopped
