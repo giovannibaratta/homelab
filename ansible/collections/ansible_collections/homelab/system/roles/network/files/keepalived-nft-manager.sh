@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # /usr/local/sbin/keepalived-nft-manager.sh
 #

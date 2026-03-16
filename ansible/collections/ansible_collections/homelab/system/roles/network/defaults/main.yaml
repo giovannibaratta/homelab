@@ -5,3 +5,4 @@ ddclient_conf_dir: /app/ddclient/conf
 ddclient_work_dir: /app/ddclient/work
 vrrp_virtual_router_id: 90
 network_is_router: false
+__uptime_robot_dir: /app/nftables-uptime-robot

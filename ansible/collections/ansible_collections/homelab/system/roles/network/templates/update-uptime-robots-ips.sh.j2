@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -e
+
+API_URL="https://hetrixtools.com/resources/uptime-monitor-only-ips.txt"
+DEST_FILE="{{ __uptime_robot_ntf_ips_file }}"
+
+# Ensure jq and curl exist
+if ! command -v curl >/dev/null; then
+    echo "curl is missing."
+    exit 1
+fi
+
+# 1. Fetch IPs
+RAW_IPS=$(curl -sL "https://hetrixtools.com/resources/uptime-monitor-only-ips.txt" | grep -E '^[0-9]')
+
+if [ -z "$RAW_IPS" ]; then
+    echo "No IPv4 addresses found for $HOSTNAME. DNS might be down."
+    exit 1
+fi
+
+# 2. Format IPs for nftables (indent 4 spaces and add trailing comma)
+# Example resulting line: "    1.2.3.4,"
+IPS=$(echo "$RAW_IPS" | sed 's/^/    /; s/$/,/')
+
+# 3. Write strictly the elements block to a temp file
+TEMP_NFT=$(mktemp)
+cat <<EOF > "$TEMP_NFT"
+elements = {
+$IPS
+}
+EOF
+
+# 4. Atomically replace the actual file
+mv "$TEMP_NFT" "$DEST_FILE"
+chmod 600 "$DEST_FILE"
+
+# 5. Reload nftables to apply the new IPs
+systemctl reload nftables || systemctl restart nftables

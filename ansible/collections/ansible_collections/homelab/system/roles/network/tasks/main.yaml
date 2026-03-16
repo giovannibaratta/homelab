@@ -243,6 +243,57 @@
   ansible.builtin.systemd_service:
     daemon_reload: true
 
+- name: Ensure required packages are installed
+  ansible.builtin.package:
+    name:
+      - curl
+      - jq
+    state: present
+
+- name: Ensure nftables ip-lists directory exists
+  ansible.builtin.file:
+    path: /app/nftables-geoip/ip-lists
+    state: directory
+    mode: '0755'
+
+- name: Network | Ensure UptimeRobot IPs directory exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0700'
+  with_items:
+  - "{{ __uptime_robot_dir }}"
+  - "{{ __uptime_robot_dir }}/ip-lists"
+
+- name: Network | UptimeRobot facts
+  ansible.builtin.set_fact:
+    __uptime_robot_ntf_ips_file: "{{ __uptime_robot_dir }}/ip-lists/uptimerobot-ips-elements.nft"
+
+- name: Network | Touch placeholder for UptimeRobot IPs to prevent include errors
+  ansible.builtin.copy:
+    content: ""
+    dest: "{{ __uptime_robot_ntf_ips_file }}"
+    force: no   # Do not overwrite if the file already exists
+    mode: '0600'
+
+- name: Network | Deploy UptimeRobot IP updater script
+  ansible.builtin.template:
+    src: update-uptime-robots-ips.sh.j2
+    dest: "{{ __uptime_robot_dir }}/update-uptimerobot-ips.sh"
+    mode: '0700'
+
+- name: Network | Execute script to populate IPs initially
+  ansible.builtin.command: "{{ __uptime_robot_dir }}/update-uptimerobot-ips.sh"
+  register: uptimerobot_init
+  changed_when: uptimerobot_init.rc == 0
+  failed_when: false # Continue even if UptimeRobot API is temporarily down
+
+- name: Network | Setup Cron job to update UptimeRobot IPs periodically
+  ansible.builtin.cron:
+    name: "Update UptimeRobot IPs for nftables"
+    job: "{{ __uptime_robot_dir }}/update-uptimerobot-ips.sh >/dev/null 2>&1"
+    special_time: daily
+
 - name: Copy nftables shared rules
   ansible.builtin.blockinfile:
     path: /etc/nftables.conf

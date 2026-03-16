@@ -48,6 +48,13 @@ table ip firewall {
   include "/app/nftables-geoip/ip-lists/geoip-def-all.nft"
   include "/app/nftables-geoip/ip-lists/geoip-ipv4-interesting.nft"
   define ALLOWED_COUNTRIES = { $IT, $IE }
+
+  # --- Include UptimeRobot IPs ---
+  set uptimerobot_ips {
+    type ipv4_addr
+    flags interval
+    include "{{ __uptime_robot_ntf_ips_file }}"
+  }
 {% endif %}
 
   chain dispatcher {
@@ -73,6 +80,10 @@ table ip firewall {
     meta mark set ip saddr map @geoip4
     ct state {established,related} accept
     ct state invalid log prefix "Invalid state " drop
+
+    # --- Allow UptimeRobot Traffic ---
+    ip saddr @uptimerobot_ips accept comment "Allow UptimeRobot checks"
+
     # Filter packet not coming from allowed countries checking the meta mark
     # set by geoip4. Geoblocking must be performed after the connection tracker
     # state to avoid blocking legit traffic
