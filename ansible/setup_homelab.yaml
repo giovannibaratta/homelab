@@ -217,7 +217,7 @@
         name: homelab.apps.prometheus
       become: true
       vars:
-        prometheus_targets: "{{ groups['home'] }}"
+        prometheus_targets: "{{ groups['all'] | map('extract', hostvars, 'internal_ip') | list }}"
       ignore_errors: yes
       tags: prometheus
 
