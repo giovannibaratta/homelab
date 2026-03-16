@@ -111,4 +111,38 @@ certificatesResolvers:
           delayBeforeChecks: 60
 
 # Enable access logs
-accessLog: {}
+accessLog:
+  format: json
+  fields:
+    names:
+      ClientAddr: drop
+      ClientHost: drop
+      ClientPort: drop
+      ClientUsername: drop
+      DownstreamContentSize: drop
+      DownstreamStatus: keep
+      Duration: drop
+      OriginContentSize: drop
+      OriginDuration: drop
+      OriginStatus: drop
+      Overhead: drop
+      RequestAddr: drop
+      RequestContentSize: drop
+      RequestCount: drop
+      RequestHost: keep
+      RequestMethod: keep
+      RequestPath: keep
+      RequestPort: drop
+      RequestProtocol: drop
+      RequestScheme: drop
+      RetryAttempts: drop
+      RouterName: keep
+      ServiceAddr: drop
+      ServiceName: keep
+      ServiceURL: drop
+      StartLocal: drop
+      StartUTC: keep
+      TLSCipher: drop
+      TLSVersion: drop
+      entryPointName: drop
+      time: drop
