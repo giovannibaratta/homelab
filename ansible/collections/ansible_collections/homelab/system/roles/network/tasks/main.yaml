@@ -216,7 +216,7 @@
     state: directory
     mode: "0700"
 
-- name: Create /app/nftables-geoip/ip-lists
+- name: Network | Ensure nftables ip-lists directory exists
   ansible.builtin.file:
     path: /app/nftables-geoip/ip-lists
     state: directory
@@ -262,12 +262,6 @@
       - curl
       - jq
     state: present
-
-- name: Ensure nftables ip-lists directory exists
-  ansible.builtin.file:
-    path: /app/nftables-geoip/ip-lists
-    state: directory
-    mode: '0755'
 
 - name: Network | Ensure UptimeRobot IPs directory exists
   ansible.builtin.file:
