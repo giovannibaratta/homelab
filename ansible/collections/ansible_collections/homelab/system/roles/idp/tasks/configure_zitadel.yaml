@@ -41,3 +41,5 @@
         port: "8443"
         jwt_path: "{{ idp_zitadel_conf_dir }}/machinekey/zitadel-admin-sa.json"
   register: idp_zitadel_terraform_output
+  retries: 5
+  delay: 60
