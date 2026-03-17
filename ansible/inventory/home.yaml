@@ -41,7 +41,7 @@ home:
       network_gateway_role: secondary
       network_k8s_ip: 172.20.0.1
       network_dhcp_role: secondary
-      deploy_adguard: true
+      deploy_adguard: false
       system_update_day: "never"
       ##### END Required for first setup #####
       #### deployment preferences
@@ -120,7 +120,7 @@ home:
       network_k8s_ip: 172.20.0.3
       internal_interface: enp1s0
       internal_ip: 172.16.255.253
-      deploy_adguard: false
+      deploy_adguard: true
       system_update_day: "never"
       ##### Required for first setup #####
       ##### Deployment preferences #####
