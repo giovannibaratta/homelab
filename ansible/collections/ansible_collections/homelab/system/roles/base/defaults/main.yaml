@@ -11,3 +11,5 @@ __base_packages_to_install:
   - python3-venv # Run Ansible within auto-remediation
   - python3-requests # Required by nftables-geoip
 validate_health_before_update: []
+
+__theme_name: "ops_theme"

@@ -11,3 +11,37 @@
 - name: Install omz
   ansible.builtin.include_tasks: install-omz.yaml
   loop: "{{ base_ohmyzsh_users }}"
+
+- name: Create custom Oh My Zsh theme directory
+  file:
+    path: "/root/.oh-my-zsh/custom/themes"
+    state: directory
+
+- name: Deploy custom theme file
+  copy:
+    dest: "/root/.oh-my-zsh/custom/themes/{{ __theme_name }}.zsh-theme"
+    content: |
+      # Custom VIP check function
+      function vip_status() {
+        if ip addr show {{ bridge_name }} | grep -q "{{ network_gateway_virtual_ip }}"; then
+          echo "%{$fg[green]%}[VIP ON]%{$reset_color%}"
+        else
+          echo "%{$fg[red]%}[VIP OFF]%{$reset_color%}"
+        fi
+      }
+
+      # Define the prompt
+      # n = username, m = hostname, D{H:M:S} = time
+      {% raw %}
+      PROMPT='%(?:%{$fg_bold[green]%}➜ :%{$fg_bold[red]%}➜ )'
+      PROMPT+='%{$fg[cyan]%}%m %{$reset_color%}'
+      PROMPT+='%{$fg[yellow]%}%D{%H:%M:%S} %{$reset_color%}'
+      PROMPT+='$(vip_status) '
+      PROMPT+='%{$fg[blue]%}%c%{$reset_color%} $(git_prompt_info)'
+      {% endraw %}
+
+- name: Set ZSH_THEME in .zshrc
+  lineinfile:
+    path: ~/.zshrc
+    regexp: '^ZSH_THEME='
+    line: 'ZSH_THEME="{{ __theme_name }}"'
