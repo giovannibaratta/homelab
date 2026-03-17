@@ -73,7 +73,6 @@
 - name: Activate virtualenv and install ansible dependencies
   ansible.builtin.shell: |
     source /app/auto-ansible/python-env/bin/activate
-    ansible-galaxy collection install -r /app/auto-ansible/repo/ansible/requirements.yml
     ansible-galaxy collection install collections/ansible_collections/homelab/utils
     ansible-galaxy collection install collections/ansible_collections/homelab/system
     ansible-galaxy collection install collections/ansible_collections/homelab/apps
