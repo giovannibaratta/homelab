@@ -4,5 +4,5 @@ jmespath
 bitwarden-sdk>=1.0.0
 radarr-py
 prowlarr-py
-ansible
+ansible==10.7.0
 distlib
