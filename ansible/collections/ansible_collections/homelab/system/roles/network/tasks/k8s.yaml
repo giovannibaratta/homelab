@@ -1,3 +1,9 @@
+- name: Network | Name the LB routing table
+  ansible.builtin.lineinfile:
+    path: /etc/iproute2/rt_tables
+    line: "100    k8s-lb"
+    state: present
+
 - name: Network | Create K8s control plan interface
   ansible.builtin.copy:
     content: |
@@ -14,6 +20,23 @@
       [ipv4]
       method=manual
       address1={{ network_k8s_ip }}/{{ k8s_cp_netmask }}
+
+      # Define a default route inside Table 100
+      # syntax: <destination>,<next_hop>,<metric>,<table_id>
+      route1=0.0.0.0/0,0.0.0.0,100,100
+
+      # Rule 1: Safety - Internal Pod traffic skips Table 100
+      # syntax: priority <num> to <pod_cidr> table main
+      routing-rule1=priority 10 to {{ kube_service_addresses }} table main
+
+      # Rule 2 (Priority 11): If traffic is going TO your local Node network,
+      # use 'main' table (ensures node-to-node management works).
+      routing-rule2=priority 11 to {{ internal_network}}/{{ internal_network_netmask_length }} table main
+
+      # Rule 3 (Priority 100): If traffic is FROM the LoadBalancer Pool,
+      # force it into Table 100 (exit via k8s-cp).
+      routing-rule3=priority 100 from {{ k8s_lb_network }} table 100
+
     dest: /etc/NetworkManager/system-connections/k8s-control-plan.nmconnection
     mode: "0600"
     backup: true
@@ -51,4 +74,17 @@
     reload: yes
   loop:
     - veth-k8s-br
+    - k8s-cp
+
+- name: Network | Set loose reverse path filtering
+  ansible.posix.sysctl:
+    name: "net.ipv4.conf.{{ item }}.rp_filter"
+    value: '2'
+    sysctl_file: /etc/sysctl.d/30-k8s-routing.conf
+    state: present
+    reload: yes
+  loop:
+    - all
+    - default
+    - br0
     - k8s-cp

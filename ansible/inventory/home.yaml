@@ -4,6 +4,7 @@ home:
     secret_bundle: "{{ lookup('community.general.bitwarden_secrets_manager', '22bdfa7d-f452-4a62-85d3-b40c0095369a').value }}"
     ##### Required for first setup #####
     internal_network: 172.16.0.0
+    internal_network_netmask_length: 16
     internal_network_netmask: 255.255.0.0
     internal_gateway: 172.16.255.254
     internal_network_dhcp_start: 172.16.200.0
@@ -11,6 +12,7 @@ home:
     network_gateway_virtual_ip: 172.16.255.254
     k8s_cp_network: 172.20.0.0
     k8s_cp_netmask: 16
+    k8s_lb_network: 172.16.184.0/24
     ##### END Required for first setup #####
     ##### Deployment preferences defaults to false for safety #####
     deploy_grafana: false

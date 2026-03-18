@@ -1,0 +1,3 @@
+---
+k8s_db_clusters: []
+k8s_db_cluster_namespace: cnpg-clusters

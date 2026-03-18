@@ -9,6 +9,8 @@ cilium_tunnel_mode: "vxlan"
 cilium_auto_direct_node_routes: "true"
 cilium_native_routing_cidr: "172.20.0.0/16"
 
+cilium_l2announcements: true
+
 # Instructs Cilium to take over the job of kube-proxy using eBPF hooks.
 # This handles LoadBalancers, NodePorts, and ClusterIPs natively in the kernel.
 cilium_kube_proxy_replacement: "true"
@@ -21,3 +23,8 @@ cilium_agent_extra_args:
   - "--routing-mode=native"
   - "--devices=k8s-cp"
   - "--direct-routing-device=k8s-cp"
+
+cilium_loadbalancer_ip_pools:
+  - name: "default-ip-pool"
+    cidrs:
+      - "{{ k8s_lb_network }}"

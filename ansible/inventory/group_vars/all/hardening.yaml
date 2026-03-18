@@ -2,7 +2,7 @@
 ---
 ## kube-apiserver
 authorization_modes: ["Node", "RBAC"]
-kube_apiserver_request_timeout: 120s
+kube_apiserver_request_timeout: 180s
 kube_apiserver_service_account_lookup: true
 
 # enable kubernetes audit
@@ -41,13 +41,13 @@ kube_apiserver_admission_control_config_file: true
 kube_apiserver_admission_event_rate_limits:
   limit_1:
     type: Namespace
-    qps: 50
-    burst: 100
+    qps: 100
+    burst: 200
     cache_size: 2000
   limit_2:
     type: User
-    qps: 50
-    burst: 100
+    qps: 100
+    burst: 200
 kube_profiling: false
 
 # Remove anonymous access to cluster
@@ -70,7 +70,7 @@ kubelet_authentication_token_webhook: true
 kube_read_only_port: 0
 kubelet_rotate_server_certificates: true
 kubelet_protect_kernel_defaults: true
-kubelet_event_record_qps: 1
+kubelet_event_record_qps: 5
 kubelet_rotate_certificates: true
 kubelet_streaming_connection_idle_timeout: "5m"
 kubelet_feature_gates: ["RotateKubeletServerCertificate=true"]
