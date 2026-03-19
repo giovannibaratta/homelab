@@ -354,7 +354,7 @@
 
         labels:
           traefik.enable: true
-          traefik.http.routers.netbird-relay.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/relay`)"'
+          traefik.http.routers.netbird-relay.rule: "Host(`netbird.{{ internal_domain }}`)&&PathPrefix(`/relay`)"
           traefik.http.routers.netbird-relay.entrypoints: websecure,public-secure
           traefik.http.routers.netbird-relay.middlewares: netbird-chain@file
           traefik.http.routers.netbird-relay.tls.domains[0].main: netbird.{{ internal_domain }}
@@ -547,7 +547,7 @@
 
         labels:
           traefik.enable: true
-          traefik.http.routers.netbird-signal.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/signalexchange.SignalExchange/`)"'
+          traefik.http.routers.netbird-signal.rule: "Host(`netbird.{{ internal_domain }}`)&&PathPrefix(`/signalexchange.SignalExchange/`)"
           traefik.http.routers.netbird-signal.entrypoints: websecure,public-secure
           traefik.http.routers.netbird-signal.middlewares: netbird-chain@file
           traefik.http.routers.netbird-signal.tls.domains[0].main: netbird.{{ internal_domain }}
@@ -620,14 +620,14 @@
 
         labels:
           traefik.enable: true
-          traefik.http.routers.netbird-api.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/api`)"'
+          traefik.http.routers.netbird-api.rule: "Host(`netbird.{{ internal_domain }}`)&&PathPrefix(`/api`)"
           traefik.http.routers.netbird-api.service: netbird-api
           traefik.http.routers.netbird-api.middlewares: netbird-chain@file
           traefik.http.services.netbird-api.loadbalancer.server.port: 8080
           traefik.http.routers.netbird-api.entrypoints: websecure,public-secure
           traefik.http.routers.netbird-api.tls.certresolver: letsencrypt
           traefik.http.routers.netbird-api.priority: 50
-          traefik.http.routers.netbird-management.rule: '"Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/management.ManagementService/`)"'
+          traefik.http.routers.netbird-management.rule: "Host(`netbird.{{ internal_domain }}`)&&PathPrefix(`/management.ManagementService/`)"
           traefik.http.routers.netbird-management.service: netbird-management
           traefik.http.routers.netbird-management.middlewares: netbird-chain@file
           traefik.http.services.netbird-management.loadbalancer.server.port: 8080

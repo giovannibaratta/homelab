@@ -76,7 +76,7 @@
       traefik.http.services.adguard.loadbalancer.server.port: "3000"
 
       # DNS-over-HTTPS (DoH)
-      traefik.http.routers.adguard-doh.rule: '"Host(`adguard.{{ internal_domain }}`) && Path(`/dns-query`)"'
+      traefik.http.routers.adguard-doh.rule: "Host(`adguard.{{ internal_domain }}`)&&Path(`/dns-query`)"
       traefik.http.routers.adguard-doh.entrypoints: "websecure"
       traefik.http.routers.adguard-doh.tls.certresolver: "letsencrypt"
       traefik.http.routers.adguard-doh.tls.domains[0].main: "adguard.{{ internal_domain }}"
