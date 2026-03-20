@@ -19,11 +19,17 @@
 #     internal_network_dhcp_start == '' or
 #     internal_network_dhcp_end == ''
 
-- name: Ensure systemd-networkd-wait-online waits for the right interface
-  ansible.builtin.lineinfile:
-    path: /usr/lib/systemd/system/systemd-networkd-wait-online.service
-    regexp: ^ExecStart.+
-    line: /usr/lib/systemd/systemd-networkd-wait-online --interface={{ bridge_name }}
+# Disable systemd-networkd to prevent conflicts with Network Manager
+- name: Network | Stop, disable, and mask systemd-networkd services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: true
+    daemon_reload: true
+  loop:
+    - systemd-networkd-wait-online.service
+    - systemd-networkd.service
 
 - name: Configure DNS
   ansible.builtin.import_tasks: configure-dns.yaml
@@ -40,7 +46,6 @@
     content: |
       [main]
       plugins=ifupdown,keyfile
-      monitor-connection-files=yes
 
       [ifupdown]
       managed=false
@@ -74,6 +79,30 @@
   notify:
     - Restart NetworkManager service
 
+- name: Network | Create drop-in directory for NetworkManager-wait-online
+  ansible.builtin.file:
+    path: /etc/systemd/system/NetworkManager-wait-online.service.d
+    state: directory
+    mode: "0755"
+
+- name: Network | Configure NetworkManager-wait-online to wait only for {{ bridge_name }}
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/NetworkManager-wait-online.service.d/override.conf
+    content: |
+      [Service]
+      # Clear the default ExecStart (required by systemd to override)
+      ExecStart=
+
+      # 2. Run the wait loop with a 120s fail-safe
+      # If 120s passes, 'timeout' kills the loop and exits with status 124
+      ExecStart=/usr/bin/timeout 120s /usr/bin/bash -c 'while ! nmcli -t -f GENERAL.STATE device show {{ bridge_name }} 2>/dev/null | grep -q "100"; do sleep 2; done'
+
+      # 3. Ensure systemd itself doesn't kill the process before our 120s timer is up
+      TimeoutStartSec=130s
+
+    mode: "0644"
+  notify:
+    - Reload systemd daemon
 
 - name: Network | Create internal interface
   ansible.builtin.copy:
@@ -84,6 +113,8 @@
       type=ethernet
       interface-name={{ internal_interface }}
       master={{ bridge_name }}
+      autoconnect=true
+      autoconnect-retries=0
       slave-type=bridge
     dest: /etc/NetworkManager/system-connections/internal-interface.nmconnection
     mode: "0600"
@@ -95,11 +126,19 @@
 - name: Network | Create managed devices
   ansible.builtin.copy:
     content: |
-      [main]
-      managed=true
+      # 1. Forcefully unmanage CNI and container interfaces
+      [device-unmanaged-containers]
+      match-device=interface-name:cilium*;interface-name:lxc*;interface-name:podman*
+      managed=0
 
-      [device]
-      match-device=*
+      # 2. Unmanage all random container veth interfaces...
+      [device-unmanaged-veths]
+      match-device=interface-name:veth*
+      managed=0
+
+      # 3. ...but EXPLICITLY manage custom veth interface
+      [device-managed-custom]
+      match-device=interface-name:veth-k8s-br;interface-name:k8s-cp;interface-name:k8s-bridge-plug
       managed=1
     dest: /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
     mode: "0600"
