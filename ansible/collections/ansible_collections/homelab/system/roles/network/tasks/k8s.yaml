@@ -41,6 +41,9 @@
       # force it into Table 100 (exit via k8s-cp).
       routing-rule3=priority 100 from {{ k8s_lb_network }} table 100
 
+      # Add this rule so the node can find its peers in the K8s network range
+      routing-rule4=priority 105 to {{ k8s_cp_network }}/{{ k8s_cp_netmask }} table 100
+
     dest: /etc/NetworkManager/system-connections/k8s-control-plan.nmconnection
     mode: "0600"
     backup: true
