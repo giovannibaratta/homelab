@@ -66,7 +66,7 @@ home:
       vpn_deploy_stun_server: true
       vpn_deploy_protonvpn: true
       vpn_deploy_relay_server: true
-      auto_ansible_hour_schedule: "1,5,9,13,17,21"
+      auto_ansible_hour_schedule: "1"
       zigbee_usb_device: /dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03318564-if00-port0
       p2p_deploy_bitmagnet: false
 
@@ -106,7 +106,7 @@ home:
       vpn_deploy_stun_server: true
       vpn_deploy_protonvpn: true
       vpn_deploy_relay_server: true
-      auto_ansible_hour_schedule: "1,5,9,13,17,21"
+      auto_ansible_hour_schedule: "3"
       zigbee_usb_device: /dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03318564-if00-port0
 
       p2p_deploy_bitmagnet: false
@@ -144,7 +144,7 @@ home:
       vpn_deploy_stun_server: false
       vpn_deploy_protonvpn: false
       vpn_deploy_relay_server: false
-      auto_ansible_hour_schedule: "3,7,11,15,19,23"
+      auto_ansible_hour_schedule: "23"
       logging_enable_aws_cloudwatch: false
 
 kube_control_plane:
