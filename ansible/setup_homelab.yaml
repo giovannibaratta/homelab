@@ -155,8 +155,6 @@
       ansible.builtin.import_role:
         name: homelab.system.logging
       become: true
-      vars:
-        logging_enable_aws_cloudwatch: true
       tags: system-logging
       ignore_errors: yes
 
