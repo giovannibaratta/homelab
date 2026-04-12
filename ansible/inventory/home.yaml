@@ -109,7 +109,7 @@ home:
       auto_ansible_hour_schedule: "3"
       zigbee_usb_device: /dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03318564-if00-port0
 
-      p2p_deploy_bitmagnet: false
+      p2p_deploy_bitmagnet: true
       logging_enable_aws_cloudwatch: false
 
     node3:
