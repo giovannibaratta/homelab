@@ -11,19 +11,19 @@ scrape_configs:
     scrape_interval: 10s
     static_configs:
       # Node exporter
-{% for host_ip in prometheus_targets %}
-      - targets: ['{{ host_ip }}:9100']
+{% for host in prometheus_targets %}
+      - targets: ['{{ hostvars[host].internal_ip }}:9100']
         labels:
-          instance: '{{ host_ip }}'
+          instance: '{{ hostvars[host].internal_ip }}'
           # Lookup the reboot preference from the inventory hostvars
-          reboot_enabled: "{{ 'false' if hostvars[host_ip]['system_update_day'] | default('') == 'never' else 'true' }}"
+          reboot_enabled: "{{ 'false' if hostvars[host]['system_update_day'] | default('') == 'never' else 'true' }}"
 {% endfor %}
 
       # Process exporter
-{% for host_ip in prometheus_targets %}
-      - targets: ['{{ host_ip }}:9101']
+{% for host in prometheus_targets %}
+      - targets: ['{{ hostvars[host].internal_ip }}:9101']
         labels:
-          instance: '{{ host_ip }}'
+          instance: '{{ hostvars[host].internal_ip }}'
 {% endfor %}
 
     metric_relabel_configs:
