@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# 1. Get the list of failed services matching the pattern
+# Pattern: -[64 hex]-[16 hex].service
+# This matches Podman healthcheck transient services
+FAILED_UNITS=$(systemctl list-units --state=failed --no-legend --plain | awk '{print $1}' | grep -E '^-[0-9a-f]{64}-[0-9a-f]{16}\.service$')
+
+if [ -z "$FAILED_UNITS" ]; then
+    echo "No failed units, exiting"
+    exit 0
+fi
+
+RELOAD_NEEDED=false
+
+# 2. Loop through them and delete the artifacts
+for unit in $FAILED_UNITS; do
+    echo "Cleaning up $unit..."
+
+    # Stop the unit just in case
+    systemctl stop "$unit" 2>/dev/null
+
+    # Delete the service file from transient directory
+    if [ -f "/run/systemd/transient/$unit" ]; then
+        rm -f "/run/systemd/transient/$unit"
+        RELOAD_NEEDED=true
+    fi
+
+    # Calculate the timer name (replace .service with .timer)
+    timer_unit="${unit%.service}.timer"
+
+    # Stop and delete the timer if it exists
+    systemctl stop "$timer_unit" 2>/dev/null
+    if [ -f "/run/systemd/transient/$timer_unit" ]; then
+        rm -f "/run/systemd/transient/$timer_unit"
+        RELOAD_NEEDED=true
+    fi
+
+    # Reset the failed status for these specific units
+    systemctl reset-failed "$unit" 2>/dev/null
+    systemctl reset-failed "$timer_unit" 2>/dev/null
+done
+
+# 3. Reload systemd if any files were removed
+if [ "$RELOAD_NEEDED" = true ]; then
+    systemctl daemon-reload
+fi

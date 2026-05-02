@@ -183,3 +183,17 @@
     - { key: "fs.inotify.max_user_instances", value: "4096" }
     - { key: "fs.inotify.max_queued_events", value: "32768" }
     - { key: "fs.inotify.max_user_watches", value: "524288" }
+
+- name: Deploy cleanup-failed-services.sh script
+  ansible.builtin.template:
+    src: cleanup-failed-services.sh.j2
+    dest: /usr/local/bin/cleanup-failed-services.sh
+    mode: "0755"
+
+- name: Ensure cron job for cleanup-failed-services.sh exists
+  ansible.builtin.cron:
+    name: cleanup-failed-services
+    job: /usr/local/bin/cleanup-failed-services.sh
+    minute: "*/5"
+    state: present
+    user: root
