@@ -17,6 +17,7 @@ home:
     # Provide only the sub-domain prefix. They will be suffixed with .{{ internal_domain }}
     k8s_public_domains: [""]
     k8s_internal_domains: []
+    network_dyn_dns_entry: "ingress"
     ##### END Required for first setup #####
     ##### Deployment preferences defaults to false for safety #####
     deploy_grafana: false
@@ -43,7 +44,6 @@ home:
       internal_interface: enp4s0
       #physical_interface: enp4s0
       internal_ip: 172.16.255.251
-      dyn_dns_entry: "ingress-fallback"
       network_gateway_role: secondary
       network_k8s_ip: 172.20.0.1
       network_dhcp_role: secondary
@@ -83,7 +83,6 @@ home:
       ansible_ssh_args: -o ControlMaster=auto -o ControlPersist=120s
       internal_interface: enp1s0
       internal_ip: 172.16.255.252
-      dyn_dns_entry: "ingress-primary"
       network_k8s_ip: 172.20.0.2
       network_gateway_role: primary
       network_dhcp_role: primary

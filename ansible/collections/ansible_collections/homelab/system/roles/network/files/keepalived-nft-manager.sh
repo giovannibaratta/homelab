@@ -53,21 +53,25 @@ case "$STATE" in
     "master")
         execute_command "${FLUSH_COMMAND}"
         execute_command "/usr/sbin/nft -f ${NFT_MASTER_RULES}"
+        execute_command "/usr/bin/systemctl start ddclient"
         ;;
     "backup"|"fault"|"vrrp_stop")
         execute_command "${FLUSH_COMMAND}"
         execute_command "/usr/sbin/nft -f ${NFT_BACKUP_RULES}"
+        execute_command "/usr/bin/systemctl stop ddclient"
         ;;
     "startup")
         # At startup, we assume a safe "backup" state
         log_message "Keepalived daemon starting. Loading default (backup) rules."
         execute_command "${FLUSH_COMMAND}"
         execute_command "/usr/sbin/nft -f ${NFT_BACKUP_RULES}"
+        execute_command "/usr/bin/systemctl stop ddclient"
         ;;
     "shutdown")
         # When the daemon stops, we clean up the rules completely
         log_message "Keepalived daemon shutting down. Flushing rules."
         execute_command "${FLUSH_COMMAND}"
+        execute_command "/usr/bin/systemctl stop ddclient"
         ;;
     *)
         log_message "ERROR: Unknown state '${STATE}' received. Doing nothing."

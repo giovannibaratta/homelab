@@ -105,8 +105,12 @@
 - name: Trigger Handlers for ddclient
   ansible.builtin.meta: flush_handlers
 
+# We keep the service stopped and disabled by default because it is 
+# dynamically managed by the keepalived-nft-manager.sh script.
+# Only the node in the "master" state will run ddclient to update the 
+# shared DNS record.
 - name: Start ddclient
   ansible.builtin.systemd_service:
     name: ddclient
-    state: started
-    enabled: true
+    state: stopped
+    enabled: false
