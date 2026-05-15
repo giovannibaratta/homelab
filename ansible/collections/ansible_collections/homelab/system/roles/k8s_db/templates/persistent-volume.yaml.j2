@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-{{ __k8s_db_node_name }}-{{ __k8s_db_cluster_name }}
+spec:
+  capacity:
+    storage: {{ __k8s_db_storage_size }}
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  local:
+    path: {{ __k8s_db_storage_path }}
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          # Pin this volume to the specified node
+          - {{ __k8s_db_node_name }}

@@ -1,0 +1,38 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ __k8s_db_cluster_name }}
+  namespace: {{ k8s_db_cluster_namespace }}
+spec:
+  instances: 3
+
+  bootstrap:
+    initdb:
+      database: {{ __k8s_db_cluster_name }}
+      owner: {{ __k8s_db_db_user }}
+      secret:
+        name: {{ __k8s_db_secret_name }}
+
+  affinity:
+    podAntiAffinityType: required
+
+  storage:
+    size: {{ __k8s_db_storage_size }}
+    storageClass: local-storage
+
+  type: rw
+
+  serviceTemplate:
+    spec:
+      type: LoadBalancer
+
+  managed:
+    services:
+      disabledDefaultServices: ["ro", "r"]
+      additional:
+        - selectorType: rw
+          serviceTemplate:
+            metadata:
+              name: "{{ __k8s_db_cluster_name }}-lb"
+            spec:
+              type: LoadBalancer

@@ -1,0 +1,16 @@
+---
+# Download and apply manifest
+- name: CloudNativePG | Download metrics-server manifest to the cluster.
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/releases/cnpg-1.29.0-rc1.yaml
+    dest: ~/cloud-native-pg.yaml
+    mode: "0600"
+
+- name: CloudNativePG | Apply operator manifest to the cluster.
+  kubernetes.core.k8s:
+    state: present
+    src: ~/cloud-native-pg.yaml
+    apply: true
+    force: true
+    server_side_apply:
+      field_manager: ansible-cloudnativepg
