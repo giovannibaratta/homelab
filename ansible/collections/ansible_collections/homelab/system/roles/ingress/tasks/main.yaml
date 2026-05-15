@@ -336,7 +336,12 @@
         [Install]
         WantedBy=default.target
         [Unit]
+        StartLimitIntervalSec=0
         Requires=traefik-socket-proxy.service
+
+        [Service]
+        Restart=always
+        RestartSec=10s
   notify:
     - Reload systemd daemons for ingress role
     - Restart Traefik service
@@ -367,3 +372,29 @@
     name: traefik.service
     enabled: true
     state: started
+
+- name: Copy traefik health-check configuration
+  ansible.builtin.template:
+    src: health-check.yaml.j2
+    dest: /app/traefik/conf/dynamic/health-check.yaml
+    mode: "0600"
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
+    backup: yes
+  notify: Restart Traefik service
+
+- name: Deploy Ingress Health Check Script
+  ansible.builtin.template:
+    src: check-ingress-health.sh.j2
+    dest: /usr/local/bin/check-ingress-health.sh
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Setup Cron job for Ingress Health Check
+  ansible.builtin.cron:
+    name: "check-ingress-health"
+    job: "/usr/local/bin/check-ingress-health.sh --execute"
+    minute: "*/5"
+    user: root
+    state: present

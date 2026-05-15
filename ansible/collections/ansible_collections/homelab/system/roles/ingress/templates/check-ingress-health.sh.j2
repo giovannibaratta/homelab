@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+#
+# Ingress Health Check & Self-Healing Script
+#
+# This script verifies the health of Traefik and the ModSecurity WAF.
+# By default, it only audits/logs failures. Use --execute to trigger restarts.
+
+LOG_TAG="ingress-health"
+EXECUTE=false
+MAX_RETRIES=3
+RETRY_DELAY=60
+
+# Parse arguments
+for arg in "$@"; do
+  case $arg in
+    --execute)
+      EXECUTE=true
+      shift
+      ;;
+  esac
+done
+
+log() {
+    logger -t "$LOG_TAG" "$1"
+    echo "[$LOG_TAG] $1"
+}
+
+check_services() {
+    local services=("traefik.service" "modsecurity-waf.service" "traefik-socket-proxy.service" "waf-dummy.service")
+    for svc in "${services[@]}"; do
+        if ! systemctl is-active --quiet "$svc"; then
+            log "CRITICAL: Service $svc is not active."
+            return 1
+        fi
+        log "INFO: Service $svc is active."
+    done
+    return 0
+}
+
+check_waf_direct() {
+    # Check if the WAF is responding directly on localhost:18080
+    if ! curl -s -f --max-time 5 http://localhost:18080 > /dev/null; then
+        log "CRITICAL: WAF direct health check failed (localhost:18080)."
+        return 1
+    fi
+    log "INFO: WAF direct health check passed."
+    return 0
+}
+
+check_traefik_proxy() {
+    # Check if Traefik is proxying correctly through the whole stack
+    # Using -k because certificates might be internal/self-signed for this specific host
+    if ! curl -s -f -k --max-time 10 -H "Host: health-check.{{ internal_domain }}" https://localhost:8443 > /dev/null; then
+        log "CRITICAL: Traefik full-stack health check failed (https://localhost:8443)."
+        return 1
+    fi
+    log "INFO: Traefik full-stack health check passed."
+    return 0
+}
+
+perform_checks() {
+    check_services || return 1
+    check_waf_direct || return 1
+    check_traefik_proxy || return 1
+    return 0
+}
+
+# --- Main Logic ---
+
+log "Starting ingress health check..."
+
+if perform_checks; then
+    log "SUCCESS: All ingress health checks passed."
+    exit 0
+fi
+
+# If we reached here, something failed.
+if [ "$EXECUTE" = false ]; then
+    log "AUDIT MODE: Failures detected but no action taken. Use --execute to enable self-healing."
+    exit 1
+fi
+
+# Retry logic for self-healing
+log "Failures detected. Starting retry sequence (up to $MAX_RETRIES attempts)..."
+
+for ((i=1; i<=MAX_RETRIES; i++)); do
+    log "Retry $i/$MAX_RETRIES..."
+    sleep "$RETRY_DELAY"
+    if perform_checks; then
+        log "SUCCESS: Health restored after $i retries."
+        exit 0
+    fi
+done
+
+log "CRITICAL: Health check failed after $MAX_RETRIES retries. Triggering full stack restart."
+
+# Restarting the whole stack
+# We restart them in order of dependency
+systemctl restart waf-dummy.service
+systemctl restart modsecurity-waf.service
+systemctl restart traefik-socket-proxy.service
+systemctl restart traefik.service
+
+log "Stack restart triggered. Check system logs for outcome."
+exit 1

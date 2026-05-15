@@ -21,12 +21,3 @@
     weekday: "{{ system_update_day if system_update_day != 'never' else omit }}"
     state: "{{ 'absent' if system_update_day == 'never' else 'present' }}"
     user: root
-
-- name: Reboot Traefik
-  ansible.builtin.cron:
-    name: reboot-traefik
-    job: systemctl restart traefik
-    minute: "00"
-    hour: "*/1"
-    state: present
-    user: root

@@ -1,0 +1,23 @@
+# Internal Health Check Router
+# Used by the check-ingress-health.sh script to verify the entire proxy stack
+
+http:
+  routers:
+    health-check:
+      rule: "Host(`health-check.{{ internal_domain }}`)"
+      entryPoints:
+        - web
+        - websecure
+      service: waf-dummy-svc
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - rateLimit@file
+        - inFlightReq@file
+        - waf@file
+
+  services:
+    waf-dummy-svc:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:18080"
