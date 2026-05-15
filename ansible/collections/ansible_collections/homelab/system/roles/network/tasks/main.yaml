@@ -65,10 +65,10 @@
     state: present
     reload: true
   with_items:
-  - { name: 'net.ipv4.conf.all.arp_ignore', value: '1' }
-  - { name: 'net.ipv4.conf.default.arp_ignore', value: '1' }
-  - { name: 'net.ipv4.conf.all.arp_announce', value: '2' }
-  - { name: 'net.ipv4.conf.default.arp_announce', value: '2' }
+    - { name: "net.ipv4.conf.all.arp_ignore", value: "1" }
+    - { name: "net.ipv4.conf.default.arp_ignore", value: "1" }
+    - { name: "net.ipv4.conf.all.arp_announce", value: "2" }
+    - { name: "net.ipv4.conf.default.arp_announce", value: "2" }
 
 - name: Network | Create bridge
   ansible.builtin.template:
@@ -121,7 +121,6 @@
     backup: true
   notify:
     - Restart NetworkManager service
-
 
 - name: Network | Create managed devices
   ansible.builtin.copy:
@@ -232,7 +231,7 @@
     - name: Enable IP forwarding
       ansible.posix.sysctl:
         name: net.ipv4.ip_forward
-        value: '1'
+        value: "1"
         sysctl_file: /etc/sysctl.d/20-ip-forward.conf
         state: present
         reload: true
@@ -306,10 +305,10 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: '0700'
+    mode: "0700"
   with_items:
-  - "{{ __uptime_robot_dir }}"
-  - "{{ __uptime_robot_dir }}/ip-lists"
+    - "{{ __uptime_robot_dir }}"
+    - "{{ __uptime_robot_dir }}/ip-lists"
 
 - name: Network | UptimeRobot facts
   ansible.builtin.set_fact:
@@ -319,14 +318,14 @@
   ansible.builtin.copy:
     content: ""
     dest: "{{ __uptime_robot_ntf_ips_file }}"
-    force: no   # Do not overwrite if the file already exists
-    mode: '0600'
+    force: no # Do not overwrite if the file already exists
+    mode: "0600"
 
 - name: Network | Deploy UptimeRobot IP updater script
   ansible.builtin.template:
     src: update-uptime-robots-ips.sh.j2
     dest: "{{ __uptime_robot_dir }}/update-uptimerobot-ips.sh"
-    mode: '0700'
+    mode: "0700"
 
 - name: Network | Execute script to populate IPs initially
   ansible.builtin.command: "{{ __uptime_robot_dir }}/update-uptimerobot-ips.sh"
@@ -379,7 +378,7 @@
 
 - name: Dynamic DNS
   ansible.builtin.import_tasks: configure-dyn-dns.yaml
-  when: network_is_router and dyn_dns_entry is defined
+  when: network_is_router
 
 - name: Configure VRRP
   ansible.builtin.import_tasks: vrrp.yaml
