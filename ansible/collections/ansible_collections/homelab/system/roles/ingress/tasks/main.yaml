@@ -298,6 +298,16 @@
     backup: yes
   notify: Restart Traefik service
 
+- name: Copy traefik k8s routing configuration
+  ansible.builtin.template:
+    src: k8s-routing.yaml.j2
+    dest: /app/traefik/conf/dynamic/k8s-routing.yaml
+    mode: "0600"
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
+    backup: yes
+  notify: Restart Traefik service
+
 - name: Create Traefik Quadlet
   containers.podman.podman_container:
     name: traefik

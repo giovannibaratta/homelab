@@ -13,6 +13,10 @@ home:
     k8s_cp_network: 172.20.0.0
     k8s_cp_netmask: 16
     k8s_lb_network: 172.16.184.0/24
+    k8s_ingress_lb_ip: "172.16.184.10"
+    # Provide only the sub-domain prefix. They will be suffixed with .{{ internal_domain }}
+    k8s_public_domains: [""]
+    k8s_internal_domains: []
     ##### END Required for first setup #####
     ##### Deployment preferences defaults to false for safety #####
     deploy_grafana: false

@@ -1,0 +1,27 @@
+ports:
+  web:
+    port: 8000
+    expose:
+      default: true
+    exposedPort: 80
+  websecure:
+    port: 8443
+    expose:
+      default: false
+
+service:
+  type: LoadBalancer
+  spec:
+    loadBalancerIP: "{{ k8s_ingress_lb_ip }}"
+
+providers:
+  kubernetesCRD:
+    enabled: true
+    allowCrossNamespace: true
+  kubernetesIngress:
+    enabled: true
+    allowExternalNameServices: true
+
+ingressClass:
+  enabled: true
+  isDefaultClass: true

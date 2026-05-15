@@ -1,0 +1,35 @@
+---
+- name: Kubernetes Ingress | Check if Helm is installed
+  ansible.builtin.command: helm version
+  register: helm_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Kubernetes Ingress | Install Helm
+  ansible.builtin.shell: |
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  when: helm_check.rc != 0
+
+- name: Kubernetes Ingress | Add Traefik Helm repository
+  kubernetes.core.helm_repository:
+    name: traefik
+    repo_url: "https://traefik.github.io/charts"
+
+- name: Kubernetes Ingress | Ensure traefik namespace exists
+  kubernetes.core.k8s:
+    name: traefik
+    api_version: v1
+    kind: Namespace
+    state: present
+  run_once: true
+
+- name: Kubernetes Ingress | Deploy Traefik via Helm
+  kubernetes.core.helm:
+    name: traefik
+    chart_ref: traefik/traefik
+    chart_version: "{{ k8s_ingress_traefik_chart_version }}"
+    release_namespace: traefik
+    update_repo_cache: yes
+    state: present
+    values: "{{ lookup('template', 'values.yaml.j2') | from_yaml }}"
+  run_once: true

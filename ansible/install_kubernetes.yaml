@@ -9,7 +9,7 @@
         state: directory
         owner: root
         group: root
-        mode: '0700'
+        mode: "0700"
 
 - name: Install Kubernetes
   ansible.builtin.import_playbook: kubernetes_sigs.kubespray.cluster
@@ -19,22 +19,30 @@
     access_ip: "{{ network_k8s_ip }}"
   tags: k8s
 
-
 - name: Customize K8s control plane networking
   hosts: kube_control_plane
   become: yes
 
   tasks:
-  - name: Kubernetes | Deploy CiliumL2AnnouncementPolicy policy
-    run_once: true
-    kubernetes.core.k8s:
-      state: present
-      definition:
-        apiVersion: "cilium.io/v2alpha1"
-        kind: CiliumL2AnnouncementPolicy
-        metadata:
-          name: default
-        spec:
-          interfaces:
-          - k8s-cp
-          loadBalancerIPs: true
+    - name: Kubernetes | Deploy CiliumL2AnnouncementPolicy policy
+      run_once: true
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: "cilium.io/v2alpha1"
+          kind: CiliumL2AnnouncementPolicy
+          metadata:
+            name: default
+          spec:
+            interfaces:
+              - k8s-cp
+            loadBalancerIPs: true
+- name: Deploy Kubernetes Ingress
+  hosts: kube_control_plane
+  become: yes
+
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.system.k8s_ingress
+      tags: k8s-ingress
+
