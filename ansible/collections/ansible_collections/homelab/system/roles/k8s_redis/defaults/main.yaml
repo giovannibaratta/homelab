@@ -1,0 +1,17 @@
+---
+k8s_redis_namespace: redis-system
+k8s_redis_operator_version: "0.24.0"
+k8s_redis_image: "quay.io/opstree/redis:v8.6.1"
+k8s_redis_sentinel_image: "quay.io/opstree/redis-sentinel:v8.6.1"
+k8s_redis_cluster_version: v7 # Supports v6, v7. v7 is generally used for 7.x+
+
+# Resource Defaults
+k8s_redis_requests_cpu: 100m
+k8s_redis_requests_memory: 256Mi
+k8s_redis_limits_cpu: 500m
+k8s_redis_limits_memory: 512Mi
+
+# Redis Internal Config
+# It's recommended to set maxmemory slightly lower than the K8s limit (e.g. 70-80%)
+# to allow for overhead (buffers, OS, etc)
+k8s_redis_maxmemory: "400mb" 

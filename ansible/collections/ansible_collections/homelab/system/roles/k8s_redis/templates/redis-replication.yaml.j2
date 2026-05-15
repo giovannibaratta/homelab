@@ -1,0 +1,50 @@
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: RedisReplication
+metadata:
+  name: {{ __k8s_redis_cluster_name }}
+  namespace: {{ k8s_redis_namespace }}
+# RedisReplication defines a traditional Master/Slave setup.
+# 'clusterSize' here refers to the total number of data nodes (1 Leader + N-1 Followers).
+spec:
+  clusterSize: {{ __k8s_redis_cluster_size }}
+  # podSecurityContext and securityContext are explicitly defined to satisfy
+  # the Kubernetes 'baseline' and 'restricted' security standards.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  kubernetesConfig:
+    image: "{{ k8s_redis_image }}"
+    imagePullPolicy: IfNotPresent
+    redisSecret:
+      name: {{ __k8s_redis_secret_name }}
+      key: password
+    resources:
+      requests:
+        cpu: "{{ k8s_redis_requests_cpu }}"
+        memory: "{{ k8s_redis_requests_memory }}"
+      limits:
+        cpu: "{{ k8s_redis_limits_cpu }}"
+        memory: "{{ k8s_redis_limits_memory }}"
+  redisConfig:
+    maxmemory: "{{ k8s_redis_maxmemory }}"
+    maxmemory-policy: "allkeys-lru"
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "local-storage"
+        resources:
+          requests:
+            storage: {{ __k8s_redis_storage_size }}

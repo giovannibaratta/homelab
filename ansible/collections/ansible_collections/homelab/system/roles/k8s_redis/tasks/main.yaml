@@ -1,0 +1,115 @@
+---
+- name: CloudNativeRedis | Deploy Opstree Redis Operator
+  ansible.builtin.import_tasks: deploy_operator.yaml
+  run_once: true
+
+- name: CloudNativeRedis | Validate k8s_redis_clusters configuration
+  run_once: true
+  block:
+    - name: CloudNativeRedis | Ensure k8s_redis_clusters is defined and is a list
+      ansible.builtin.assert:
+        that:
+          - k8s_redis_clusters is defined
+          - k8s_redis_clusters | type_debug == 'list'
+        fail_msg: "The variable 'k8s_redis_clusters' must be defined as a list."
+
+    - name: CloudNativeRedis | Validate that all cluster names are unique
+      ansible.builtin.assert:
+        that:
+          - (k8s_redis_clusters | map(attribute='name') | unique | length) == (k8s_redis_clusters | length)
+        fail_msg: "Cluster names in 'k8s_redis_clusters' must be unique!"
+
+    - name: CloudNativeRedis | Validate name, storage_size, and mode for each cluster
+      ansible.builtin.assert:
+        that:
+          # --- Name Validations ---
+          - item.name is defined
+          - item.name | length > 0
+          - item.name | length <= 20
+          - item.name is match('^[a-zA-Z0-9]+[a-zA-Z0-9-]*[a-zA-Z0-9]$')
+
+          # --- Storage Size Validations ---
+          - item.storage_size is defined
+          - "'G' in item.storage_size"
+          - (item.storage_size | regex_replace('[a-zA-Z]', '') | int) > 0
+          - (item.storage_size | regex_replace('[a-zA-Z]', '') | int) < 50
+
+          # --- Mode Validations ---
+          - item.mode is defined
+          - item.mode in ['cluster', 'standalone', 'replication']
+
+          # --- Cluster Size Validations ---
+          - (item.mode == 'standalone') or (item.mode in ['cluster', 'replication'] and item.cluster_size is defined and item.cluster_size >= 3)
+        fail_msg: >
+          Validation failed for cluster '{{ item.name | default("unknown") }}'.
+          Rules:
+          1. Name must be 1-20 characters long and contain ONLY alphanumeric characters.
+          2. Storage size must include 'G' or 'Gi', and be strictly > 0 and < 50.
+          3. Mode must be 'cluster', 'standalone', or 'replication'.
+          4. If mode is 'cluster' or 'replication', cluster_size must be >= 3.
+      loop: "{{ k8s_redis_clusters }}"
+
+# We use local storage pinned to nodes for high performance and low complexity in the homelab.
+# This task ensures that the physical directories exist on each node before the PVs are created.
+- name: CloudNativeRedis | Create local storage directories on each node for each cluster
+  when: "'kube_node' in group_names"
+  ansible.builtin.file:
+    path: "/app/k8s-redis-{{ item[0].name }}-{{ item[1] }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  loop: "{{ k8s_redis_clusters | product([0, 1]) | list }}"
+
+# We provision 2 PVs per node ([0, 1]) to support setups where multiple Redis pods (e.g., Master and Replica)
+# might end up on the same physical node in a 3-node cluster.
+- name: CloudNativeRedis | Render and apply local Persistent Volumes for all clusters across all nodes
+  run_once: true
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'persistent-volume.yaml.j2') | from_yaml }}"
+  loop: "{{ k8s_redis_clusters | product(groups['kube_node']) | product([0, 1]) | map('flatten') | list }}"
+  vars:
+    __k8s_redis_node_name: "{{ item[1] }}"
+    __k8s_redis_index: "{{ item[2] }}"
+    __k8s_redis_storage_size: "{{ item[0].storage_size }}"
+    __k8s_redis_storage_path: "/app/k8s-redis-{{ item[0].name }}-{{ __k8s_redis_index }}"
+    __k8s_redis_cluster_name: "{{ item[0].name }}-{{ __k8s_redis_index }}"
+
+- name: CloudNativeRedis | Create database credentials secret for each cluster
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'credentials.yaml.j2') | from_yaml }}"
+  loop: "{{ k8s_redis_clusters }}"
+  run_once: true
+  vars:
+    __k8s_redis_cluster_name: "{{ item.name }}"
+    __k8s_redis_password: "{{ item.password }}"
+    __k8s_redis_secret_name: "{{ __k8s_redis_cluster_name }}-credentials"
+
+# In 'replication' mode, Opstree requires two separate resources: 
+# 1. RedisReplication (Data nodes: 1 Leader + N Followers)
+# 2. RedisSentinel (Failover management: 3 Sentinel pods)
+- name: CloudNativeRedis | Render and apply Redis Custom Resource for each cluster
+  run_once: true
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'redis-' + item.mode + '.yaml.j2') | from_yaml }}"
+  loop: "{{ k8s_redis_clusters }}"
+  vars:
+    __k8s_redis_cluster_name: "{{ item.name }}"
+    __k8s_redis_storage_size: "{{ item.storage_size }}"
+    __k8s_redis_secret_name: "{{ __k8s_redis_cluster_name }}-credentials"
+    __k8s_redis_cluster_size: "{{ item.cluster_size | default(3) }}"
+
+- name: CloudNativeRedis | Render and apply Redis Sentinel for replication clusters
+  run_once: true
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'redis-sentinel.yaml.j2') | from_yaml }}"
+  loop: "{{ k8s_redis_clusters }}"
+  when: item.mode == 'replication'
+  vars:
+    __k8s_redis_cluster_name: "{{ item.name }}"
+    __k8s_redis_secret_name: "{{ __k8s_redis_cluster_name }}-credentials"
+    __k8s_redis_cluster_size: "{{ item.cluster_size | default(3) }}"

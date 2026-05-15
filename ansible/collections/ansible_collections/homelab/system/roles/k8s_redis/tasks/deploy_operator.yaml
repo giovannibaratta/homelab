@@ -1,0 +1,55 @@
+---
+- name: CloudNativeRedis | Ensure the operator namespace exists
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ k8s_redis_namespace }}"
+    state: present
+    definition:
+      metadata:
+        labels:
+          # We use 'baseline' instead of 'restricted' because the current Opstree Redis Operator
+          # does not yet support injecting container-level securityContext (allowPrivilegeEscalation, etc.)
+          # into the managed Redis pods, which would cause a 'Forbidden' error under 'restricted'.
+          pod-security.kubernetes.io/enforce: baseline
+          pod-security.kubernetes.io/enforce-version: latest
+  run_once: true
+
+- name: CloudNativeRedis | Add Opstree Helm Repository
+  kubernetes.core.helm_repository:
+    name: ot-helm
+    repo_url: "https://ot-container-kit.github.io/helm-charts/"
+    force_update: true
+  run_once: true
+
+- name: CloudNativeRedis | Install Redis Operator
+  kubernetes.core.helm:
+    name: redis-operator
+    chart_ref: ot-helm/redis-operator
+    release_namespace: "{{ k8s_redis_namespace }}"
+    chart_version: "{{ k8s_redis_operator_version }}"
+    state: present
+    create_namespace: false
+    values:
+      # Disable webhook if cert-manager is not used, otherwise requires cert-manager
+      webhook: false
+      certmanager:
+        enabled: false
+      # Pod security context for the operator
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      # Container security context for the operator
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+  run_once: true

@@ -1,0 +1,42 @@
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: RedisSentinel
+metadata:
+  name: {{ __k8s_redis_cluster_name }}-sentinel
+  namespace: {{ k8s_redis_namespace }}
+# RedisSentinel provides high availability and automatic failover for RedisReplication.
+# It monitors the Leader and promotes a Follower if the Leader fails.
+spec:
+  clusterSize: {{ __k8s_redis_cluster_size }}
+  # Standard security hardening for the Sentinel pods.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+    runAsUser: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  redisSentinelConfig:
+    redisReplicationName: {{ __k8s_redis_cluster_name }}
+    redisReplicationPassword:
+      secretKeyRef:
+        name: {{ __k8s_redis_secret_name }}
+        key: password
+  kubernetesConfig:
+    # Opstree provides a sentinel-specific image
+    image: "{{ k8s_redis_sentinel_image }}"
+    imagePullPolicy: IfNotPresent
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "100m"
+        memory: "128Mi"
