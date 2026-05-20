@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # 1. Get the list of failed services matching the pattern
-# Pattern: -[64 hex]-[16 hex].service
+# Pattern: [64 hex]-[16 hex].service
 # This matches Podman healthcheck transient services
-FAILED_UNITS=$(systemctl list-units --state=failed --no-legend --plain | awk '{print $1}' | grep -E '^-[0-9a-f]{64}-[0-9a-f]{16}\.service$')
+FAILED_UNITS=$(systemctl list-units --state=failed --no-legend --plain | awk '{print $1}' | grep -E '^[0-9a-f]{64}-[0-9a-f]{16}\.service$')
 
 if [ -z "$FAILED_UNITS" ]; then
     echo "No failed units, exiting"
