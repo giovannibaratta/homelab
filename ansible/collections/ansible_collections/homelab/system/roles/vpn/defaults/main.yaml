@@ -38,5 +38,6 @@ vpn_netbird_coturn_container_user: netbirdcoturn
 vpn_netbird_coturn_conf_dir: /app/netbird-coturn/conf
 vpn_netbird_coturn_cert_dir: /app/netbird-coturn/certs
 vpn_protonvpn_container_user: protonvpn
-vpn_protonvpn_version: 7.5.3
+# Available versions https://hub.docker.com/r/qmcgaw/gluetun/tags
+vpn_protonvpn_version: v3.41.1
 vpn_protonvpn_conf_dir: /app/protonvpn/conf

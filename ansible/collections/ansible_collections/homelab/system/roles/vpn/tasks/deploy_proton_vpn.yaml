@@ -59,7 +59,7 @@
   containers.podman.podman_container:
     name: protonvpn
     state: quadlet
-    image: docker.io/qmcgaw/gluetun:latest
+    image: docker.io/qmcgaw/gluetun:{{ vpn_protonvpn_version }}
     env_file: "{{ vpn_protonvpn_conf_dir }}/protonvpn.env"
     recreate: true
     network: protonvpn
