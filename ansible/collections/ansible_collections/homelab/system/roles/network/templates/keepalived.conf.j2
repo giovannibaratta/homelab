@@ -11,6 +11,13 @@ global_defs {
    shutdown_script "/etc/keepalived/keepalived-nft-manager.sh shutdown"
 }
 
+vrrp_script check_ddclient {
+    script "/etc/keepalived/check-ddclient.sh"
+    interval 30
+    timeout 5
+    user root
+}
+
 vrrp_instance VI_1 {
     interface {{ bridge_name }}
     virtual_router_id {{ vrrp_virtual_router_id }}
@@ -32,4 +39,8 @@ vrrp_instance VI_1 {
     notify_backup "/etc/keepalived/keepalived-nft-manager.sh backup"
     notify_fault "/etc/keepalived/keepalived-nft-manager.sh fault"
     notify_stop "/etc/keepalived/keepalived-nft-manager.sh vrrp_stop"
+
+    track_script {
+        check_ddclient
+    }
 }

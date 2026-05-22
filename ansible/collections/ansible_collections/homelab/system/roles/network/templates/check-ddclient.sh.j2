@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#
+# Check if the node is VRRP Master by checking if the VIP is assigned to the bridge interface.
+# If it is the master, ensure that the primary ddclient service is running.
+# If it is a backup, ensure that the primary ddclient service is stopped.
+#
+
+VIP="{{ network_gateway_virtual_ip }}"
+INTERFACE="{{ bridge_name }}"
+
+if ip addr show dev "$INTERFACE" | grep -q "$VIP"; then
+    # We are Master!
+    if ! systemctl is-active --quiet ddclient; then
+        logger -p daemon.warn -t "keepalived-ddclient-check" "Node is Master but ddclient service is not active. Restarting."
+        systemctl restart ddclient
+    fi
+else
+    # We are Backup!
+    if systemctl is-active --quiet ddclient; then
+        logger -p daemon.info -t "keepalived-ddclient-check" "Node is Backup but ddclient service is active. Stopping."
+        systemctl stop ddclient
+    fi
+fi

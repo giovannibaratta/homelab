@@ -17,6 +17,14 @@
     group: root
     mode: "0700"
 
+- name: Copy VRRP ddclient check script
+  ansible.builtin.template:
+    src: check-ddclient.sh.j2
+    dest: /etc/keepalived/check-ddclient.sh
+    owner: root
+    group: root
+    mode: "0700"
+
 - name: Configure keepalived
   ansible.builtin.template:
     src: keepalived.conf.j2

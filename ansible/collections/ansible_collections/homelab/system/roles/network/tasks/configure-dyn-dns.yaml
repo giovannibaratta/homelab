@@ -17,6 +17,8 @@
   with_items:
     - "{{ ddclient_conf_dir }}"
     - "{{ ddclient_work_dir }}"
+    - "{{ ddclient_node_conf_dir }}"
+    - "{{ ddclient_node_work_dir }}"
 
 - name: Create ddclient network Quadlet
   containers.podman.podman_network:
@@ -102,6 +104,58 @@
     - Reload systemd daemons for network role
     - Restart ddclient service
 
+- name: Copy ddclient-node.conf file
+  ansible.builtin.template:
+    src: ddclient.conf.j2
+    dest: "{{ ddclient_node_work_dir }}/ddclient.conf"
+    mode: "0600"
+    owner: "{{ ddclient_container_user }}"
+    group: "{{ ddclient_container_user }}"
+  vars:
+    network_dyn_dns_entry: "{{ inventory_hostname }}"
+  notify:
+    - Restart ddclient-node service
+
+- name: Copy ddclient-node.env file
+  ansible.builtin.template:
+    src: ddclient.env.j2
+    dest: "{{ ddclient_node_conf_dir }}/ddclient.env"
+    mode: "0640"
+  notify:
+    - Restart ddclient-node service
+
+- name: Create ddclient-node Quadlet
+  containers.podman.podman_container:
+    name: ddclient-node
+    state: quadlet
+    image: giovannibaratta/ddclient:{{ ddclient_version }}
+    env_file: "{{ ddclient_node_conf_dir }}/ddclient.env"
+    recreate: true
+    network: ddclient
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    volumes: "{{ ddclient_node_work_dir }}:/config"
+    uidmap:
+      - 0:4000000000:1000
+      - 1000:{{ ddclient_container_user_result.uid }}:1
+      - 1001:4000001001:100000
+    gidmap:
+      - 0:4000000000:100000
+      - +1000:@{{ ddclient_container_user_result.group }}:1
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+        [Unit]
+        StartLimitIntervalSec=0
+        [Service]
+        Restart=always
+        RestartSec=60s
+  notify:
+    - Reload systemd daemons for network role
+    - Restart ddclient-node service
+
 - name: Trigger Handlers for ddclient
   ansible.builtin.meta: flush_handlers
 
@@ -114,3 +168,9 @@
     name: ddclient
     state: stopped
     enabled: false
+
+- name: Start ddclient-node
+  ansible.builtin.systemd_service:
+    name: ddclient-node
+    state: started
+    enabled: true
