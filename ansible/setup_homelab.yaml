@@ -127,6 +127,14 @@
         - first-setup
         - containers
 
+    - name: Prepare hosts for Piraeus Datastore
+      ansible.builtin.import_role:
+        name: homelab.system.k8s_piraeus_node
+      become: true
+      tags:
+        - first-setup
+        - storage-host
+
     - ansible.builtin.import_role:
         name: homelab.system.network
       become: true

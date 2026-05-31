@@ -1,0 +1,40 @@
+---
+- name: Piraeus Node | Configure LVM filter to block host hijacking of DRBD devices
+  ansible.builtin.template:
+    src: lvm.conf.j2
+    dest: /etc/lvm/lvm.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  register: lvm_config
+
+- name: Piraeus Node | Regenerate initramfs if LVM filter was updated
+  ansible.builtin.command: update-initramfs -u
+  become: true
+  when: lvm_config.changed
+
+- name: Piraeus Node | Blacklist DRBD devices in multipathd
+  ansible.builtin.template:
+    src: multipath.conf.j2
+    dest: /etc/multipath.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  register: multipath_config
+
+- name: Piraeus Node | Check if multipathd is installed
+  ansible.builtin.command: systemctl list-unit-files multipathd.service
+  register: multipathd_check
+  changed_when: false
+  failed_when: false
+
+- name: Piraeus Node | Reload multipathd
+  ansible.builtin.systemd:
+    name: multipathd
+    state: reloaded
+  become: true
+  when:
+    - multipath_config.changed
+    - "'multipathd.service' in multipathd_check.stdout"

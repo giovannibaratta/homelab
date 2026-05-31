@@ -1,0 +1,18 @@
+# Dynamically managed by Ansible for Piraeus Datastore / DRBD
+#
+# WHY THIS LVM FILTER CONFIGURATION IS REQUIRED:
+# Linstor dynamically provisions DRBD block devices on top of LVM Thin Logical Volumes (LVs).
+# If the host LVM tools scan these DRBD virtual devices (or the loopback/raw devices used for the PVs),
+# the host system might detect and automatically activate physical volumes or volume groups located
+# *inside* the DRBD virtual block devices. This leads to critical device-locking issues,
+# metadata corruption, split-brain scenarios in DRBD, and cluster-wide resource deadlocks.
+#
+# By applying this filter, we explicitly instruct LVM on the host to:
+# 1. Accept only DRBD virtual devices ("a|/dev/drbd.*|") for storage layer mounting.
+# 2. Reject/ignore the backing physical storage device ("r|{{ linstor_loop_device }}|" or raw disk) from host scans to prevent metadata clashes.
+# 3. Accept all other standard host physical drives ("a|.*|") to allow the host OS to function normally.
+
+devices {
+    filter = [ "a|/dev/drbd.*|", "r|{{ linstor_loop_device }}|", {% if not linstor_use_loopback and linstor_raw_disk_device %}"r|{{ linstor_raw_disk_device }}|",{% endif %} "a|.*|" ]
+    write_cache_state = 0
+}

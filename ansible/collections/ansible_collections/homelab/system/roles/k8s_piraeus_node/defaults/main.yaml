@@ -1,0 +1,10 @@
+---
+# Default settings for Piraeus storage node preparation
+linstor_node_enabled: true
+linstor_use_loopback: true
+linstor_backing_file_path: /var/local/piraeus/linstor-backing.img
+linstor_backing_file_size_mb: 51200 # 50 GB
+linstor_loop_device: /dev/loop100
+linstor_volume_group: linstor_vg
+linstor_thin_pool: thin_pool
+linstor_raw_disk_device: "" # Used if linstor_use_loopback is false

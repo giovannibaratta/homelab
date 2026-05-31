@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  author: Giovanni Baratta
+  description: Prepares Kubernetes host nodes for Piraeus Datastore / Linstor storage backend, setting up persistent loopbacks, LVM-Thin pools, and device scanning filters.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+dependencies: []

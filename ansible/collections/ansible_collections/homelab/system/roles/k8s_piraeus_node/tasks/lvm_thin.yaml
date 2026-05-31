@@ -1,0 +1,16 @@
+---
+- name: Piraeus Node | Create Volume Group
+  community.general.lvg:
+    vg: "{{ linstor_volume_group }}"
+    pvs: "{{ linstor_loop_device if linstor_use_loopback else linstor_raw_disk_device }}"
+  become: true
+
+- name: Piraeus Node | Create Thin Pool within Volume Group
+  community.general.lvol:
+    vg: "{{ linstor_volume_group }}"
+    lv: "{{ linstor_thin_pool }}"
+    # We allocate 90% of the VG to the thin pool. The remaining 10% is left
+    # unallocated, which is required by LVM for metadata allocation and snapshots.
+    size: 90%VG
+    opts: "--thinpool {{ linstor_thin_pool }}"
+  become: true

@@ -32,6 +32,8 @@ home:
     deploy_netbird: false
     deploy_adguard: false
     #### Shared deployment variables #####
+    linstor_volume_group: linstor_vg
+    linstor_thin_pool: thin_pool
   hosts:
     node1:
       ansible_host: 172.16.255.251
@@ -73,6 +75,13 @@ home:
       auto_ansible_hour_schedule: "1"
       zigbee_usb_device: /dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03318564-if00-port0
       p2p_deploy_bitmagnet: false
+      ##### Storage Configuration (Piraeus / Linstor) #####
+      linstor_node_enabled: true
+      linstor_use_loopback: true
+      linstor_backing_file_size_mb: 51200
+      linstor_backing_file_path: /var/local/piraeus/linstor-backing.img
+      linstor_loop_device: /dev/loop100
+
 
     node2:
       ansible_host: 172.16.255.252
@@ -114,6 +123,13 @@ home:
 
       p2p_deploy_bitmagnet: true
       logging_enable_aws_cloudwatch: false
+      ##### Storage Configuration (Piraeus / Linstor) #####
+      linstor_node_enabled: true
+      linstor_use_loopback: true
+      linstor_backing_file_size_mb: 51200
+      linstor_backing_file_path: /app/piraeus/linstor-backing.img
+      linstor_loop_device: /dev/loop100
+
 
     node3:
       ansible_host: 172.16.255.253
@@ -149,6 +165,13 @@ home:
       vpn_deploy_relay_server: false
       auto_ansible_hour_schedule: "23"
       logging_enable_aws_cloudwatch: false
+      ##### Storage Configuration (Piraeus / Linstor) #####
+      linstor_node_enabled: true
+      linstor_use_loopback: true
+      linstor_backing_file_size_mb: 51200
+      linstor_backing_file_path: /var/local/piraeus/linstor-backing.img
+      linstor_loop_device: /dev/loop100
+
 
 kube_control_plane:
   hosts:

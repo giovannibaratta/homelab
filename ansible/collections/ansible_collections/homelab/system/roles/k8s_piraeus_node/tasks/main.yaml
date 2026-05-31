@@ -1,0 +1,18 @@
+---
+- name: Piraeus Node | Run prechecks
+  ansible.builtin.include_tasks: prechecks.yaml
+  when: linstor_node_enabled | default(true)
+
+- name: Piraeus Node | Configure loopback backing storage
+  ansible.builtin.include_tasks: loopback.yaml
+  when:
+    - linstor_node_enabled | default(true)
+    - linstor_use_loopback | default(true)
+
+- name: Piraeus Node | Configure LVM thin pooling
+  ansible.builtin.include_tasks: lvm_thin.yaml
+  when: linstor_node_enabled | default(true)
+
+- name: Piraeus Node | Configure host filters
+  ansible.builtin.include_tasks: filters.yaml
+  when: linstor_node_enabled | default(true)

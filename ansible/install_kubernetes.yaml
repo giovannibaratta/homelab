@@ -1,3 +1,13 @@
+---
+- name: Pre-tasks for Kubernetes installation
+  hosts: all
+
+  pre_tasks:
+    - ansible.builtin.import_role:
+        name: homelab.utils.render_variables
+      tags:
+        - always
+
 - name: Prepare custom etcd data directory
   hosts: etcd
   become: yes
@@ -37,6 +47,7 @@
             interfaces:
               - k8s-cp
             loadBalancerIPs: true
+
 - name: Deploy Kubernetes Ingress
   hosts: kube_control_plane
   become: yes
@@ -45,4 +56,13 @@
     - ansible.builtin.import_role:
         name: homelab.system.k8s_ingress
       tags: k8s-ingress
+
+- name: Deploy Piraeus K8s-Native Storage Solution
+  hosts: kube_control_plane
+  become: yes
+
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.system.k8s_piraeus
+      tags: k8s-storage
 
