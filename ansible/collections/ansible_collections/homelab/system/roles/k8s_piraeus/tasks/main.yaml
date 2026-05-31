@@ -1,0 +1,48 @@
+---
+- name: Piraeus K8s | Ensure namespace exists
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: piraeus-datastore
+    state: present
+  run_once: true
+
+- name: Piraeus K8s | Deploy Piraeus Operator Bundle via Kustomize
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('kubernetes.core.kustomize', dir=role_path + '/files') }}"
+  run_once: true
+
+- name: Piraeus K8s | Wait for Piraeus Operator to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: piraeus-operator-controller-manager
+    namespace: piraeus-datastore
+  register: operator_deploy
+  until:
+    - operator_deploy.resources is defined
+    - operator_deploy.resources | length > 0
+    - operator_deploy.resources[0].status.readyReplicas is defined
+    - operator_deploy.resources[0].status.readyReplicas == operator_deploy.resources[0].status.replicas
+  retries: 30
+  delay: 10
+  run_once: true
+
+- name: Piraeus K8s | Apply LinstorCluster configuration
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', 'linstor-cluster.yaml') | from_yaml }}"
+  run_once: true
+
+- name: Piraeus K8s | Apply LinstorSatelliteConfiguration for storagePools
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'satellite-config.yaml.j2') | from_yaml }}"
+  run_once: true
+
+- name: Piraeus K8s | Deploy CSI StorageClasses (RWO and RWX)
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', 'storage-classes.yaml') | from_yaml_all }}"
+  run_once: true

@@ -1,0 +1,34 @@
+---
+- name: Piraeus Node | Ensure backing directory exists for loopback file
+  ansible.builtin.file:
+    path: "{{ linstor_backing_file_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
+- name: Piraeus Node | Create pre-allocated sparse backing image file
+  ansible.builtin.command:
+    cmd: "dd if=/dev/zero of={{ linstor_backing_file_path }} bs=1M count=0 seek={{ linstor_backing_file_size_mb }}"
+    # Avoid rewriting the file if it already exists to protect existing data
+    creates: "{{ linstor_backing_file_path }}"
+  become: true
+
+- name: Piraeus Node | Configure persistent loopback systemd service
+  ansible.builtin.template:
+    src: linstor-loopback.service.j2
+    dest: /etc/systemd/system/linstor-loopback.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  register: loopback_service
+
+- name: Piraeus Node | Enable and start loopback service
+  ansible.builtin.systemd:
+    name: linstor-loopback
+    enabled: true
+    state: started
+    daemon_reload: "{{ loopback_service.changed }}"
+  become: true

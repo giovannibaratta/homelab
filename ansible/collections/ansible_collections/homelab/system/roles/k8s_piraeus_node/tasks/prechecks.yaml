@@ -1,0 +1,65 @@
+---
+- name: Piraeus Node | Verify UEFI SecureBoot state
+  ansible.builtin.command: mokutil --sb-state
+  register: secureboot_check
+  failed_when: false
+  changed_when: false
+
+- name: Piraeus Node | Fail if SecureBoot is enabled
+  ansible.builtin.fail:
+    msg: >
+      UEFI SecureBoot is enabled on {{ inventory_hostname }}.
+      Linstor/Piraeus requires loading the DRBD kernel module. Unsigned out-of-tree kernel modules will fail to load with SecureBoot active.
+      Please disable UEFI SecureBoot on this host before proceeding with the deployment.
+  when: 
+    - secureboot_check.stdout is defined
+    - "'SecureBoot enabled' in secureboot_check.stdout"
+
+- name: Piraeus Node | Validate backing file size limits
+  ansible.builtin.assert:
+    that:
+      - linstor_backing_file_size_mb | int <= 204800
+      - linstor_backing_file_size_mb | int >= 1024
+    fail_msg: "linstor_backing_file_size_mb ({{ linstor_backing_file_size_mb }} MB) must be between 1024 MB (1 GB) and 204800 MB (200 GB)."
+  when: linstor_use_loopback
+
+- name: Piraeus Node | Check existing backing file stats
+  ansible.builtin.stat:
+    path: "{{ linstor_backing_file_path }}"
+  register: backing_file_stat
+  when: linstor_use_loopback
+
+- name: Piraeus Node | Protect against shrinking backing file
+  ansible.builtin.assert:
+    that:
+      - backing_file_stat.stat.size <= (linstor_backing_file_size_mb | int * 1024 * 1024)
+    fail_msg: >
+      Shrinking the backing file is not allowed to prevent data loss!
+      Existing file size: {{ (backing_file_stat.stat.size / 1024 / 1024) | int }} MB,
+      Requested size: {{ linstor_backing_file_size_mb }} MB.
+  when:
+    - linstor_use_loopback
+    - backing_file_stat.stat.exists
+
+# NOTE: This check does NOT fail after the first bootstrap.
+# If the loop device is already associated with our correct backing file,
+# "linstor_backing_file_path" will be found in "loop_device_check.stdout",
+# which makes the condition "linstor_backing_file_path not in loop_device_check.stdout"
+# false, meaning the fail task is cleanly skipped (idempotency is preserved).
+- name: Piraeus Node | Check if loop device is already in use
+  ansible.builtin.command: "losetup {{ linstor_loop_device }}"
+  register: loop_device_check
+  failed_when: false
+  changed_when: false
+  become: true
+  when: linstor_use_loopback
+
+- name: Piraeus Node | Fail if loop device is used by another file
+  ansible.builtin.fail:
+    msg: >
+      The specified loop device {{ linstor_loop_device }} is already in use by another backing file: {{ loop_device_check.stdout }}.
+      Please configure a different loop device in your inventory.
+  when:
+    - linstor_use_loopback
+    - loop_device_check.rc == 0
+    - linstor_backing_file_path not in loop_device_check.stdout

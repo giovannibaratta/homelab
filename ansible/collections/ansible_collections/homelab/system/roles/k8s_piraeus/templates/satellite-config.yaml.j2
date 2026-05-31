@@ -1,0 +1,26 @@
+apiVersion: piraeus.io/v1
+kind: LinstorSatelliteConfiguration
+metadata:
+  name: thin-pool-config
+  namespace: piraeus-datastore
+spec:
+  # WHY HOST NETWORK IS ENABLED:
+  # By default, Linstor Satellite pods run within the virtual container pod network.
+  # When they attempt to establish DRBD block replication links across nodes, Kubernetes
+  # CNIs (like Calico/Cilium) apply Masquerade (Source NAT) to packets leaving the hosts.
+  # This rewrites the source IP of the replication packet from the Pod IP to the Host IP.
+  #
+  # DRBD on the receiving node actively rejects this connection because it expects the pure
+  # Pod IP (yielding: "drbd: Closing unexpected connection from <host-ip>").
+  #
+  # Setting hostNetwork: true forces Satellites to run in the host's network namespace,
+  # binding DRBD to the direct host physical IPs (e.g. 172.20.0.x). This completely bypasses
+  # CNI SNAT/masquerading, allowing replication links to successfully establish "Connected" states.
+  podTemplate:
+    spec:
+      hostNetwork: true
+  storagePools:
+    - name: thin-pool
+      lvmThinPool:
+        volumeGroup: {{ linstor_volume_group | default('linstor_vg') }}
+        thinPool: {{ linstor_thin_pool | default('thin_pool') }}

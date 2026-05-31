@@ -1,0 +1,14 @@
+[Unit]
+Description=Persistent Loopback device for Linstor Datastore
+DefaultDependencies=no
+After=systemd-udev-trigger.service systemd-modules-load.service
+Before=local-fs.target lvm2-monitor.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/losetup {{ linstor_loop_device }} {{ linstor_backing_file_path }}
+ExecStop=/sbin/losetup -d {{ linstor_loop_device }}
+
+[Install]
+WantedBy=multi-user.target

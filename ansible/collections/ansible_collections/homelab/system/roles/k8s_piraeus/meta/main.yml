@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  author: Giovanni Baratta
+  description: Deploys the Kubernetes-native Piraeus Operator, registers the LinstorCluster controller/satellite components, creates LinstorSatelliteConfiguration storage pools, and exposes CSI StorageClasses.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Kubernetes
+      versions:
+        - all
+dependencies: []
