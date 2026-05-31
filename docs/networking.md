@@ -2,6 +2,58 @@
 
 This document outlines the architecture of the homelab networking setup and how external traffic is routed to both standalone Podman containers and Kubernetes workflows.
 
+## Architecture Diagram
+
+```mermaid
+flowchart TD
+    %% External and Internal Sources
+    Internet((Internet))
+    InternalUser((Internal User))
+
+    %% Host Machine Boundary
+    subgraph Host[Host Router Node]
+        direction TB
+
+        %% Firewall Layer
+        subgraph Firewall[Firewall & NAT - nftables]
+            DNAT["DNAT 80/443 -> 9080/9443"]
+        end
+
+        %% Podman/Docker Environment
+        subgraph PodmanEnv[Podman / Docker Host Network]
+            Traefik["External Gateway\n(Traefik)"]
+            DockerSocketProxy["Docker Socket\nProxy"]
+            PodmanContainers["Standalone\nPodman Containers"]
+        end
+
+        %% Kubernetes Cluster
+        subgraph K8sEnv[Kubernetes Cluster - Cilium CNI]
+            K8sIngress["Internal Ingress Controller\n(LoadBalancer 172.16.184.10:80)"]
+            K8sPods["Kubernetes Pods"]
+        end
+    end
+
+    %% External Traffic Flow
+    Internet -- "WAN (ports 80/443)" --> DNAT
+    DNAT -- "Ports 9080/9443" --> Traefik
+
+    %% Internal Traffic Flow
+    InternalUser -- "Internal Network" --> Traefik
+
+    %% Traefik internal routing
+    Traefik -- "Discovery" --> DockerSocketProxy
+    DockerSocketProxy -. "Discovers" .-> PodmanContainers
+    Traefik -- "Routes to" --> PodmanContainers
+
+    %% Hybrid Routing to K8s
+    Traefik -- "Static File Router\n(HTTP to 172.16.184.10:80)" --> K8sIngress
+    K8sIngress -- "Host Header Routing" --> K8sPods
+
+    %% Styling
+    classDef boundary fill:transparent,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;
+    class Host boundary;
+```
+
 ## 1. Firewall and NAT (nftables)
 The primary firewall and NAT layer is managed by `nftables` running directly on the router nodes.
 - **External Traffic (`ftth` interface)**: All traffic arriving from the WAN interface on ports `80` (HTTP) and `443` (HTTPS) is explicitly DNAT'ed to internal ports `9080` and `9443` on the host (`internal_ip_address`). 
