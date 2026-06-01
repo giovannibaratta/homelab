@@ -66,3 +66,26 @@
         name: homelab.system.k8s_piraeus
       tags: k8s-storage
 
+- name: Deploy CloudNativePG
+  hosts: kube_control_plane
+  become: yes
+
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.system.k8s_db
+      tags: k8s-db
+      vars:
+        k8s_db_clusters:
+          - name: forgejo-db
+            storage_size: "10Gi"
+            username: "forgejouser"
+            password: "{{ forgejo_db_password }}"
+
+- name: Deploy Forgejo
+  hosts: kube_control_plane
+  become: yes
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.apps.forgejo
+      when: deploy_forgejo | default(false)
+  tags: k8s-git

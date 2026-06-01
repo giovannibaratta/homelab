@@ -8,6 +8,13 @@ ports:
     port: 8443
     expose:
       default: false
+  # Note: Exposed internally to the LAN and local cluster (mapping to the LoadBalancer's private IP {{ k8s_ingress_lb_ip }}).
+  # It is NOT reachable from the WAN/internet as there are no firewall or DNAT rules forwarding port 2222 from public interfaces.
+  git-ssh:
+    port: 2222
+    expose:
+      default: true
+    exposedPort: 2222
 
 service:
   type: LoadBalancer

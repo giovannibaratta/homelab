@@ -28,6 +28,7 @@ http:
     k8s-internal-{{ loop.index }}:
       rule: "Host(`{{ domain }}.{{ internal_domain }}`)"
       entryPoints:
+        - web
         - websecure
       service: k8s-ingress-svc
       tls:
@@ -44,3 +45,23 @@ http:
       loadBalancer:
         servers:
           - url: "http://{{ k8s_ingress_lb_ip }}:80"
+
+tcp:
+  routers:
+    # TCP Router for Git SSH (routes host-level port 2222 to Kubernetes).
+    # NOTE on HostSNI(`*`): Because standard SSH does not use TLS, it does not send SNI headers in the handshake.
+    # Therefore, Traefik cannot perform domain-based TCP routing for plain SSH. Using HostSNI(`*`) is required here.
+    # SAFETY: Because this router is strictly scoped to the `git-ssh` entrypoint, it ONLY matches traffic on port 2222.
+    # Future TCP services running on other dedicated entrypoints (ports) will NOT be affected by this wildcard.
+    k8s-git-ssh:
+      entryPoints:
+        - git-ssh
+      rule: "HostSNI(`*`)"
+      service: k8s-git-ssh-svc
+
+  services:
+    # Points to K8s Ingress LoadBalancer IP on TCP port 2222
+    k8s-git-ssh-svc:
+      loadBalancer:
+        servers:
+          - address: "{{ k8s_ingress_lb_ip }}:2222"

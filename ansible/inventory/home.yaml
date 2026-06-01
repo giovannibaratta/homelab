@@ -16,7 +16,7 @@ home:
     k8s_ingress_lb_ip: "172.16.184.10"
     # Provide only the sub-domain prefix. They will be suffixed with .{{ internal_domain }}
     k8s_public_domains: [""]
-    k8s_internal_domains: []
+    k8s_internal_domains: ["git"]
     network_dyn_dns_entry: "ingress"
     ##### END Required for first setup #####
     ##### Deployment preferences defaults to false for safety #####
@@ -31,6 +31,13 @@ home:
     deploy_idp: false
     deploy_netbird: false
     deploy_adguard: false
+    deploy_forgejo: true
+    idp_dynamic_apps:
+      - name: forgejo
+        redirect_uris:
+          - "https://git.{{ internal_domain }}/user/oauth2/Zitadel/callback"
+        app_type: "OIDC_APP_TYPE_WEB"
+        auth_method_type: "OIDC_AUTH_METHOD_TYPE_BASIC"
     #### Shared deployment variables #####
     linstor_volume_group: linstor_vg
     linstor_thin_pool: thin_pool
@@ -120,7 +127,6 @@ home:
       vpn_deploy_relay_server: true
       auto_ansible_hour_schedule: "3"
       zigbee_usb_device: /dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03318564-if00-port0
-
       p2p_deploy_bitmagnet: true
       logging_enable_aws_cloudwatch: false
       ##### Storage Configuration (Piraeus / Linstor) #####

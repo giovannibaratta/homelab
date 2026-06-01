@@ -35,6 +35,7 @@ entryPoints:
         # Layer 3: WAF security analysis (deep inspection)
         - waf@file
 
+  # TODO: Is the public-secure protected by the middleware and rate limiter ?
   public-secure:
     address: :9443
     transport:
@@ -69,6 +70,17 @@ entryPoints:
 
   dns-over-tls:
     address: :8853
+    transport:
+      respondingTimeouts:
+        readTimeout: 0
+        writeTimeout: 0
+        idleTimeout: 0
+
+  # Note: This port is only exposed internally to the LAN and local cluster.
+  # It is NOT reachable from the WAN/internet because the host firewall (nftables-rules.j2)
+  # only allows ports 9080, 9443, 3478, and 5349 from public interfaces.
+  git-ssh:
+    address: :2222
     transport:
       respondingTimeouts:
         readTimeout: 0

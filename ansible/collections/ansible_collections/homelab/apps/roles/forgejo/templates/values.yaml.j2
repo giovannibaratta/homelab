@@ -1,0 +1,68 @@
+---
+# Forgejo Helm values
+# Note: replicaCount must remain 1. Scaling to >1 requires:
+# 1. ReadWriteMany (RWX) storage for git repositories and data (instead of ReadWriteOnce/RWO).
+# 2. Redis/memcached cache clustering for session state and event coordination.
+# 3. Otherwise, multiple replicas will cause file lock conflicts and repository state split brain.
+replicaCount: 1
+
+image:
+  repository: forgejo/forgejo
+  # Note: 15.0.2 is the latest stable LTS release corresponding to this chart version.
+  tag: "15.0.2"
+  pullPolicy: IfNotPresent
+
+postgresql:
+  enabled: false # Use external CNPG cluster
+
+gitea:
+  admin:
+    existingSecret: forgejo-admin-secret
+  config:
+    database:
+      DB_TYPE: postgres
+      HOST: "{{ forgejo_db_host }}"
+      NAME: forgejo-db
+      USER: forgejouser
+      PASSWD: "{{ forgejo_db_password }}"
+    server:
+      DOMAIN: "{{ forgejo_domain }}"
+      SSH_DOMAIN: "{{ forgejo_ssh_domain }}"
+      ROOT_URL: "https://{{ forgejo_domain }}/"
+      HTTP_PORT: 3000
+      SSH_PORT: "{{ forgejo_ssh_port }}"
+      SSH_LISTEN_PORT: "{{ forgejo_ssh_listen_port }}"
+      LFS_START_SERVER: "true"
+
+service:
+  http:
+    port: 3000
+  ssh:
+    port: 22
+
+persistence:
+  enabled: true
+  storageClass: "{{ forgejo_storage_class }}"
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+
+ingress:
+  enabled: false # We use custom Traefik IngressRoute/IngressRouteTCP
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault

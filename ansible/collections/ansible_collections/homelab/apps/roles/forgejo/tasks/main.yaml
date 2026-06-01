@@ -1,0 +1,158 @@
+---
+- name: Forgejo | Ensure namespace exists
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ forgejo_namespace }}"
+    state: present
+  run_once: true
+
+- name: Forgejo | Find IDP host
+  ansible.builtin.set_fact:
+    forgejo_idp_host: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  when: hostvars[item].deploy_idp | default(false)
+  run_once: true
+
+- name: Forgejo | Get Zitadel Terraform outputs
+  command: terraform output -json
+  args:
+    chdir: /app/zitadel/conf/terraform
+  register: zitadel_tf_output
+  changed_when: false
+  delegate_to: "{{ forgejo_idp_host }}"
+  run_once: true
+  become: true
+  when: forgejo_idp_host is defined
+
+- name: Forgejo | Set Zitadel client credentials facts
+  ansible.builtin.set_fact:
+    forgejo_zitadel_client_id: "{{ (zitadel_tf_output.stdout | from_json).forgejo_client_id.value }}"
+    forgejo_zitadel_client_secret: "{{ (zitadel_tf_output.stdout | from_json).forgejo_client_secret.value }}"
+  run_once: true
+  when: forgejo_idp_host is defined
+
+- name: Forgejo | Create admin secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: forgejo-admin-secret
+        namespace: "{{ forgejo_namespace }}"
+      stringData:
+        # Administrative login credentials
+        username: "{{ forgejo_admin_username }}"
+        password: "{{ forgejo_admin_password }}"
+  run_once: true
+
+- name: Forgejo | Deploy Forgejo via Helm
+  kubernetes.core.helm:
+    name: forgejo
+    chart_ref: "oci://code.forgejo.org/forgejo-helm/forgejo"
+    chart_version: "{{ forgejo_version }}"
+    release_namespace: "{{ forgejo_namespace }}"
+    update_repo_cache: yes
+    state: present
+    values: "{{ lookup('template', 'values.yaml.j2') | from_yaml }}"
+  run_once: true
+
+- name: Forgejo | Apply Traefik routing configuration
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'traefik-routes.yaml.j2') | from_yaml_all }}"
+  run_once: true
+
+- name: Forgejo | Apply Backup CronJob
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'backup-cronjob.yaml.j2') | from_yaml_all }}"
+  run_once: true
+
+- name: Forgejo | Wait for Forgejo Deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: forgejo
+    namespace: "{{ forgejo_namespace }}"
+  register: forgejo_deploy
+  until:
+    - forgejo_deploy.resources is defined
+    - forgejo_deploy.resources | length > 0
+    - forgejo_deploy.resources[0].status.readyReplicas is defined
+    - forgejo_deploy.resources[0].status.readyReplicas == forgejo_deploy.resources[0].status.replicas
+  retries: 30
+  delay: 10
+  run_once: true
+
+- name: Forgejo | Get running Forgejo pod info
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ forgejo_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/instance=forgejo"
+  register: forgejo_pods
+  until:
+    - forgejo_pods.resources is defined
+    - forgejo_pods.resources | length > 0
+    - forgejo_pods.resources[0].status.phase == "Running"
+  retries: 10
+  delay: 5
+  run_once: true
+
+- name: Forgejo | Set pod name fact
+  ansible.builtin.set_fact:
+    forgejo_pod_name: "{{ forgejo_pods.resources[0].metadata.name }}"
+  run_once: true
+
+- name: Forgejo | Check existing auth sources
+  kubernetes.core.k8s_exec:
+    namespace: "{{ forgejo_namespace }}"
+    pod: "{{ forgejo_pod_name }}"
+    container: "forgejo"
+    command: "forgejo admin auth list"
+  register: forgejo_auth_list
+  changed_when: false
+  run_once: true
+
+- name: Forgejo | Parse Zitadel auth source ID
+  ansible.builtin.set_fact:
+    zitadel_auth_id: "{{ item.split()[0] }}"
+  loop: "{{ forgejo_auth_list.stdout_lines }}"
+  when:
+    - item.split() | length > 1
+    - item.split()[1] == 'Zitadel'
+  run_once: true
+
+- name: Forgejo | Bootstrap Zitadel OIDC Authentication (Add)
+  kubernetes.core.k8s_exec:
+    namespace: "{{ forgejo_namespace }}"
+    pod: "{{ forgejo_pod_name }}"
+    container: "forgejo"
+    command: >-
+      forgejo admin auth add-oauth
+      --name "Zitadel"
+      --provider "openidConnect"
+      --key "{{ forgejo_zitadel_client_id }}"
+      --secret "{{ forgejo_zitadel_client_secret }}"
+      --auto-discover-url "https://idp.{{ internal_domain }}/.well-known/openid-configuration"
+      --scopes "openid email profile"
+  run_once: true
+  when: zitadel_auth_id is not defined or zitadel_auth_id | length == 0
+
+- name: Forgejo | Update Zitadel OIDC Authentication (Update)
+  kubernetes.core.k8s_exec:
+    namespace: "{{ forgejo_namespace }}"
+    pod: "{{ forgejo_pod_name }}"
+    container: "forgejo"
+    command: >-
+      forgejo admin auth update-oauth
+      --id "{{ zitadel_auth_id }}"
+      --key "{{ forgejo_zitadel_client_id }}"
+      --secret "{{ forgejo_zitadel_client_secret }}"
+      --auto-discover-url "https://idp.{{ internal_domain }}/.well-known/openid-configuration"
+      --scopes "openid email profile"
+  run_once: true
+  when: zitadel_auth_id is defined and zitadel_auth_id | length > 0
