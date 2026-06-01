@@ -1,0 +1,95 @@
+# Note: This CronJob schedules daily Git backups of all repositories.
+# The bare bundles are stored locally inside the forgejo-backup-pvc PVC.
+# To retrieve backups securely and credential-free, refer to the role's README.md
+# on how to manually trigger a run and download bundles locally using kubectl cp.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: forgejo-backup
+  namespace: {{ forgejo_namespace }}
+spec:
+  schedule: "0 2 * * *" # Run at 2 AM every day
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: backup
+            image: alpine/git:latest
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              seccompProfile:
+                type: RuntimeDefault
+            env:
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: forgejo-admin-secret
+                  key: username
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: forgejo-admin-secret
+                  key: password
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting Forgejo backup..."
+
+              # Use basic auth for all requests to ensure we can fetch and clone private repos over HTTP
+              # We use wget and standard grep/cut to avoid needing root/apk add for curl and jq
+              AUTH_HEADER="Authorization: Basic $(echo -n "$ADMIN_USERNAME:$ADMIN_PASSWORD" | base64 | tr -d '\n')"
+              REPOS=$(wget -qO- --header="$AUTH_HEADER" "http://forgejo-http:3000/api/v1/repos/search?limit=100" | grep -o '"clone_url":"[^"]*"' | cut -d'"' -f4 || true)
+
+              for repo in $REPOS; do
+                repo_name=$(basename "$repo")
+                echo "Backing up $repo_name..."
+
+                # Map external clone URL to internal Kubernetes service to route locally and avoid SSL/DNS/Special Character issues
+                internal_repo=$(echo "$repo" | sed -E "s|https?://[^/]+/|http://forgejo-http:3000/|")
+
+                git -c http.extraHeader="$AUTH_HEADER" clone --bare "$internal_repo" "/tmp/$repo_name"
+                if [ $? -eq 0 ]; then
+                  git -C "/tmp/$repo_name" bundle create "/backups/$repo_name-$(date +%F).bundle" --all
+                else
+                  echo "Failed to clone $repo_name"
+                fi
+                rm -rf "/tmp/$repo_name"
+              done
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: forgejo-backup-pvc
+          restartPolicy: OnFailure
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: forgejo-backup-pvc
+  namespace: {{ forgejo_namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: "{{ forgejo_storage_class }}"
