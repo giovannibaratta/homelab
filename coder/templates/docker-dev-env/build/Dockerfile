@@ -8,7 +8,7 @@ ARG USER=coder
 RUN apt-get update && apt-get install -y curl gpg ca-certificates \
         && curl -fsSL http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/home_alvistack.gpg \
         && echo "deb http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /" > /etc/apt/sources.list.d/home:alvistack.list \
-        && printf "Package: podman\nPin: version 5.*\nPin-Priority: 1001\n" > /etc/apt/preferences.d/podman-pin
+        && printf "Package: podman podman-docker\nPin: release l=home:alvistack\nPin-Priority: 1001\n\nPackage: *\nPin: release l=home:alvistack\nPin-Priority: 100\n" > /etc/apt/preferences.d/podman-pin
 
 # python3-yaml required by Podman compose
 # gettext-base for installing envsubst
@@ -32,12 +32,13 @@ RUN apt-get update \
         jq \
         tmux \
         python3-yaml \
+        python3-dotenv \
         gettext-base \
         openssh-client \
         zsh
 
 RUN touch /etc/containers/nodocker \
-        && curl -fsSL -o /tmp/netavark.gz https://github.com/containers/netavark/releases/download/v1.16.1/netavark.gz \
+        && curl -fsSL -o /tmp/netavark.gz https://github.com/containers/netavark/releases/download/v1.17.2/netavark.gz \
         && gunzip /tmp/netavark.gz \
         && mkdir -p /usr/libexec/podman \
         && mv /tmp/netavark /usr/libexec/podman/netavark \
@@ -60,9 +61,6 @@ RUN curl -o /usr/local/bin/podman-compose \
         https://raw.githubusercontent.com/containers/podman-compose/main/podman_compose.py && \
         chmod +x /usr/local/bin/podman-compose
 
-RUN apt-get install -y python3-yaml \
-        python3-dotenv
-
 ENV PODMAN_COMPOSE_PROVIDER=/usr/local/bin/podman-compose
 
 RUN echo 'unqualified-search-registries = ["docker.io"]' > /etc/containers/registries.conf
@@ -82,19 +80,19 @@ RUN mkdir -p /ephermeral/podman/storage /ephermeral/podman/run && \
         printf "[storage]\ndriver = \"overlay\"\ngraphroot = \"/ephermeral/podman/storage\"\nrunroot = \"/ephermeral/podman/run\"\n" > /etc/containers/storage.conf
 
 # Install developer tools
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
         golang \
         openjdk-17-jre
 
 # Install NVM
 SHELL ["/bin/bash", "-c"]
 ENV NVM_DIR=/usr/local/nvm
-ENV NODE_VERSION=22.14.0
+ENV NODE_VERSION=22.23.0
 
 RUN mkdir -p ${NVM_DIR}
 
 # Download and install nvm
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.2/install.sh | bash
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.5/install.sh | bash
 
 # install node and npm
 RUN source $NVM_DIR/nvm.sh \
@@ -106,6 +104,9 @@ ENV NODE_PATH=$NVM_DIR/v$NODE_VERSION/lib/node_modules
 ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/corepack yarn install
+
+# Change ownership of NVM_DIR so coder user can write to it to install/run npm packages
+RUN chown -R ${USER}:${USER} ${NVM_DIR}
 
 RUN mkdir -p /workspace && \
         chown -R ${USER}:${USER} /workspace
@@ -119,7 +120,8 @@ RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master
         chown -R ${USER}:${USER} /home/${USER}/.oh-my-zsh /home/${USER}/.zshrc
 
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g corepack
-RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g @google/gemini-cli
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g @anthropic-ai/claude-code
+
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
 
 WORKDIR /workspace
