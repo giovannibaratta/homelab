@@ -24,7 +24,7 @@ resource "coder_agent" "main" {
 
     echo "Installing VSCode server ..."
     # Available versions https://github.com/coder/code-server/releases
-    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.112.0
+    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server --version 4.125.0
 
     echo "Starting VSCode server ..."
     /tmp/code-server/bin/code-server --auth none --port 13337 >/tmp/code-server.log 2>&1 &
