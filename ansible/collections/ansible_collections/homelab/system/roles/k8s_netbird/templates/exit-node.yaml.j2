@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netbird-exit-node
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: netbird-exit-node
+  template:
+    metadata:
+      labels:
+        app: netbird-exit-node
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: netbird
+          image: netbirdio/netbird:{{ k8s_netbird_exit_node_version }}
+          env:
+            - name: NB_MANAGEMENT_URL
+              value: "https://netbird.{{ internal_domain }}:443"
+            - name: NB_ADMIN_URL
+              value: "https://netbird.{{ internal_domain }}:443"
+            - name: NB_HOSTNAME
+              value: "netbird-exit-node-k8s"
+            - name: NB_INTERFACE_NAME
+              value: "wt-exit"
+            - name: NB_SETUP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: netbird-exit-node-secret
+                  key: setup-key
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_ADMIN
+                - SYS_RESOURCE
+          volumeMounts:
+            - name: tun
+              mountPath: /dev/net/tun
+      volumes:
+        - name: tun
+          hostPath:
+            path: /dev/net/tun
+            type: CharDevice

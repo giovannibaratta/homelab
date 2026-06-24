@@ -1,0 +1,56 @@
+---
+- name: K8s Netbird | Ensure namespace exists
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ k8s_netbird_namespace }}"
+        labels:
+          pod-security.kubernetes.io/enforce: privileged
+          pod-security.kubernetes.io/audit: privileged
+          pod-security.kubernetes.io/warn: privileged
+  run_once: true
+
+- name: K8s Netbird | Deploy Exit Node client
+  when: k8s_netbird_deploy_exit_node
+  run_once: true
+  block:
+    - name: K8s Netbird | Create Exit Node Secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: netbird-exit-node-secret
+            namespace: "{{ k8s_netbird_namespace }}"
+          stringData:
+            setup-key: "{{ vpn_exit_node_setup_key }}"
+
+    - name: K8s Netbird | Apply Exit Node Manifests
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'exit-node.yaml.j2') | from_yaml_all }}"
+
+- name: K8s Netbird | Deploy Jump Node client
+  when: k8s_netbird_deploy_jump_node
+  run_once: true
+  block:
+    - name: K8s Netbird | Create Jump Node Secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: netbird-jump-node-secret
+            namespace: "{{ k8s_netbird_namespace }}"
+          stringData:
+            setup-key: "{{ vpn_jump_node_setup_key }}"
+
+    - name: K8s Netbird | Apply Jump Node Manifests
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'jump-node.yaml.j2') | from_yaml_all }}"

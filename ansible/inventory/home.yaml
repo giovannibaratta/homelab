@@ -32,6 +32,9 @@ home:
     deploy_netbird: false
     deploy_adguard: false
     deploy_forgejo: true
+    # Kubernetes Netbird Configuration
+    k8s_netbird_deploy_exit_node: true
+
     idp_dynamic_apps:
       - name: forgejo
         redirect_uris:
