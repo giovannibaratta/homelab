@@ -48,61 +48,85 @@
     state: started
     enabled: true
 
-- name: Copy ddclient.conf file
-  ansible.builtin.template:
-    src: ddclient.conf.j2
-    dest: "{{ ddclient_work_dir }}/ddclient.conf"
-    mode: "0600"
-    owner: "{{ ddclient_container_user }}"
-    group: "{{ ddclient_container_user }}"
-  notify:
-    - Restart ddclient service
+- name: Configure shared ddclient (gateway nodes only)
+  when: network_gateway_role is defined
+  block:
+    - name: Copy ddclient.conf file
+      ansible.builtin.template:
+        src: ddclient.conf.j2
+        dest: "{{ ddclient_work_dir }}/ddclient.conf"
+        mode: "0600"
+        owner: "{{ ddclient_container_user }}"
+        group: "{{ ddclient_container_user }}"
+      notify:
+        - Restart ddclient service
 
-- name: Copy ddclient.env file
-  ansible.builtin.template:
-    src: ddclient.env.j2
-    dest: "{{ ddclient_conf_dir }}/ddclient.env"
-    mode: "0640"
-  notify:
-    - Restart ddclient service
+    - name: Copy ddclient.env file
+      ansible.builtin.template:
+        src: ddclient.env.j2
+        dest: "{{ ddclient_conf_dir }}/ddclient.env"
+        mode: "0640"
+      notify:
+        - Restart ddclient service
 
-- name: Create ddclient Quadlet
-  containers.podman.podman_container:
-    name: ddclient
-    state: quadlet
-    image: giovannibaratta/ddclient:{{ ddclient_version }}
-    env_file: "{{ ddclient_conf_dir }}/ddclient.env"
-    recreate: true
-    network: ddclient
+    - name: Create ddclient Quadlet
+      containers.podman.podman_container:
+        name: ddclient
+        state: quadlet
+        image: giovannibaratta/ddclient:{{ ddclient_version }}
+        env_file: "{{ ddclient_conf_dir }}/ddclient.env"
+        recreate: true
+        network: ddclient
 
-    # Use custom DNS server to avoid dependency on host DNS resolution
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
+        # Use custom DNS server to avoid dependency on host DNS resolution
+        dns:
+          - 1.1.1.1
+          - 8.8.8.8
 
-    volumes: "{{ ddclient_work_dir }}:/config"
+        volumes: "{{ ddclient_work_dir }}:/config"
 
-    uidmap:
-      - 0:4000000000:1000
-      - 1000:{{ ddclient_container_user_result.uid }}:1
-      - 1001:4000001001:100000
+        uidmap:
+          - 0:4000000000:1000
+          - 1000:{{ ddclient_container_user_result.uid }}:1
+          - 1001:4000001001:100000
 
-    gidmap:
-      - 0:4000000000:100000
-      - +1000:@{{ ddclient_container_user_result.group }}:1
+        gidmap:
+          - 0:4000000000:100000
+          - +1000:@{{ ddclient_container_user_result.group }}:1
 
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-        [Unit]
-        StartLimitIntervalSec=0
-        [Service]
-        Restart=always
-        RestartSec=60s
-  notify:
-    - Reload systemd daemons for network role
-    - Restart ddclient service
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target
+            [Unit]
+            StartLimitIntervalSec=0
+            [Service]
+            Restart=always
+            RestartSec=60s
+      notify:
+        - Reload systemd daemons for network role
+        - Restart ddclient service
+
+- name: Clean up shared ddclient on non-gateway nodes
+  when: network_gateway_role is not defined
+  block:
+    - name: Remove ddclient Quadlet file
+      ansible.builtin.file:
+        path: /etc/containers/systemd/ddclient.container
+        state: absent
+      register: ddclient_quadlet_removed
+
+    - name: Reload systemd daemon if ddclient Quadlet removed
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: ddclient_quadlet_removed.changed
+
+    - name: Stop and disable ddclient service
+      ansible.builtin.systemd_service:
+        name: ddclient
+        state: stopped
+        enabled: false
+      failed_when: false
 
 - name: Copy ddclient-node.conf file
   ansible.builtin.template:
@@ -163,11 +187,12 @@
 # dynamically managed by the keepalived-nft-manager.sh script.
 # Only the node in the "master" state will run ddclient to update the 
 # shared DNS record.
-- name: Start ddclient
+- name: Disable shared ddclient service by default
   ansible.builtin.systemd_service:
     name: ddclient
     state: stopped
     enabled: false
+  when: network_gateway_role is defined
 
 - name: Start ddclient-node
   ansible.builtin.systemd_service:
