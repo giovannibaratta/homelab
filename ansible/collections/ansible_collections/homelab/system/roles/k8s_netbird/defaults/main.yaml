@@ -1,0 +1,17 @@
+---
+k8s_netbird_namespace: netbird
+k8s_netbird_storage_class: piraeus-rwo-replicated
+
+# Component Toggles
+k8s_netbird_deploy_exit_node: true
+k8s_netbird_deploy_jump_node: true
+k8s_netbird_deploy_core: false # Deploy dashboard, mgmt, signal, relay, coturn
+
+# Versions (Aligned with Podman role defaults)
+k8s_netbird_exit_node_version: "0.70.5"
+k8s_netbird_jump_node_version: "0.70.5"
+k8s_netbird_mgmt_version: "0.70.5"
+k8s_netbird_signal_version: "0.70.5"
+k8s_netbird_dashboard_version: "v2.37.1"
+k8s_netbird_relay_version: "0.70.5"
+k8s_netbird_coturn_version: "4.11.0"

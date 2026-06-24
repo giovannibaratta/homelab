@@ -203,6 +203,13 @@
       ignore_errors: yes
       tags: vpn
 
+    - name: Deploy Netbird K8s
+      ansible.builtin.import_role:
+        name: homelab.system.k8s_netbird
+      become: true
+      ignore_errors: yes
+      tags: k8s-netbird
+
     - ansible.builtin.import_role:
         name: homelab.system.latency_monitor
       become: true
