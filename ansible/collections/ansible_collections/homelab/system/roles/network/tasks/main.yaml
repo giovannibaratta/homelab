@@ -384,5 +384,18 @@
   ansible.builtin.import_tasks: vrrp.yaml
   when: network_is_router and network_gateway_role is defined
 
+- name: Disable VRRP if role is not defined
+  when: network_is_router and network_gateway_role is not defined
+  block:
+    - name: Network | Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Network | Disable keepalived service if present
+      ansible.builtin.service:
+        name: keepalived
+        enabled: false
+        state: stopped
+      when: "'keepalived.service' in services"
+
 - name: Configure K8s network resources
   ansible.builtin.import_tasks: k8s.yaml
