@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: netbird-exit-node
+  name: netbird-{{ netbird_node_name }}
   namespace: {{ k8s_netbird_namespace }}
 spec:
   replicas: 1
@@ -9,30 +9,30 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: netbird-exit-node
+      app: netbird-{{ netbird_node_name }}
   template:
     metadata:
       labels:
-        app: netbird-exit-node
+        app: netbird-{{ netbird_node_name }}
     spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: netbird
-          image: netbirdio/netbird:{{ k8s_netbird_exit_node_version }}
+          image: netbirdio/netbird:{{ netbird_node_version }}
           env:
             - name: NB_MANAGEMENT_URL
               value: "https://netbird.{{ internal_domain }}:443"
             - name: NB_ADMIN_URL
               value: "https://netbird.{{ internal_domain }}:443"
             - name: NB_HOSTNAME
-              value: "netbird-exit-node-k8s"
+              value: "{{ netbird_node_hostname }}"
             - name: NB_INTERFACE_NAME
-              value: "wt-exit"
+              value: "{{ netbird_node_interface }}"
             - name: NB_SETUP_KEY
               valueFrom:
                 secretKeyRef:
-                  name: netbird-exit-node-secret
+                  name: netbird-{{ netbird_node_name }}-secret
                   key: setup-key
           securityContext:
             privileged: true
@@ -41,6 +41,26 @@ spec:
                 - NET_ADMIN
                 - SYS_ADMIN
                 - SYS_RESOURCE
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "netbird status | grep -q 'Management: Connected'"
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "netbird status | grep -q 'Management: Connected'"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: tun
               mountPath: /dev/net/tun

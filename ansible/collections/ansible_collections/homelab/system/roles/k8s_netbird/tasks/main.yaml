@@ -32,7 +32,12 @@
     - name: K8s Netbird | Apply Exit Node Manifests
       kubernetes.core.k8s:
         state: present
-        definition: "{{ lookup('template', 'exit-node.yaml.j2') | from_yaml_all }}"
+        definition: "{{ lookup('template', 'client-node.yaml.j2') | from_yaml_all }}"
+      vars:
+        netbird_node_name: exit-node
+        netbird_node_version: "{{ k8s_netbird_exit_node_version }}"
+        netbird_node_hostname: "netbird-exit-node-k8s"
+        netbird_node_interface: "wt-exit"
 
 - name: K8s Netbird | Deploy Jump Node client
   when: k8s_netbird_deploy_jump_node
@@ -53,4 +58,10 @@
     - name: K8s Netbird | Apply Jump Node Manifests
       kubernetes.core.k8s:
         state: present
-        definition: "{{ lookup('template', 'jump-node.yaml.j2') | from_yaml_all }}"
+        definition: "{{ lookup('template', 'client-node.yaml.j2') | from_yaml_all }}"
+      vars:
+        netbird_node_name: jump-node
+        netbird_node_version: "{{ k8s_netbird_jump_node_version }}"
+        netbird_node_hostname: "netbird-jump-node-k8s"
+        netbird_node_interface: "wt-jump"
+
