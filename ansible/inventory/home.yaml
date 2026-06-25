@@ -35,7 +35,7 @@ home:
     # Kubernetes Netbird Configuration
     k8s_netbird_deploy_exit_node: true
     k8s_netbird_deploy_jump_node: true
-
+    k8s_netbird_deploy_dashboard: true
 
     idp_dynamic_apps:
       - name: forgejo
@@ -126,7 +126,7 @@ home:
       vpn_deploy_exit_node: true
       vpn_deploy_jump_node: true
       vpn_deploy_management_server: true
-      vpn_deploy_dashboard: true
+      vpn_deploy_dashboard: false
       vpn_deploy_stun_server: true
       vpn_deploy_protonvpn: true
       vpn_deploy_relay_server: true

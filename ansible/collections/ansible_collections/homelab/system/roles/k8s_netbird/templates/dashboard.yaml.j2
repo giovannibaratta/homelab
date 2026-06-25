@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: netbird-dashboard-secret
+  namespace: {{ k8s_netbird_namespace }}
+stringData:
+  idp-client-secret: "{{ vpn_netbird_idp_client_secret }}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netbird-dashboard
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netbird-dashboard
+  template:
+    metadata:
+      labels:
+        app: netbird-dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: netbirdio/dashboard:{{ k8s_netbird_dashboard_version }}
+          env:
+            - name: NETBIRD_MGMT_API_ENDPOINT
+              value: "https://netbird.{{ internal_domain }}:443"
+            - name: NETBIRD_MGMT_GRPC_API_ENDPOINT
+              value: "https://netbird.{{ internal_domain }}:443"
+            - name: AUTH_AUDIENCE
+              value: "{{ vpn_netbird_idp_client_id }}"
+            - name: AUTH_CLIENT_ID
+              value: "{{ vpn_netbird_idp_client_id }}"
+            - name: AUTH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netbird-dashboard-secret
+                  key: idp-client-secret
+            - name: AUTH_AUTHORITY
+              value: "https://idp.{{ internal_domain }}"
+            - name: USE_AUTH0
+              value: "false"
+            - name: AUTH_SUPPORTED_SCOPES
+              value: "openid profile email offline_access api"
+            - name: AUTH_REDIRECT_URI
+              value: "/auth"
+            - name: AUTH_SILENT_REDIRECT_URI
+              value: "/silent-auth"
+            - name: NETBIRD_TOKEN_SOURCE
+              value: "accessToken"
+          ports:
+            - containerPort: 80
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: netbird-dashboard
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  ports:
+    - port: 80
+      targetPort: http
+      name: http
+  selector:
+    app: netbird-dashboard
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netbird-dashboard
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: netbird.{{ internal_domain }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netbird-dashboard
+                port:
+                  number: 80

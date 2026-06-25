@@ -61,9 +61,17 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
+          resources:
+            requests:
+              cpu: 125m
+              memory: 128Mi
+            limits:
+              cpu: 2
+              memory: 4Gi
           volumeMounts:
             - name: tun
               mountPath: /dev/net/tun
+
       volumes:
         - name: tun
           hostPath:

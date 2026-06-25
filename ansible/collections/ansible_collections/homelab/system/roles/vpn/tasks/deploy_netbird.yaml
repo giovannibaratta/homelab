@@ -106,7 +106,16 @@
         state: started
         enabled: true
 
+- name: Ensure Netbird dashboard is stopped and disabled if not deployed
+  when: not vpn_deploy_dashboard | default(false)
+  ansible.builtin.systemd_service:
+    name: netbird-dashboard
+    state: stopped
+    enabled: false
+  ignore_errors: true
+
 - name: Deploy stun server
+
   when: vpn_deploy_stun_server
   block:
     - name: Add user {{ vpn_netbird_coturn_container_user }}

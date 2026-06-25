@@ -65,3 +65,35 @@
         netbird_node_hostname: "netbird-jump-node-k8s"
         netbird_node_interface: "wt-jump"
 
+- name: K8s Netbird | Deploy Dashboard
+  when: k8s_netbird_deploy_dashboard
+  run_once: true
+  block:
+    - name: K8s Netbird | Apply Dashboard Manifests
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'dashboard.yaml.j2') | from_yaml_all }}"
+
+- name: K8s Netbird | Manage ad-hoc host Traefik router for dashboard
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  run_once: true
+  ansible.builtin.template:
+    src: host-traefik-dashboard.yaml.j2
+    dest: /app/traefik/conf/dynamic/netbird-dashboard-k8s.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  when: k8s_netbird_deploy_dashboard
+
+- name: K8s Netbird | Remove ad-hoc host Traefik router for dashboard
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  run_once: true
+  ansible.builtin.file:
+    path: /app/traefik/conf/dynamic/netbird-dashboard-k8s.yaml
+    state: absent
+  when: not k8s_netbird_deploy_dashboard
+
+
+

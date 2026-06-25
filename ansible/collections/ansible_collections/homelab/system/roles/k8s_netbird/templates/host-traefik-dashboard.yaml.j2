@@ -1,0 +1,12 @@
+http:
+  routers:
+    netbird-dashboard-k8s:
+      rule: "Host(`netbird.{{ internal_domain }}`) && !PathPrefix(`/api`) && !PathPrefix(`/management.ManagementService/`) && !PathPrefix(`/signalexchange.SignalExchange/`) && !PathPrefix(`/relay`)"
+
+      entryPoints:
+        - websecure
+        - public-secure
+      service: k8s-ingress-svc
+      tls:
+        certResolver: letsencrypt
+      priority: 20
