@@ -74,26 +74,44 @@
         state: present
         definition: "{{ lookup('template', 'dashboard.yaml.j2') | from_yaml_all }}"
 
-- name: K8s Netbird | Manage ad-hoc host Traefik router for dashboard
+- name: K8s Netbird | Deploy Signal
+  when: k8s_netbird_deploy_signal
+  run_once: true
+  block:
+    - name: K8s Netbird | Apply Signal Manifests
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'signal.yaml.j2') | from_yaml_all }}"
+
+- name: K8s Netbird | Manage ad-hoc host Traefik router
   delegate_to: "{{ item }}"
   loop: "{{ groups['all'] }}"
   run_once: true
   ansible.builtin.template:
-    src: host-traefik-dashboard.yaml.j2
-    dest: /app/traefik/conf/dynamic/netbird-dashboard-k8s.yaml
+    src: host-traefik.yaml.j2
+    dest: /app/traefik/conf/dynamic/netbird-k8s.yaml
     owner: root
     group: root
     mode: "0644"
-  when: k8s_netbird_deploy_dashboard
+  when: k8s_netbird_deploy_dashboard or k8s_netbird_deploy_signal
 
-- name: K8s Netbird | Remove ad-hoc host Traefik router for dashboard
+- name: K8s Netbird | Remove ad-hoc host Traefik router
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['all'] }}"
+  run_once: true
+  ansible.builtin.file:
+    path: /app/traefik/conf/dynamic/netbird-k8s.yaml
+    state: absent
+  when: not k8s_netbird_deploy_dashboard and not k8s_netbird_deploy_signal
+
+- name: K8s Netbird | Clean up legacy dashboard route file
   delegate_to: "{{ item }}"
   loop: "{{ groups['all'] }}"
   run_once: true
   ansible.builtin.file:
     path: /app/traefik/conf/dynamic/netbird-dashboard-k8s.yaml
     state: absent
-  when: not k8s_netbird_deploy_dashboard
+
 
 
 

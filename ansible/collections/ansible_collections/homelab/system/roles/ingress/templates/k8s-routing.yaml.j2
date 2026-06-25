@@ -44,7 +44,8 @@ http:
     k8s-ingress-svc:
       loadBalancer:
         servers:
-          - url: "http://{{ k8s_ingress_lb_ip }}:80"
+          - url: "h2c://{{ k8s_ingress_lb_ip }}:80"
+
 
 tcp:
   routers:

@@ -689,7 +689,19 @@
         state: started
         enabled: true
 
+- name: Ensure Netbird signal and mgmt are stopped and disabled if not deployed
+  when: not vpn_deploy_management_server | default(false)
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - netbird-signal
+    - netbird-mgmt
+  ignore_errors: true
+
 - name: Deploy Netbird jump node
+
   when: vpn_deploy_jump_node
   block:
     - name: Add user {{ vpn_netbird_jump_node_container_user }}

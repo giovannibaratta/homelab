@@ -32,3 +32,14 @@ providers:
 ingressClass:
   enabled: true
   isDefaultClass: true
+
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true
+
+additionalArguments:
+  - "--entryPoints.web.transport.respondingTimeouts.readTimeout=0s"
+  - "--entryPoints.web.transport.respondingTimeouts.writeTimeout=0s"
+  - "--entryPoints.web.transport.respondingTimeouts.idleTimeout=0s"

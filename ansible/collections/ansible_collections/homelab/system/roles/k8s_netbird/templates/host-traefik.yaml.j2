@@ -1,0 +1,25 @@
+http:
+  routers:
+{% if k8s_netbird_deploy_dashboard %}
+    netbird-dashboard-k8s:
+      rule: "Host(`netbird.{{ internal_domain }}`) && !PathPrefix(`/api`) && !PathPrefix(`/management.ManagementService/`) && !PathPrefix(`/signalexchange.SignalExchange/`) && !PathPrefix(`/relay`)"
+      entryPoints:
+        - websecure
+        - public-secure
+      service: k8s-ingress-svc@file
+      tls:
+        certResolver: letsencrypt
+      priority: 20
+{% endif %}
+
+{% if k8s_netbird_deploy_signal %}
+    netbird-signal-k8s:
+      rule: "Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/signalexchange.SignalExchange/`)"
+      entryPoints:
+        - websecure
+        - public-secure
+      service: k8s-ingress-svc@file
+      tls:
+        certResolver: letsencrypt
+      priority: 60
+{% endif %}
