@@ -65,6 +65,7 @@ table ip firewall {
 {% endif %}
     iifname {{ bridge_name }} jump internal_traffic
     iifname k8s-cp jump internal_traffic
+    iifname "wt*" jump internal_traffic
     iifname "podman*" jump container_traffic
     # K8s interfaces when using Cilium
     iifname "cilium*" jump container_traffic
