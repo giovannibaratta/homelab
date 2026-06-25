@@ -34,6 +34,8 @@ home:
     deploy_forgejo: true
     # Kubernetes Netbird Configuration
     k8s_netbird_deploy_exit_node: true
+    k8s_netbird_deploy_jump_node: true
+
 
     idp_dynamic_apps:
       - name: forgejo

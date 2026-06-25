@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Temporary fix to restore access via VPN
+systemctl enable --now netbird-exit-node netbird-jump-node || true
+
 TARGET_USER="ansible"
 # Window in which the user must not be detected
 USER_DETECTION_WINDOW_IN_SECONDS=10
