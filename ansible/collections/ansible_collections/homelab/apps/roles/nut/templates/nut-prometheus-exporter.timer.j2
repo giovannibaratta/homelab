@@ -1,0 +1,10 @@
+[Unit]
+Description=Run NUT to Prometheus Exporter every 15 seconds
+
+[Timer]
+OnBootSec=10
+OnUnitActiveSec=15
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

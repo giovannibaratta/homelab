@@ -267,6 +267,13 @@
       ignore_errors: yes
       tags: mqtt-broker
 
+    - when: deploy_nut | default(false)
+      ansible.builtin.import_role:
+        name: homelab.apps.nut
+      become: true
+      ignore_errors: yes
+      tags: nut
+
     - when: deploy_home_assistant
       ansible.builtin.import_role:
         name: homelab.apps.home_assistant

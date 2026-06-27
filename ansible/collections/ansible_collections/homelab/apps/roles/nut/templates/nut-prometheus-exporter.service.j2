@@ -1,0 +1,7 @@
+[Unit]
+Description=NUT to Prometheus Exporter
+After=nut-server.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nut_to_prometheus.sh

@@ -1,0 +1,51 @@
+#!/bin/bash
+set -euo pipefail
+
+PROM_FILE="/var/lib/node_exporter/textfile_collector/nut.prom"
+TEMP_FILE="${PROM_FILE}.tmp"
+
+# Write headers
+echo "# HELP nut_battery_charge UPS battery charge percentage" > "$TEMP_FILE"
+echo "# TYPE nut_battery_charge gauge" >> "$TEMP_FILE"
+echo "# HELP nut_battery_voltage UPS battery voltage" >> "$TEMP_FILE"
+echo "# TYPE nut_battery_voltage gauge" >> "$TEMP_FILE"
+echo "# HELP nut_input_voltage UPS input voltage" >> "$TEMP_FILE"
+echo "# TYPE nut_input_voltage gauge" >> "$TEMP_FILE"
+echo "# HELP nut_output_voltage UPS output voltage" >> "$TEMP_FILE"
+echo "# TYPE nut_output_voltage gauge" >> "$TEMP_FILE"
+echo "# HELP nut_ups_load UPS load percentage" >> "$TEMP_FILE"
+echo "# TYPE nut_ups_load gauge" >> "$TEMP_FILE"
+echo "# HELP nut_ups_status UPS status (1=OL, 2=OB, 3=LB, 0=Other)" >> "$TEMP_FILE"
+echo "# TYPE nut_ups_status gauge" >> "$TEMP_FILE"
+
+# Fetch data using upsc
+DATA=$(/usr/bin/upsc {{ nut_ups_name }} 2>/dev/null || true)
+
+if [ -n "$DATA" ]; then
+    # Extract values
+    charge=$(echo "$DATA" | grep '^battery.charge:' | awk '{print $2}' || echo "")
+    bat_volt=$(echo "$DATA" | grep '^battery.voltage:' | awk '{print $2}' || echo "")
+    in_volt=$(echo "$DATA" | grep '^input.voltage:' | awk '{print $2}' || echo "")
+    out_volt=$(echo "$DATA" | grep '^output.voltage:' | awk '{print $2}' || echo "")
+    load=$(echo "$DATA" | grep '^ups.load:' | awk '{print $2}' || echo "")
+    status=$(echo "$DATA" | grep '^ups.status:' | awk '{print $2}' || echo "")
+
+    # Map status to number
+    status_num=0
+    if [ "$status" = "OL" ]; then
+        status_num=1
+    elif [ "$status" = "OB" ]; then
+        status_num=2
+    elif [ "$status" = "LB" ]; then
+        status_num=3
+    fi
+
+    [ -n "$charge" ] && echo "nut_battery_charge{ups=\"{{ nut_ups_name }}\"} $charge" >> "$TEMP_FILE"
+    [ -n "$bat_volt" ] && echo "nut_battery_voltage{ups=\"{{ nut_ups_name }}\"} $bat_volt" >> "$TEMP_FILE"
+    [ -n "$in_volt" ] && echo "nut_input_voltage{ups=\"{{ nut_ups_name }}\"} $in_volt" >> "$TEMP_FILE"
+    [ -n "$out_volt" ] && echo "nut_output_voltage{ups=\"{{ nut_ups_name }}\"} $out_volt" >> "$TEMP_FILE"
+    [ -n "$load" ] && echo "nut_ups_load{ups=\"{{ nut_ups_name }}\"} $load" >> "$TEMP_FILE"
+    echo "nut_ups_status{ups=\"{{ nut_ups_name }}\"} $status_num" >> "$TEMP_FILE"
+fi
+
+mv "$TEMP_FILE" "$PROM_FILE"

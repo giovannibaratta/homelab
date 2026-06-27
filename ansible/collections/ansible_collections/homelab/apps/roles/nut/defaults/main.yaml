@@ -1,0 +1,15 @@
+---
+nut_ups_name: "tecnoware"
+nut_ups_driver: "nutdrv_qx"
+nut_ups_port: "auto"
+nut_ups_vendorid: "0665"
+nut_ups_productid: "5161"
+nut_ups_desc: "Tecnoware UPS"
+
+nut_listen_addresses:
+  - ip: 127.0.0.1
+    port: 3493
+  - ip: "{{ internal_ip }}"
+    port: 3493
+
+nut_shutdown_cmd: "echo 'No power, I should have me shutting down but instead I will do nothing'"

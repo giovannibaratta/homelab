@@ -32,6 +32,7 @@ home:
     deploy_netbird: false
     deploy_adguard: false
     deploy_forgejo: true
+    deploy_nut: false
     # Kubernetes Netbird Configuration
     k8s_netbird_deploy_exit_node: true
     k8s_netbird_deploy_jump_node: true
@@ -122,6 +123,7 @@ home:
       deploy_idp: true
       deploy_netbird: true
       deploy_pinchflat: true
+      deploy_nut: true
       ##### ad hoc deployments variables #####
       vpn_deploy_exit_node: true
       vpn_deploy_jump_node: true

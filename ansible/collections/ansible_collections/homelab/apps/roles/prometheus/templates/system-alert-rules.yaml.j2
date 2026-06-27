@@ -63,6 +63,12 @@ groups:
     annotations:
       summary: "Auto-Ansible is failing frequently on {{ '{{' }} $labels.instance {{ '}}' }}"
       description: "Auto-Ansible has failed {{ '{{' }} $value {{ '}}' }} times in the last 24 hours on instance {{ '{{' }} $labels.instance {{ '}}' }}."
+  - alert: UPSOnBattery
+    expr: nut_ups_status > 1
+    for: 10s
+    annotations:
+      summary: "UPS on battery (instance {{ '{{' }} $labels.instance {{ '}}' }})"
+      description: "UPS {{ '{{' }} $labels.ups {{ '}}' }} has switched to battery power. Current status code: {{ '{{' }} $value {{ '}}' }}."
 - name: Security
   rules:
   - alert: HighUploadSpeed

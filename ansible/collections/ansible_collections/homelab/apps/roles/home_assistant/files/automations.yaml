@@ -193,3 +193,51 @@
       config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
       message: Porta del garage aperta
   mode: single
+- id: '1768822000001'
+  alias: UPS On Battery
+  description: 'Notify when the UPS switches to battery power'
+  triggers:
+    - trigger: state
+      entity_id: sensor.tecnoware_status_data
+      to: 'OB'
+  conditions: []
+  actions:
+    - action: telegram_bot.send_message
+      metadata: {}
+      data:
+        config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+        parse_mode: html
+        message: '⚠️ Attenzione: UPS è passato alla modalità batteria!'
+  mode: single
+- id: '1768822000002'
+  alias: UPS Low Input Voltage
+  description: 'Notify when the input voltage drops below 200V'
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.tecnoware_input_voltage
+      below: 210
+  conditions: []
+  actions:
+    - action: telegram_bot.send_message
+      metadata: {}
+      data:
+        config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+        parse_mode: html
+        message: "⚠️ Attenzione: Tensione scesa sotto i 210V! Tensione attuale: {{ states('sensor.tecnoware_input_voltage') }}V"
+  mode: single
+- id: '1768822000003'
+  alias: UPS Back Online
+  description: 'Notify when the UPS switches back to online power'
+  triggers:
+    - trigger: state
+      entity_id: sensor.tecnoware_status_data
+      to: 'OL'
+  conditions: []
+  actions:
+    - action: telegram_bot.send_message
+      metadata: {}
+      data:
+        config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+        parse_mode: html
+        message: '✅ Info: UPS è tornato in modalità linea (rete elettrica)!'
+  mode: single

@@ -1,0 +1,137 @@
+---
+# tasks file for homelab.apps.nut
+- name: Ensure nut_monuser_password is provided
+  ansible.builtin.assert:
+    that:
+      - nut_monuser_password is defined
+      - nut_monuser_password | length > 0
+    fail_msg: "Please define 'nut_monuser_password' in your configuration."
+
+- name: Install NUT packages
+  ansible.builtin.package:
+    name:
+      - nut-server
+      - nut-client
+    state: present
+
+- name: Configure nut.conf
+  ansible.builtin.template:
+    src: nut.conf.j2
+    dest: /etc/nut/nut.conf
+    owner: root
+    group: nut
+    mode: "0640"
+  notify:
+    - Restart NUT driver scheduler
+    - Restart NUT server
+    - Restart NUT monitor
+
+- name: Configure ups.conf
+  ansible.builtin.template:
+    src: ups.conf.j2
+    dest: /etc/nut/ups.conf
+    owner: root
+    group: nut
+    mode: "0640"
+  notify:
+    - Restart NUT driver scheduler
+    - Restart NUT server
+
+- name: Configure upsd.conf
+  ansible.builtin.template:
+    src: upsd.conf.j2
+    dest: /etc/nut/upsd.conf
+    owner: root
+    group: nut
+    mode: "0640"
+  notify:
+    - Restart NUT server
+
+- name: Configure upsd.users
+  ansible.builtin.template:
+    src: upsd.users.j2
+    dest: /etc/nut/upsd.users
+    owner: root
+    group: nut
+    mode: "0640"
+  notify:
+    - Restart NUT server
+
+- name: Configure upsmon.conf
+  ansible.builtin.template:
+    src: upsmon.conf.j2
+    dest: /etc/nut/upsmon.conf
+    owner: root
+    group: nut
+    mode: "0640"
+  notify:
+    - Restart NUT monitor
+
+- name: Reload and trigger udev rules
+  ansible.builtin.command:
+    cmd: udevadm control --reload-rules && udevadm trigger
+  changed_when: false
+  failed_when: false
+
+- name: Enable and start NUT driver scheduler
+  ansible.builtin.systemd_service:
+    name: nut-driver-scheduler
+    state: started
+    enabled: true
+
+- name: Enable and start NUT server
+  ansible.builtin.systemd_service:
+    name: nut-server
+    state: started
+    enabled: true
+
+- name: Enable and start NUT monitor
+  ansible.builtin.systemd_service:
+    name: nut-monitor
+    state: started
+    enabled: true
+
+- name: Ensure node_exporter textfile collector directory exists
+  ansible.builtin.file:
+    path: /var/lib/node_exporter/textfile_collector
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy NUT to Prometheus script
+  ansible.builtin.template:
+    src: nut_to_prometheus.sh.j2
+    dest: /usr/local/bin/nut_to_prometheus.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy nut-prometheus-exporter.service
+  ansible.builtin.template:
+    src: nut-prometheus-exporter.service.j2
+    dest: /etc/systemd/system/nut-prometheus-exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: service_config
+
+- name: Deploy nut-prometheus-exporter.timer
+  ansible.builtin.template:
+    src: nut-prometheus-exporter.timer.j2
+    dest: /etc/systemd/system/nut-prometheus-exporter.timer
+    owner: root
+    group: root
+    mode: "0644"
+  register: timer_config
+
+- name: Reload systemd daemon if configs changed
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: service_config.changed or timer_config.changed
+
+- name: Enable and start NUT Prometheus exporter timer
+  ansible.builtin.systemd_service:
+    name: nut-prometheus-exporter.timer
+    state: started
+    enabled: true
