@@ -35,4 +35,4 @@ mv "$TEMP_NFT" "$DEST_FILE"
 chmod 600 "$DEST_FILE"
 
 # 5. Reload nftables to apply the new IPs
-systemctl reload nftables || systemctl restart nftables
+systemctl reload nftables
