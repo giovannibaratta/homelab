@@ -1,5 +1,6 @@
 # Clean existing table and preserve docker tables
 
+
 {% if network_is_router %}
 # Avoid delete to fail
 table ip custom_nat {
@@ -63,6 +64,7 @@ table ip firewall {
 {% if network_is_router %}
     iifname ftth jump public_traffic # ftth is the interface name
 {% endif %}
+    # br0.XXX is the WAN carrier for PPPOE (ftth) and must not be matched as internal traffic. Match br0 exactly.
     iifname {{ bridge_name }} jump internal_traffic
     iifname k8s-cp jump internal_traffic
     iifname "wt*" jump internal_traffic
@@ -71,6 +73,7 @@ table ip firewall {
     iifname "cilium*" jump container_traffic
     iifname "nodelocaldns" jump container_traffic
     iifname "lxc*" jump container_traffic
+    iifname "veth*" jump container_traffic
     log prefix "Unmatched interface "
     reject
   }

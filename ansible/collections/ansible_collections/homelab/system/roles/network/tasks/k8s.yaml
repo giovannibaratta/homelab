@@ -86,7 +86,10 @@
     - veth-k8s-br
     - k8s-cp
 
-- name: Network | Set loose reverse path filtering
+# For br0 and k8s-cp, asymmetric routing is used (traffic enters br0 but leaves k8s-cp).
+# Loose mode (2) allows these interfaces to accept incoming packets whose source IPs
+# are reachable via any interface in the kernel's routing table (FIB).
+- name: Network | Set loose reverse path filtering for specific interfaces
   ansible.posix.sysctl:
     name: "net.ipv4.conf.{{ item }}.rp_filter"
     value: "2"
@@ -94,7 +97,21 @@
     state: present
     reload: yes
   loop:
-    - all
-    - default
     - br0
     - k8s-cp
+
+# Cilium uses BPF-based routing which bypasses the standard Linux kernel FIB.
+# When rp_filter is set to 2, the kernel attempts to look up the packet's source IP
+# in the standard routing table. Since Cilium's BPF routes are not populated in the FIB,
+# the kernel drops these packets. Setting rp_filter to 0 (disabled) is mandatory for
+# Cilium on all and default to prevent BPF-routed container traffic from being dropped.
+- name: Network | Disable reverse path filtering for all/default
+  ansible.posix.sysctl:
+    name: "net.ipv4.conf.{{ item }}.rp_filter"
+    value: "0"
+    sysctl_file: /etc/sysctl.d/30-k8s-routing.conf
+    state: present
+    reload: yes
+  loop:
+    - all
+    - default
