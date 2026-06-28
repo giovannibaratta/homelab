@@ -78,13 +78,17 @@
 - name: Create zitadel database Quadlet
   containers.podman.podman_container:
     name: zitadel-db
-    image: docker.io/postgres:16.3-alpine
+    image: docker.io/postgres:{{ idp_zitadel_db_version }}
     state: quadlet
     env_file: "{{ idp_zitadel_db_conf_dir }}/zitadel-db.env"
     network: zitadel
 
     volumes:
       - "{{ idp_zitadel_db_work_dir }}:/var/lib/postgresql/data"
+
+    # Expose port 5432 on the host only when explicitly requested (e.g. K8s migration).
+    # Off by default — the DB must not be reachable outside the Podman network.
+    ports: "{{ ['5432:5432'] if idp_zitadel_db_publish_port else [] }}"
 
     # zitadel-db runs as root:root but /var/lib/postgresql/data must be assigned to postgres (70:70)
     # We map the root container user to the zitadel-db user running on the host

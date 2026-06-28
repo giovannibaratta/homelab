@@ -5,6 +5,9 @@
   ansible.builtin.import_tasks: system-updates.yaml
 - name: Install packages
   ansible.builtin.import_tasks: install-packages.yaml
+- name: Install Terraform
+  ansible.builtin.import_tasks: install-terraform.yaml
+  when: install_terraform
 - name: Customize shell
   ansible.builtin.import_tasks: customize-shell.yaml
   when: base_ohmyzsh_install

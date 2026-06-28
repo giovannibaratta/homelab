@@ -2,7 +2,7 @@ variable "zitadel_instance" {
   type = object({
     host = string
     port = number
-    jwt_path = string
+    jwt_json = string
   })
 }
 

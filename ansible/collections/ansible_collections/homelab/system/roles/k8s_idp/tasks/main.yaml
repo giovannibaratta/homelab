@@ -1,0 +1,175 @@
+---
+
+- name: Deploy ZItadel on K8s
+  when: k8s_idp_enabled
+  block:
+    - name: K8s IDP | Validate k8s_idp_database_host is defined
+      ansible.builtin.assert:
+        that:
+          - k8s_idp_database_host is defined
+          - k8s_idp_database_host | string | length > 0
+        fail_msg: "CRITICAL: 'k8s_idp_database_host' is not defined! Please define it in your playbook or inventory."
+      run_once: true
+
+    - name: K8s IDP | Ensure namespace exists
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ k8s_idp_namespace }}"
+            labels:
+              pod-security.kubernetes.io/enforce: restricted
+              pod-security.kubernetes.io/audit: restricted
+              pod-security.kubernetes.io/warn: restricted
+      run_once: true
+
+    - name: K8s IDP | Check if masterkey secret exists in K8s
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: zitadel-masterkey
+        namespace: "{{ k8s_idp_namespace }}"
+      register: k8s_masterkey_secret
+      run_once: true
+
+    - name: K8s IDP | Create masterkey secret if not present
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: zitadel-masterkey
+            namespace: "{{ k8s_idp_namespace }}"
+          stringData:
+            masterkey: "{{ idp_zitadel_masterkey | default(lookup('community.general.random_string', length=32, special=false)) }}"
+      no_log: true
+      run_once: true
+      when: k8s_masterkey_secret.resources | length == 0
+
+    - name: K8s IDP | Apply Zitadel Manifests
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'zitadel.yaml.j2') | from_yaml_all }}"
+      no_log: true
+      run_once: true
+
+    - name: K8s IDP | Wait for Zitadel Deployment to be ready
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: zitadel
+        namespace: "{{ k8s_idp_namespace }}"
+      register: zitadel_deploy
+      until:
+        - zitadel_deploy.resources is defined
+        - zitadel_deploy.resources | length > 0
+        - zitadel_deploy.resources[0].status.readyReplicas is defined
+        - zitadel_deploy.resources[0].status.readyReplicas == zitadel_deploy.resources[0].status.replicas
+      retries: 30
+      delay: 10
+      run_once: true
+
+    - name: K8s IDP | Get running Zitadel pod info
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ k8s_idp_namespace }}"
+        label_selectors:
+          - "app=zitadel"
+      register: zitadel_pods
+      until:
+        - zitadel_pods.resources is defined
+        - zitadel_pods.resources | length > 0
+        - zitadel_pods.resources[0].status.phase == "Running"
+      retries: 10
+      delay: 5
+      run_once: true
+
+    - name: K8s IDP | Create ephemeral key-extractor pod on the same node
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: zitadel-key-extractor
+            namespace: "{{ k8s_idp_namespace }}"
+          spec:
+            nodeName: "{{ zitadel_pods.resources[0].spec.nodeName }}"
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 26
+              runAsGroup: 26
+              fsGroup: 26
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: extractor
+                image: alpine:latest
+                command: ["cat", "{{ k8s_idp_firstinstance_machinekey_path }}"]
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                      - ALL
+                  runAsNonRoot: true
+                  runAsUser: 26
+                  runAsGroup: 26
+                  seccompProfile:
+                    type: RuntimeDefault
+                volumeMounts:
+                  - name: key-vol
+                    mountPath: /machinekey
+            restartPolicy: Never
+            volumes:
+              - name: key-vol
+                persistentVolumeClaim:
+                  claimName: zitadel-machinekey
+      run_once: true
+
+    - name: K8s IDP | Wait for key-extractor pod to complete
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        name: zitadel-key-extractor
+        namespace: "{{ k8s_idp_namespace }}"
+      register: extractor_pod
+      until:
+        - extractor_pod.resources is defined
+        - extractor_pod.resources | length > 0
+        - extractor_pod.resources[0].status.phase in ["Succeeded", "Failed"]
+      retries: 30
+      delay: 2
+      run_once: true
+
+    - name: K8s IDP | Assert key extraction succeeded
+      ansible.builtin.assert:
+        that:
+          - extractor_pod.resources[0].status.phase == "Succeeded"
+        fail_msg: "CRITICAL: Ephemeral key-extractor pod failed! The machinekey file might not be generated yet or PVC mount failed."
+      run_once: true
+
+    - name: K8s IDP | Get key-extractor logs
+      kubernetes.core.k8s_log:
+        name: zitadel-key-extractor
+        namespace: "{{ k8s_idp_namespace }}"
+      register: k8s_machinekey_content
+      run_once: true
+
+    - name: K8s IDP | Delete ephemeral key-extractor pod
+      kubernetes.core.k8s:
+        state: absent
+        name: zitadel-key-extractor
+        namespace: "{{ k8s_idp_namespace }}"
+        kind: Pod
+      run_once: true
+
+    - name: K8s IDP | Emit machinekey fact for configure role
+      ansible.builtin.set_fact:
+        idp_config_jwt_json: "{{ k8s_machinekey_content.log | string }}"
+        cacheable: true
+      run_once: true
+

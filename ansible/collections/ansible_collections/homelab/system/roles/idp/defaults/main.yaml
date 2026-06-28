@@ -9,3 +9,12 @@ idp_zitadel_db_work_dir: /app/zitadeldb/work
 __idp_zitadel_db_user: zitadeldata
 __idp_zitadel_db_admin_name: zitadeladmin
 __idp_zitadel_db_admin_user: zitadeladmin
+
+# Publish Postgres port 5432 on the host IP. Off by default (DB should not be
+# reachable outside the Podman network).
+idp_zitadel_db_publish_port: false
+
+# Abstract variable to enable/disable host (Docker) Zitadel deployment.
+# If set to false, the role will stop and disable the host systemd/quadlet services.
+idp_docker_enabled: true
+

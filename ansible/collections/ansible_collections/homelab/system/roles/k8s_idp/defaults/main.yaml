@@ -1,0 +1,34 @@
+---
+k8s_idp_namespace: zitadel
+k8s_idp_version: v4.15.0
+k8s_idp_external_domain: "idp.{{ internal_domain }}"
+k8s_idp_external_port: "443"
+k8s_idp_external_secure: "true"
+# Storage class for Zitadel persistent volumes
+k8s_idp_storage_class: piraeus-rwo-replicated
+
+k8s_idp_database_port: "5432"
+k8s_idp_database_name: "zitadeldata"
+k8s_idp_database_username: "zitadeldata"
+k8s_idp_database_admin_username: "zitadeladmin"
+
+# Config to run on first instance bootstrap
+k8s_idp_firstinstance_org_name: "idp.{{ internal_domain }}"
+k8s_idp_firstinstance_machinekey_path: "/machinekey/zitadel-admin-sa.json"
+k8s_idp_firstinstance_machine_username: "zitadel-admin-sa"
+k8s_idp_firstinstance_machine_name: "Admin"
+k8s_idp_firstinstance_machinekey_type: "1"
+k8s_idp_firstinstance_human_username: "admin@idp.{{ internal_domain }}"
+k8s_idp_firstinstance_human_password_change_required: "false"
+
+# Priority class for scheduling
+k8s_idp_priority_class_name: "critical-infra"
+
+# Resource requests/limits for the Zitadel app pod
+k8s_idp_resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"

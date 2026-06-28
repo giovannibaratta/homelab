@@ -22,6 +22,15 @@ spec:
 
   type: rw
 
+{% if __k8s_db_resources is defined %}
+  resources:
+    {{ __k8s_db_resources | to_nice_yaml(indent=2) | indent(4) }}
+{% endif %}
+{% if __k8s_db_priority_class_name is defined %}
+  priorityClassName: {{ __k8s_db_priority_class_name }}
+{% endif %}
+
+
   serviceTemplate:
     spec:
       type: LoadBalancer

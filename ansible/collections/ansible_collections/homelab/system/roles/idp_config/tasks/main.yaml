@@ -1,0 +1,70 @@
+---
+- name: IDP Config | Validate that machinekey jwt is provided
+  ansible.builtin.assert:
+    that:
+      - idp_config_jwt_json is defined
+      - idp_config_jwt_json | string | length > 0
+    fail_msg: "CRITICAL: 'idp_config_jwt_json' is not defined or is empty! One of the previous roles must emit this fact."
+  run_once: true
+
+- name: IDP Config | Create Terraform directories
+  ansible.builtin.file:
+    path: "{{ idp_config_terraform_dir }}"
+    state: directory
+    mode: "0700"
+  run_once: true
+
+- name: IDP Config | Copy Terraform module to host
+  ansible.posix.synchronize:
+    src: files/terraform/
+    dest: "{{ idp_config_terraform_dir }}/"
+    delete: true
+    group: false
+    owner: false
+    perms: false
+    times: false
+    rsync_opts:
+      - "--no-motd"
+      - "--exclude='.terraform'"
+      - "--exclude='terraform.tfstate'"
+      - "--exclude='terraform.tfstate.backup'"
+      - "--exclude='terraform.tfvars'"
+  run_once: true
+
+- name: IDP Config | Pre-validate idp_dynamic_apps structure
+  ansible.builtin.assert:
+    that:
+      - item.name is defined and item.name | string | length > 0
+      - item.redirect_uris is defined and item.redirect_uris is iterable and item.redirect_uris is not string and item.redirect_uris | length > 0
+    fail_msg: "idp_dynamic_apps item is invalid: name must be a non-empty string, and redirect_uris must be a non-empty list of URIs."
+  loop: "{{ idp_dynamic_apps | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: idp_dynamic_apps is defined
+  run_once: true
+
+- name: IDP Config | Render dynamic Terraform module
+  ansible.builtin.template:
+    src: dynamic_apps.tf.j2
+    dest: "{{ idp_config_terraform_dir }}/dynamic_apps.tf"
+  run_once: true
+  when: idp_dynamic_apps is defined and idp_dynamic_apps | length > 0
+
+- name: IDP Config | Apply Terraform to configure Zitadel
+  community.general.terraform:
+    project_path: "{{ idp_config_terraform_dir }}"
+    check_destroy: true
+    state: present
+    complex_vars: true
+    force_init: true
+    variables:
+      app_domain: "{{ internal_domain }}"
+      zitadel_instance:
+        host: "{{ idp_config_external_domain }}"
+        port: "{{ idp_config_external_port }}"
+        jwt_json: "{{ idp_config_jwt_json }}"
+  register: idp_zitadel_terraform_output
+  run_once: true
+  retries: 5
+  delay: 60
+  no_log: true

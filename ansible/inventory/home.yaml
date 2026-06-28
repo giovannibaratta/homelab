@@ -15,9 +15,15 @@ home:
     k8s_lb_network: 172.16.184.0/24
     k8s_ingress_lb_ip: "172.16.184.10"
     # Provide only the sub-domain prefix. They will be suffixed with .{{ internal_domain }}
-    k8s_public_domains: [""]
+    k8s_public_domains: ["idp"]
     k8s_internal_domains: ["git"]
     network_dyn_dns_entry: "ingress"
+    idp_deployment_type: "k8s" # Alternative is docker
+    # NOTE: The Terraform state for the IDP is stored locally in `/app/zitadel/conf/terraform`
+    # on the node executing the role (currently node2 where deploy_idp is true).
+    # In the future, if you shift the IDP deployment to another node, you must manually
+    # copy the `/app/zitadel/conf/terraform/terraform.tfstate` file to the new node to preserve state.
+    # Ideally the Terraform state should be on a location that is accessible by all nodes.
     ##### END Required for first setup #####
     ##### Deployment preferences defaults to false for safety #####
     deploy_grafana: false

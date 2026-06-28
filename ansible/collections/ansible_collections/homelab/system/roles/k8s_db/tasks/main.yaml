@@ -53,6 +53,8 @@
           1. Name must be 1-20 characters long and contain ONLY alphanumeric characters (a-z, A-Z, 0-9).
           2. Storage size must include 'G' or 'Gi', and be strictly > 0 and < 50.
       loop: "{{ k8s_db_clusters }}"
+      loop_control:
+        label: "{{ item.name }}"
 
 - name: CloudNativePG | Create local storage directories on each node for each cluster
   when: "'kube_node' in group_names"
@@ -60,9 +62,11 @@
     path: "/app/k8s-db-{{ item.name }}"
     state: directory
     owner: root
-    group: root
-    mode: '0700'
+    group: 26
+    mode: '0770'
   loop: "{{ k8s_db_clusters }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: CloudNativePG | Render and apply local Persistent Volumes for all clusters across all nodes
   run_once: true
@@ -72,6 +76,8 @@
   # For each node in the cluster, we need to crate a PV that points to the local storage on that node.
   # We can achieve this by looping over the product of the list of clusters and the list of nodes.
   loop: "{{ k8s_db_clusters | product(groups['kube_node']) | list }}"
+  loop_control:
+    label: "pv-{{ item[0].name }}-{{ item[1] }}"
   vars:
     # item[0] represents the current cluster dictionary from k8s_db_clusters
     # item[1] represents the current node name from groups['kube_node']
@@ -85,6 +91,7 @@
     state: present
     definition: "{{ lookup('template', 'credentials.yaml.j2') | from_yaml }}"
   loop: "{{ k8s_db_clusters }}"
+  no_log: true
   run_once: true
   vars:
     __k8s_db_cluster_name: "{{ item.name }}"
@@ -97,8 +104,12 @@
     state: present
     definition: "{{ lookup('template', 'cluster.yaml.j2') | from_yaml }}"
   loop: "{{ k8s_db_clusters }}"
+  loop_control:
+    label: "{{ item.name }}"
   vars:
     __k8s_db_cluster_name: "{{ item.name }}"
     __k8s_db_storage_size: "{{ item.storage_size }}"
     __k8s_db_db_user: "{{ item.username }}"
     __k8s_db_secret_name: "{{ __k8s_db_cluster_name }}-credentials"
+    __k8s_db_resources: "{{ item.resources if item.resources is defined else omit }}"
+    __k8s_db_priority_class_name: "{{ item.priority_class_name if item.priority_class_name is defined else omit }}"

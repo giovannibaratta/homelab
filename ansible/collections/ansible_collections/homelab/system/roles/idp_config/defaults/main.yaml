@@ -1,0 +1,5 @@
+---
+idp_config_external_domain: "idp.{{ internal_domain }}"
+idp_config_external_port: "443"
+idp_config_namespace: zitadel
+idp_config_terraform_dir: "/app/zitadel/conf/terraform"

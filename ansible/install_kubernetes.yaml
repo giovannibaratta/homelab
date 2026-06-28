@@ -71,7 +71,8 @@
   become: yes
 
   tasks:
-    - ansible.builtin.import_role:
+    - name: Deploy CloudNativePG Clusters (System/App Namespace)
+      ansible.builtin.import_role:
         name: homelab.system.k8s_db
       tags: k8s-db
       vars:
@@ -80,6 +81,27 @@
             storage_size: "10Gi"
             username: "forgejouser"
             password: "{{ forgejo_db_password }}"
+
+    - name: Deploy CloudNativePG Clusters (Zitadel Namespace)
+      ansible.builtin.import_role:
+        name: homelab.system.k8s_db
+      tags: k8s-db
+      vars:
+        k8s_db_cluster_namespace: zitadel
+        k8s_db_clusters:
+          - name: zitadeldb
+            storage_size: "10Gi"
+            username: "zitadeladmin"
+            password: "{{ idp_zitadel_db_admin_password }}"
+            priority_class_name: "critical-infra"
+            resources:
+              requests:
+                cpu: "1000m"
+                memory: "1Gi"
+              limits:
+                cpu: "1000m"
+                memory: "1Gi"
+
 
 - name: Deploy Forgejo
   hosts: kube_control_plane

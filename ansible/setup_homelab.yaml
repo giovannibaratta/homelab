@@ -171,11 +171,28 @@
       become: true
       tags: ingress
 
-    - when: deploy_idp
-      name: Identity provider
+    - name: Identity provider
       block:
         - ansible.builtin.import_role:
             name: homelab.system.idp
+          become: true
+          tags: idp
+          vars:
+            idp_docker_enabled: "{{ idp_deployment_type == 'docker' }}"
+
+        - ansible.builtin.import_role:
+            name: homelab.system.k8s_idp
+          become: true
+          tags: idp
+          vars:
+            k8s_idp_enabled: "{{ idp_deployment_type == 'k8s' }}"
+            k8s_idp_database_host: zitadeldb-rw.zitadel.svc.cluster.local
+
+        - when: deploy_idp
+          ansible.builtin.import_role:
+            name: homelab.system.idp_config
+          vars:
+            idp_config_external_port: "{{ '8443' if (idp_deployment_type == 'docker') else '443' }}"
           become: true
           tags: idp
 

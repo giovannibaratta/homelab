@@ -1,8 +1,34 @@
-- name: Install Terraform
-  ansible.builtin.import_tasks: install_terraform.yaml
-
-- name: Deploy Zitadel
+- name: Deploy Zitadel on Host (Docker)
   ansible.builtin.import_tasks: deploy_zitadel.yaml
+  when: idp_docker_enabled
 
-- name: Configure Zitadel
-  ansible.builtin.import_tasks: configure_zitadel.yaml
+- name: Stop Zitadel Host/Docker Services
+  when: not idp_docker_enabled
+  block:
+    - name: Stop and disable host zitadel service
+      ansible.builtin.systemd_service:
+        name: zitadel
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Stop and disable host zitadel-db service
+      ansible.builtin.systemd_service:
+        name: zitadel-db
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+- name: IDP | Load machinekey from host file
+  ansible.builtin.slurp:
+    src: "{{ idp_zitadel_conf_dir | default('/app/zitadel/conf') }}/machinekey/zitadel-admin-sa.json"
+  register: host_machinekey_content
+  run_once: true
+  when: idp_docker_enabled
+
+- name: IDP | Emit machinekey fact for configure role
+  ansible.builtin.set_fact:
+    idp_config_jwt_json: "{{ host_machinekey_content.content | b64decode | string }}"
+    cacheable: true
+  run_once: true
+  when: idp_docker_enabled
