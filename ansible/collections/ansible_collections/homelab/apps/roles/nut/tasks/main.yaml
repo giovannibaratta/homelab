@@ -1,11 +1,12 @@
 ---
 # tasks file for homelab.apps.nut
-- name: Ensure nut_monuser_password is provided
+- name: Ensure nut_monuser_password is provided and valid
   ansible.builtin.assert:
     that:
       - nut_monuser_password is defined
       - nut_monuser_password | length > 0
-    fail_msg: "Please define 'nut_monuser_password' in your configuration."
+      - "'#' not in nut_monuser_password"
+    fail_msg: "Please define 'nut_monuser_password' in your configuration and make sure it does not contain the '#' character."
 
 - name: Install NUT packages
   ansible.builtin.package:
@@ -22,7 +23,7 @@
     group: nut
     mode: "0640"
   notify:
-    - Restart NUT driver scheduler
+    - Restart NUT driver enumerator
     - Restart NUT server
     - Restart NUT monitor
 
@@ -34,7 +35,7 @@
     group: nut
     mode: "0640"
   notify:
-    - Restart NUT driver scheduler
+    - Restart NUT driver enumerator
     - Restart NUT server
 
 - name: Configure upsd.conf
@@ -73,9 +74,9 @@
   changed_when: false
   failed_when: false
 
-- name: Enable and start NUT driver scheduler
+- name: Enable and start NUT driver enumerator
   ansible.builtin.systemd_service:
-    name: nut-driver-scheduler
+    name: nut-driver-enumerator
     state: started
     enabled: true
 

@@ -1,7 +1,7 @@
 ---
-- name: Restart NUT driver scheduler
+- name: Restart NUT driver enumerator
   ansible.builtin.systemd_service:
-    name: nut-driver-scheduler
+    name: nut-driver-enumerator
     state: restarted
 
 - name: Restart NUT server
