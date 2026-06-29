@@ -1,0 +1,14 @@
+[Unit]
+Description=cloudflare-tunnel
+After=network.target
+
+[Service]
+TimeoutStartSec=0
+Type=simple
+User=root
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token {{ cloudflare_tunnel_token }}
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

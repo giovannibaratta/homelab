@@ -1,0 +1,21 @@
+---
+- name: Deploy Outbound Emergency Fallback (Cloudflare Tunnel)
+  hosts: all
+  become: true
+  gather_facts: true
+  gather_subset:
+    - "!all"
+    - min
+
+  pre_tasks:
+    - ansible.builtin.import_role:
+        name: homelab.utils.render_variables
+      tags:
+        - always
+
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.system.cloudflare_tunnel
+      vars:
+        cloudflare_tunnel_token: "{{ lookup('ansible.builtin.vars', 'cloudflare_tunnel_token_' + inventory_hostname, default='') }}"
+      when: deploy_cloudflare_tunnel | default(false)

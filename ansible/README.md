@@ -30,6 +30,40 @@
    ansible-playbook "setup_homelab.yaml" -i inventory/home.yaml -v
    ```
 
+## Emergency Outbound Fallback (Cloudflare Tunnel)
+
+The `cloudflared` daemon can be deployed to provide fallback access when Zitadel, Traefik, or the VPN mesh are offline. Since it is an emergency fallback, it is kept separate from the main playbook to avoid unexpected service interruptions during regular deployments.
+
+### Prerequisites
+
+Define the Cloudflare tunnel tokens inside the Bitwarden Secrets Manager bundle as host-specific keys:
+- `cloudflare_tunnel_token_node1`
+- `cloudflare_tunnel_token_node2`
+- `cloudflare_tunnel_token_node3`
+
+#### Generating Tunnel Tokens
+Create a separate tunnel for each node in the Cloudflare Zero Trust Dashboard:
+1. Navigate to **Cloudflare Zero Trust Dashboard** -> **Networks** -> **Connectors**.
+2. Click **Add a tunnel**, select **Cloudflare (Recommended)**, and click **Next**.
+3. Name your tunnel (e.g., `homelab-node1`), and click **Save tunnel**.
+4. On the **Install and run a connector** page, choose **Debian** or **Ubuntu**.
+5. Locate the commands shown under **Install and run connector**.
+6. Copy the long base64 string directly following the `--token` parameter (e.g., `eyJhIjoiZT...`).
+7. Store this token under the key `cloudflare_tunnel_token_nodeX` in your Bitwarden Secrets Manager bundle.
+8. Repeat for other nodes.
+
+Enable the deployment for targeted hosts in `inventory/home.yaml` by setting:
+```yaml
+deploy_cloudflare_tunnel: true
+```
+
+### Deploy
+
+Run the dedicated playbook:
+```bash
+ansible-playbook "deploy_cloudflare_tunnel.yaml" -i inventory/home.yaml
+```
+
 ## Manual setup to enable Ansible
 
 1. Create a group for passwordless sudo

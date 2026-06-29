@@ -1,6 +1,6 @@
 ---
 
-- name: Deploy ZItadel on K8s
+- name: Deploy Zitadel on K8s
   when: k8s_idp_enabled
   block:
     - name: K8s IDP | Validate k8s_idp_database_host is defined
