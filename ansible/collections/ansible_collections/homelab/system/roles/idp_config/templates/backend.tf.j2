@@ -1,0 +1,16 @@
+terraform {
+  backend "s3" {
+    bucket   = "{{ idp_terraform_state_bucket }}"
+    key      = "idp/terraform.tfstate"
+    region   = "eeur"
+    endpoint = "{{ idp_terraform_state_endpoint }}"
+{% if idp_terraform_state_s3_type == 'other' %}
+
+    # Skip AWS-specific APIs/validations when using non-AWS providers like Cloudflare R2
+    skip_credentials_validation = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true
+    skip_s3_checksum            = true
+{% endif %}
+  }
+}

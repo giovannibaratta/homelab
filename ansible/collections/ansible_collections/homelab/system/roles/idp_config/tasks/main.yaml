@@ -1,18 +1,18 @@
 ---
-- name: IDP Config | Validate that machinekey jwt is provided
+- name: IDP Config | Validate required variables
   ansible.builtin.assert:
     that:
-      - idp_config_jwt_json is defined
-      - idp_config_jwt_json | string | length > 0
-    fail_msg: "CRITICAL: 'idp_config_jwt_json' is not defined or is empty! One of the previous roles must emit this fact."
-  run_once: true
+      - idp_config_jwt_json is defined and idp_config_jwt_json | string | length > 0
+      - idp_terraform_state_endpoint is defined and idp_terraform_state_endpoint | string | length > 0
+      - idp_terraform_state_access is defined and idp_terraform_state_access | string | length > 0
+      - idp_terraform_state_secret is defined and idp_terraform_state_secret | string | length > 0
+    fail_msg: "CRITICAL: Required configuration variables (idp_config_jwt_json, idp_terraform_state_endpoint, idp_terraform_state_access, idp_terraform_state_secret) must be defined and not empty!"
 
 - name: IDP Config | Create Terraform directories
   ansible.builtin.file:
     path: "{{ idp_config_terraform_dir }}"
     state: directory
     mode: "0700"
-  run_once: true
 
 - name: IDP Config | Copy Terraform module to host
   ansible.posix.synchronize:
@@ -29,7 +29,6 @@
       - "--exclude='terraform.tfstate'"
       - "--exclude='terraform.tfstate.backup'"
       - "--exclude='terraform.tfvars'"
-  run_once: true
 
 - name: IDP Config | Pre-validate idp_dynamic_apps structure
   ansible.builtin.assert:
@@ -41,14 +40,17 @@
   loop_control:
     label: "{{ item.name }}"
   when: idp_dynamic_apps is defined
-  run_once: true
 
 - name: IDP Config | Render dynamic Terraform module
   ansible.builtin.template:
     src: dynamic_apps.tf.j2
     dest: "{{ idp_config_terraform_dir }}/dynamic_apps.tf"
-  run_once: true
   when: idp_dynamic_apps is defined and idp_dynamic_apps | length > 0
+
+- name: IDP Config | Render backend configuration
+  ansible.builtin.template:
+    src: backend.tf.j2
+    dest: "{{ idp_config_terraform_dir }}/backend.tf"
 
 - name: IDP Config | Apply Terraform to configure Zitadel
   community.general.terraform:
@@ -62,9 +64,11 @@
       zitadel_instance:
         host: "{{ idp_config_external_domain }}"
         port: "{{ idp_config_external_port }}"
-        jwt_json: "{{ idp_config_jwt_json }}"
+        jwt_json: "{{ idp_config_jwt_json | to_json }}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ idp_terraform_state_access }}"
+    AWS_SECRET_ACCESS_KEY: "{{ idp_terraform_state_secret }}"
   register: idp_zitadel_terraform_output
-  run_once: true
   retries: 5
   delay: 60
   no_log: true

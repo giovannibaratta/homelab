@@ -28,7 +28,7 @@
 
 - name: IDP | Emit machinekey fact for configure role
   ansible.builtin.set_fact:
-    idp_config_jwt_json: "{{ host_machinekey_content.content | b64decode | string }}"
+    idp_config_jwt_json: "{{ (host_machinekey_content.content | b64decode) | from_json }}"
     cacheable: true
   run_once: true
   when: idp_docker_enabled

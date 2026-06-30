@@ -9,7 +9,6 @@
           - k8s_idp_database_host is defined
           - k8s_idp_database_host | string | length > 0
         fail_msg: "CRITICAL: 'k8s_idp_database_host' is not defined! Please define it in your playbook or inventory."
-      run_once: true
 
     - name: K8s IDP | Ensure namespace exists
       kubernetes.core.k8s:
@@ -23,7 +22,6 @@
               pod-security.kubernetes.io/enforce: restricted
               pod-security.kubernetes.io/audit: restricted
               pod-security.kubernetes.io/warn: restricted
-      run_once: true
 
     - name: K8s IDP | Check if masterkey secret exists in K8s
       kubernetes.core.k8s_info:
@@ -32,7 +30,6 @@
         name: zitadel-masterkey
         namespace: "{{ k8s_idp_namespace }}"
       register: k8s_masterkey_secret
-      run_once: true
 
     - name: K8s IDP | Create masterkey secret if not present
       kubernetes.core.k8s:
@@ -46,7 +43,6 @@
           stringData:
             masterkey: "{{ idp_zitadel_masterkey | default(lookup('community.general.random_string', length=32, special=false)) }}"
       no_log: true
-      run_once: true
       when: k8s_masterkey_secret.resources | length == 0
 
     - name: K8s IDP | Apply Zitadel Manifests
@@ -54,7 +50,6 @@
         state: present
         definition: "{{ lookup('template', 'zitadel.yaml.j2') | from_yaml_all }}"
       no_log: true
-      run_once: true
 
     - name: K8s IDP | Wait for Zitadel Deployment to be ready
       kubernetes.core.k8s_info:
@@ -70,7 +65,6 @@
         - zitadel_deploy.resources[0].status.readyReplicas == zitadel_deploy.resources[0].status.replicas
       retries: 30
       delay: 10
-      run_once: true
 
     - name: K8s IDP | Get running Zitadel pod info
       kubernetes.core.k8s_info:
@@ -86,7 +80,6 @@
         - zitadel_pods.resources[0].status.phase == "Running"
       retries: 10
       delay: 5
-      run_once: true
 
     - name: K8s IDP | Create ephemeral key-extractor pod on the same node
       kubernetes.core.k8s:
@@ -128,7 +121,6 @@
               - name: key-vol
                 persistentVolumeClaim:
                   claimName: zitadel-machinekey
-      run_once: true
 
     - name: K8s IDP | Wait for key-extractor pod to complete
       kubernetes.core.k8s_info:
@@ -143,21 +135,18 @@
         - extractor_pod.resources[0].status.phase in ["Succeeded", "Failed"]
       retries: 30
       delay: 2
-      run_once: true
 
     - name: K8s IDP | Assert key extraction succeeded
       ansible.builtin.assert:
         that:
           - extractor_pod.resources[0].status.phase == "Succeeded"
         fail_msg: "CRITICAL: Ephemeral key-extractor pod failed! The machinekey file might not be generated yet or PVC mount failed."
-      run_once: true
 
     - name: K8s IDP | Get key-extractor logs
       kubernetes.core.k8s_log:
         name: zitadel-key-extractor
         namespace: "{{ k8s_idp_namespace }}"
       register: k8s_machinekey_content
-      run_once: true
 
     - name: K8s IDP | Delete ephemeral key-extractor pod
       kubernetes.core.k8s:
@@ -165,11 +154,8 @@
         name: zitadel-key-extractor
         namespace: "{{ k8s_idp_namespace }}"
         kind: Pod
-      run_once: true
 
     - name: K8s IDP | Emit machinekey fact for configure role
       ansible.builtin.set_fact:
-        idp_config_jwt_json: "{{ k8s_machinekey_content.log | string }}"
+        idp_config_jwt_json: "{{ k8s_machinekey_content.log | from_json }}"
         cacheable: true
-      run_once: true
-
