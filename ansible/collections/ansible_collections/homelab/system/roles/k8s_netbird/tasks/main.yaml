@@ -11,11 +11,9 @@
           pod-security.kubernetes.io/enforce: privileged
           pod-security.kubernetes.io/audit: privileged
           pod-security.kubernetes.io/warn: privileged
-  run_once: true
 
 - name: K8s Netbird | Deploy Exit Node client
   when: k8s_netbird_deploy_exit_node
-  run_once: true
   block:
     - name: K8s Netbird | Create Exit Node Secret
       kubernetes.core.k8s:
@@ -41,7 +39,6 @@
 
 - name: K8s Netbird | Deploy Jump Node client
   when: k8s_netbird_deploy_jump_node
-  run_once: true
   block:
     - name: K8s Netbird | Create Jump Node Secret
       kubernetes.core.k8s:
@@ -67,7 +64,6 @@
 
 - name: K8s Netbird | Deploy Dashboard
   when: k8s_netbird_deploy_dashboard
-  run_once: true
   block:
     - name: K8s Netbird | Apply Dashboard Manifests
       kubernetes.core.k8s:
@@ -76,7 +72,6 @@
 
 - name: K8s Netbird | Deploy Signal
   when: k8s_netbird_deploy_signal
-  run_once: true
   block:
     - name: K8s Netbird | Apply Signal Manifests
       kubernetes.core.k8s:
@@ -85,7 +80,6 @@
 
 - name: K8s Netbird | Deploy Secrets
   when: k8s_netbird_deploy_management or k8s_netbird_deploy_relay
-  run_once: true
   block:
     - name: K8s Netbird | Create Core Secrets
       kubernetes.core.k8s:
@@ -103,7 +97,6 @@
 
 - name: K8s Netbird | Deploy Management Server
   when: k8s_netbird_deploy_management
-  run_once: true
   block:
     - name: K8s Netbird | Create Management JSON Secret
       kubernetes.core.k8s:
@@ -125,7 +118,6 @@
 
 - name: K8s Netbird | Deploy Relay Server
   when: k8s_netbird_deploy_relay
-  run_once: true
   block:
     - name: K8s Netbird | Apply Relay Manifests
       kubernetes.core.k8s:
@@ -134,7 +126,6 @@
 
 - name: K8s Netbird | Deploy Coturn (STUN) Server
   when: k8s_netbird_deploy_coturn
-  run_once: true
   block:
     - name: K8s Netbird | Apply Coturn Manifests
       kubernetes.core.k8s:
@@ -144,7 +135,6 @@
 - name: K8s Netbird | Manage ad-hoc host Traefik router
   delegate_to: "{{ item }}"
   loop: "{{ groups['all'] }}"
-  run_once: true
   ansible.builtin.template:
     src: host-traefik.yaml.j2
     dest: /app/traefik/conf/dynamic/netbird-k8s.yaml
@@ -156,7 +146,6 @@
 - name: K8s Netbird | Remove ad-hoc host Traefik router
   delegate_to: "{{ item }}"
   loop: "{{ groups['all'] }}"
-  run_once: true
   ansible.builtin.file:
     path: /app/traefik/conf/dynamic/netbird-k8s.yaml
     state: absent
@@ -165,11 +154,6 @@
 - name: K8s Netbird | Clean up legacy dashboard route file
   delegate_to: "{{ item }}"
   loop: "{{ groups['all'] }}"
-  run_once: true
   ansible.builtin.file:
     path: /app/traefik/conf/dynamic/netbird-dashboard-k8s.yaml
     state: absent
-
-
-
-
