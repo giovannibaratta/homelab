@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: netbird-mgmt-pvc
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ k8s_netbird_storage_class }}
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netbird-mgmt
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: netbird-mgmt
+  template:
+    metadata:
+      labels:
+        app: netbird-mgmt
+    spec:
+      priorityClassName: "{{ k8s_netbird_priority_class_name }}"
+      containers:
+        - name: mgmt
+          image: netbirdio/management:{{ k8s_netbird_mgmt_version }}
+          args:
+            - --port
+            - "8080"
+            - --log-file
+            - console
+            - --log-level
+            - info
+            - --disable-anonymous-metrics=true
+            - --single-account-mode-domain=netbird.{{ internal_domain }}
+            - --dns-domain=netbird.selfhosted
+          env:
+            - name: NETBIRD_STORE_ENGINE_POSTGRES_DSN
+              value: ""
+          ports:
+            - containerPort: 8080
+              name: http
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: workdir
+              mountPath: /var/lib/netbird
+            - name: config-file
+              mountPath: /etc/netbird/management.json
+              subPath: management.json
+      volumes:
+        - name: workdir
+          persistentVolumeClaim:
+            claimName: netbird-mgmt-pvc
+        - name: config-file
+          secret:
+            secretName: netbird-mgmt-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netbird-mgmt
+  namespace: {{ k8s_netbird_namespace }}
+  annotations:
+    traefik.ingress.kubernetes.io/service.serversscheme: h2c
+spec:
+  ports:
+    - port: 8080
+      targetPort: http
+      name: http
+  selector:
+    app: netbird-mgmt
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netbird-mgmt
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: netbird.{{ internal_domain }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: netbird-mgmt
+                port:
+                  number: 8080
+          - path: /management.ManagementService/
+            pathType: Prefix
+            backend:
+              service:
+                name: netbird-mgmt
+                port:
+                  number: 8080

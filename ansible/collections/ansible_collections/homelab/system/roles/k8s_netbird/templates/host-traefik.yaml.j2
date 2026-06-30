@@ -23,3 +23,37 @@ http:
         certResolver: letsencrypt
       priority: 60
 {% endif %}
+
+{% if k8s_netbird_deploy_management %}
+    netbird-mgmt-api-k8s:
+      rule: "Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/api`)"
+      entryPoints:
+        - websecure
+        - public-secure
+      service: k8s-ingress-svc@file
+      tls:
+        certResolver: letsencrypt
+      priority: 50
+
+    netbird-mgmt-grpc-k8s:
+      rule: "Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/management.ManagementService/`)"
+      entryPoints:
+        - websecure
+        - public-secure
+      service: k8s-ingress-svc@file
+      tls:
+        certResolver: letsencrypt
+      priority: 50
+{% endif %}
+
+{% if k8s_netbird_deploy_relay %}
+    netbird-relay-k8s:
+      rule: "Host(`netbird.{{ internal_domain }}`) && PathPrefix(`/relay`)"
+      entryPoints:
+        - websecure
+        - public-secure
+      service: k8s-ingress-svc@file
+      tls:
+        certResolver: letsencrypt
+      priority: 50
+{% endif %}

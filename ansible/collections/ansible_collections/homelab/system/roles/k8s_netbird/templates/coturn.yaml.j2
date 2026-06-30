@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: netbird-coturn-config
+  namespace: {{ k8s_netbird_namespace }}
+data:
+  turnserver.conf: |
+    listening-port=3478
+    # Disable regular STUN on port 3478
+    no-tcp
+    # Disable TURN functionality - STUN only
+    stun-only
+    fingerprint
+    lt-cred-mech
+    user=self:{{ vpn_turn_password }}
+    # Logging and process
+    log-file=stdout
+    no-software-attribute
+    pidfile="/var/tmp/turnserver.pid"
+    no-cli
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: netbird-coturn
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: netbird-coturn
+  template:
+    metadata:
+      labels:
+        app: netbird-coturn
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: coturn
+          image: coturn/coturn:{{ k8s_netbird_coturn_version }}
+          args:
+            - -c
+            - /etc/coturn/turnserver.conf
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/coturn/turnserver.conf
+              subPath: turnserver.conf
+      volumes:
+        - name: config
+          configMap:
+            name: netbird-coturn-config

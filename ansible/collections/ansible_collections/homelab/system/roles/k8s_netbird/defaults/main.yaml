@@ -7,15 +7,27 @@ k8s_netbird_deploy_exit_node: true
 k8s_netbird_deploy_jump_node: true
 k8s_netbird_deploy_dashboard: true
 k8s_netbird_deploy_signal: true
-k8s_netbird_deploy_core: false # Deploy dashboard, mgmt, signal, relay, coturn
+k8s_netbird_deploy_management: true
+k8s_netbird_deploy_relay: true
+k8s_netbird_deploy_coturn: true
+k8s_netbird_priority_class_name: "critical-infra"
 
 
 
-# Versions (Aligned with Podman role defaults)
-k8s_netbird_exit_node_version: "0.70.5"
-k8s_netbird_jump_node_version: "0.70.5"
-k8s_netbird_mgmt_version: "0.70.5"
-k8s_netbird_signal_version: "0.70.5"
-k8s_netbird_dashboard_version: "v2.37.1"
-k8s_netbird_relay_version: "0.70.5"
+
+# Available versions https://hub.docker.com/r/netbirdio/netbird/tags
+# Do not update the exit_node and jump-node versions at the same time
+k8s_netbird_exit_node_version: "0.73.2"
+# Available versions https://hub.docker.com/r/netbirdio/netbird/tags
+# Do not update the exit_node and jump-node versions at the same time
+k8s_netbird_jump_node_version: "0.73.2"
+# Available versions https://hub.docker.com/r/netbirdio/management/tags
+k8s_netbird_mgmt_version: "0.73.2"
+# Available versions https://hub.docker.com/r/netbirdio/signal/tags
+k8s_netbird_signal_version: "0.73.2"
+# Available versions https://hub.docker.com/r/netbirdio/dashboard/tags
+k8s_netbird_dashboard_version: "v2.90.2"
+# Available versions https://hub.docker.com/r/netbirdio/relay/tags
+k8s_netbird_relay_version: "0.73.2"
+# Available versions https://hub.docker.com/r/coturn/coturn/tags
 k8s_netbird_coturn_version: "4.11.0"

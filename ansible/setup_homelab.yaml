@@ -171,7 +171,8 @@
       become: true
       tags: ingress
 
-    - name: Identity provider
+    - when: deploy_idp
+      name: Identity provider
       block:
         - ansible.builtin.import_role:
             name: homelab.system.idp
@@ -221,6 +222,7 @@
       tags: vpn
 
     - name: Deploy Netbird K8s
+      when: deploy_idp | default(false)
       ansible.builtin.import_role:
         name: homelab.system.k8s_netbird
       become: true

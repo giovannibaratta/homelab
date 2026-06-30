@@ -83,6 +83,64 @@
         state: present
         definition: "{{ lookup('template', 'signal.yaml.j2') | from_yaml_all }}"
 
+- name: K8s Netbird | Deploy Secrets
+  when: k8s_netbird_deploy_management or k8s_netbird_deploy_relay
+  run_once: true
+  block:
+    - name: K8s Netbird | Create Core Secrets
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: netbird-core-secrets
+            namespace: "{{ k8s_netbird_namespace }}"
+          stringData:
+            mgmt-encryption-key: "{{ vpn_mgmt_datastore_env_key }}"
+            relay-secret: "{{ vpn_relay_secret }}"
+            idp-client-secret: "{{ vpn_netbird_idp_client_secret }}"
+
+- name: K8s Netbird | Deploy Management Server
+  when: k8s_netbird_deploy_management
+  run_once: true
+  block:
+    - name: K8s Netbird | Create Management JSON Secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: netbird-mgmt-config
+            namespace: "{{ k8s_netbird_namespace }}"
+          type: Opaque
+          stringData:
+            management.json: "{{ lookup('template', 'netbird-mgmt.json.j2') | to_nice_json }}"
+
+    - name: K8s Netbird | Apply Management Manifests
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'management.yaml.j2') | from_yaml_all }}"
+
+- name: K8s Netbird | Deploy Relay Server
+  when: k8s_netbird_deploy_relay
+  run_once: true
+  block:
+    - name: K8s Netbird | Apply Relay Manifests
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'relay.yaml.j2') | from_yaml_all }}"
+
+- name: K8s Netbird | Deploy Coturn (STUN) Server
+  when: k8s_netbird_deploy_coturn
+  run_once: true
+  block:
+    - name: K8s Netbird | Apply Coturn Manifests
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'coturn.yaml.j2') | from_yaml_all }}"
+
 - name: K8s Netbird | Manage ad-hoc host Traefik router
   delegate_to: "{{ item }}"
   loop: "{{ groups['all'] }}"
@@ -93,7 +151,7 @@
     owner: root
     group: root
     mode: "0644"
-  when: k8s_netbird_deploy_dashboard or k8s_netbird_deploy_signal
+  when: k8s_netbird_deploy_dashboard or k8s_netbird_deploy_signal or k8s_netbird_deploy_management or k8s_netbird_deploy_relay
 
 - name: K8s Netbird | Remove ad-hoc host Traefik router
   delegate_to: "{{ item }}"
@@ -102,7 +160,7 @@
   ansible.builtin.file:
     path: /app/traefik/conf/dynamic/netbird-k8s.yaml
     state: absent
-  when: not k8s_netbird_deploy_dashboard and not k8s_netbird_deploy_signal
+  when: not k8s_netbird_deploy_dashboard and not k8s_netbird_deploy_signal and not k8s_netbird_deploy_management and not k8s_netbird_deploy_relay
 
 - name: K8s Netbird | Clean up legacy dashboard route file
   delegate_to: "{{ item }}"

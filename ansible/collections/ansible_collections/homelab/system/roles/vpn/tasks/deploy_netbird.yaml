@@ -700,6 +700,22 @@
     - netbird-mgmt
   ignore_errors: true
 
+- name: Ensure Netbird relay is stopped and disabled if not deployed
+  when: not vpn_deploy_relay_server | default(false)
+  ansible.builtin.systemd_service:
+    name: netbird-relay
+    state: stopped
+    enabled: false
+  ignore_errors: true
+
+- name: Ensure Netbird coturn is stopped and disabled if not deployed
+  when: not vpn_deploy_stun_server | default(false)
+  ansible.builtin.systemd_service:
+    name: netbird-coturn
+    state: stopped
+    enabled: false
+  ignore_errors: true
+
 - name: Deploy Netbird jump node
 
   when: vpn_deploy_jump_node

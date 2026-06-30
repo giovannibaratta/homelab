@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netbird-relay
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netbird-relay
+  template:
+    metadata:
+      labels:
+        app: netbird-relay
+    spec:
+      containers:
+        - name: relay
+          image: netbirdio/relay:{{ k8s_netbird_relay_version }}
+          env:
+            - name: NB_LOG_LEVEL
+              value: info
+            - name: NB_LISTEN_ADDRESS
+              value: :8443
+            - name: NB_EXPOSED_ADDRESS
+              value: rels://netbird.{{ internal_domain }}:443/relay
+            - name: NB_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: netbird-core-secrets
+                  key: relay-secret
+          ports:
+            - containerPort: 8443
+              name: relay
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netbird-relay
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  ports:
+    - port: 8443
+      targetPort: relay
+      name: relay
+  selector:
+    app: netbird-relay
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netbird-relay
+  namespace: {{ k8s_netbird_namespace }}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: netbird.{{ internal_domain }}
+      http:
+        paths:
+          - path: /relay
+            pathType: Prefix
+            backend:
+              service:
+                name: netbird-relay
+                port:
+                  number: 8443
