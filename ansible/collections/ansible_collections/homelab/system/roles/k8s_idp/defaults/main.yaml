@@ -1,6 +1,7 @@
 ---
 k8s_idp_namespace: zitadel
-k8s_idp_version: v4.15.0
+# Available versions https://ghcr.io/zitadel/zitadel
+k8s_idp_version: v4.15.3
 k8s_idp_external_domain: "idp.{{ internal_domain }}"
 k8s_idp_external_port: "443"
 k8s_idp_external_secure: "true"
