@@ -142,7 +142,7 @@
     network: traefik
 
     ports:
-      - "40375:2375" # Map internal port 2375 to host port 40375
+      - "127.0.0.1:40375:2375" # Map internal port 2375 to host loopback port 40375
 
     env:
       POST: 0
@@ -213,7 +213,7 @@
     image: docker.io/owasp/modsecurity-crs:{{ ingress_waf_version }}
 
     ports:
-      - "18080:8080" # Expose ModSecurity on port 18080 for Traefik plugin
+      - "127.0.0.1:18080:8080" # Expose ModSecurity on loopback port 18080 for Traefik plugin
 
     env:
       PARANOIA: "{{ ingress_waf_paranoia_level }}"
