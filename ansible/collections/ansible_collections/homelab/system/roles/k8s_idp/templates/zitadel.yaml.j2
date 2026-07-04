@@ -59,6 +59,9 @@ metadata:
   name: zitadel
   namespace: "{{ k8s_idp_namespace }}"
 spec:
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   replicas: 1
   selector:
     matchLabels:
