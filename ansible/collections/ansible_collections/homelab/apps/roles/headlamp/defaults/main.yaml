@@ -1,0 +1,4 @@
+---
+headlamp_namespace: headlamp
+headlamp_version: "0.43.0"
+headlamp_domain: "ui.k8s.{{ internal_domain }}"

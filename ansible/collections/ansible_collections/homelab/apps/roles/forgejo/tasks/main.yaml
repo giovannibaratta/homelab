@@ -23,6 +23,9 @@
   delegate_to: "{{ forgejo_idp_host }}"
   run_once: true
   become: true
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ idp_terraform_state_access }}"
+    AWS_SECRET_ACCESS_KEY: "{{ idp_terraform_state_secret }}"
   when: forgejo_idp_host is defined
 
 - name: Forgejo | Set Zitadel client credentials facts

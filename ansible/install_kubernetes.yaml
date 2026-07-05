@@ -111,3 +111,40 @@
         name: homelab.apps.forgejo
       when: deploy_forgejo | default(false)
   tags: k8s-git
+
+- name: Deploy Headlamp
+  hosts: kube_control_plane
+  become: yes
+  tasks:
+    - name: Headlamp | Find IDP host
+      ansible.builtin.set_fact:
+        headlamp_idp_host: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+      when: hostvars[item].deploy_idp | default(false)
+      run_once: true
+
+    - name: Headlamp | Get Zitadel Terraform outputs
+      command: terraform output -json
+      args:
+        chdir: /app/zitadel/conf/terraform
+      register: zitadel_tf_output
+      changed_when: false
+      delegate_to: "{{ headlamp_idp_host }}"
+      run_once: true
+      become: true
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ idp_terraform_state_access }}"
+        AWS_SECRET_ACCESS_KEY: "{{ idp_terraform_state_secret }}"
+      when: headlamp_idp_host is defined
+
+    - name: Headlamp | Set Zitadel client credentials facts
+      ansible.builtin.set_fact:
+        headlamp_zitadel_client_id: "{{ (zitadel_tf_output.stdout | from_json).headlamp_client_id.value }}"
+        headlamp_zitadel_client_secret: "{{ (zitadel_tf_output.stdout | from_json).headlamp_client_secret.value }}"
+      run_once: true
+      when: headlamp_idp_host is defined
+
+    - ansible.builtin.import_role:
+        name: homelab.apps.headlamp
+      when: deploy_headlamp | default(false)
+  tags: k8s-headlamp

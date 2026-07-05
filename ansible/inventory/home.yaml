@@ -18,7 +18,7 @@ home:
     k8s_ingress_lb_ip: "172.16.184.10"
     # Provide only the sub-domain prefix. They will be suffixed with .{{ internal_domain }}
     k8s_public_domains: ["idp"]
-    k8s_internal_domains: ["git"]
+    k8s_internal_domains: ["git", "ui.k8s"]
     network_dyn_dns_entry: "ingress"
     idp_deployment_type: "k8s" # Alternative is docker
     # NOTE: The Terraform state for the IDP is stored locally in `/app/zitadel/conf/terraform`
@@ -40,6 +40,7 @@ home:
     deploy_netbird: false
     deploy_adguard: false
     deploy_forgejo: true
+    deploy_headlamp: true
     deploy_nut: false
     deploy_cloudflare_tunnel: false
     # Kubernetes Netbird Configuration
@@ -54,6 +55,12 @@ home:
       - name: forgejo
         redirect_uris:
           - "https://git.{{ internal_domain }}/user/oauth2/Zitadel/callback"
+        app_type: "OIDC_APP_TYPE_WEB"
+        auth_method_type: "OIDC_AUTH_METHOD_TYPE_BASIC"
+      - name: headlamp
+        redirect_uris:
+          - "https://ui.k8s.{{ internal_domain }}/oidc-callback"
+          - "https://ui.k8s.{{ internal_domain }}/oidc-callback/"
         app_type: "OIDC_APP_TYPE_WEB"
         auth_method_type: "OIDC_AUTH_METHOD_TYPE_BASIC"
     #### Shared deployment variables #####

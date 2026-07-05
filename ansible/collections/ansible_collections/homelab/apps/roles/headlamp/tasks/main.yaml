@@ -1,0 +1,61 @@
+---
+- name: Headlamp | Ensure namespace exists
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ headlamp_namespace }}"
+    state: present
+  run_once: true
+
+- name: Headlamp | Add Helm repository
+  kubernetes.core.helm_repository:
+    name: headlamp
+    repo_url: "https://kubernetes-sigs.github.io/headlamp"
+  run_once: true
+
+- name: Headlamp | Deploy Headlamp via Helm
+  kubernetes.core.helm:
+    name: headlamp
+    chart_ref: headlamp/headlamp
+    chart_version: "{{ headlamp_version }}"
+    release_namespace: "{{ headlamp_namespace }}"
+    update_repo_cache: yes
+    state: present
+    values: "{{ lookup('template', 'values.yaml.j2') | from_yaml }}"
+  run_once: true
+
+- name: Headlamp | Create ServiceAccount token secret for easy login
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: headlamp-token
+        namespace: "{{ headlamp_namespace }}"
+        annotations:
+          kubernetes.io/service-account.name: headlamp
+      type: kubernetes.io/service-account-token
+  run_once: true
+
+- name: Headlamp | Apply Traefik routing configuration
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'traefik-routes.yaml.j2') | from_yaml_all }}"
+  run_once: true
+
+- name: Headlamp | Wait for Headlamp Deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: headlamp
+    namespace: "{{ headlamp_namespace }}"
+  register: headlamp_deploy
+  until:
+    - headlamp_deploy.resources is defined
+    - headlamp_deploy.resources | length > 0
+    - headlamp_deploy.resources[0].status.readyReplicas is defined
+    - headlamp_deploy.resources[0].status.readyReplicas == headlamp_deploy.resources[0].status.replicas
+  retries: 30
+  delay: 10
+  run_once: true

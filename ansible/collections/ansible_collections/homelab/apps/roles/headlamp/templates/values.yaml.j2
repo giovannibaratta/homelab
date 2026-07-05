@@ -1,0 +1,38 @@
+---
+# Headlamp Helm values.yaml
+ingress:
+  enabled: false # We use custom Traefik IngressRoute
+
+clusterRoleBinding:
+  create: true
+  clusterRoleName: "view" # Bind to default read-only ClusterRole
+
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 3000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 3000
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+config:
+  inCluster: true
+  inClusterContextName: "main"
+  sessionTTL: 7200
+  oidc:
+    clientID: "{{ headlamp_zitadel_client_id }}"
+    clientSecret: "{{ headlamp_zitadel_client_secret }}"
+    issuerURL: "https://idp.{{ internal_domain }}"
+    scopes: "openid,profile,email,groups"
+    callbackURL: "https://ui.k8s.{{ internal_domain }}/oidc-callback"
