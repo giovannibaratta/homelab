@@ -41,6 +41,18 @@ kubectl -n kube-system exec ds/cilium -- cilium status
 
 Look for the entry `Cluster health`.
 
+### Cilium Envoy fails to start with "unable to bind domain socket" / errno=98
+
+If the `cilium-envoy` pod is crashing with logs like:
+```text
+unable to bind domain socket with base_id=0, id=0, errno=98 (see --base-id option)
+```
+This is likely because a ghosting/orphan Envoy instance is still running on the host and bound to the same socket. To fix this, SSH into the affected node and terminate the stray process:
+```bash
+ps aux | grep envoy
+kill -9 <PID>
+```
+
 ---
 
 ## DRBD & Linstor (Piraeus Datastore)
@@ -171,6 +183,30 @@ kubectl exec -it -n piraeus-datastore deploy/linstor-controller -- linstor stora
 # Re-register the pool
 kubectl exec -it -n piraeus-datastore deploy/linstor-controller -- linstor storage-pool create lvmthin <node-name> thin-pool linstor_vg thin_pool
 ```
+
+#### C. Linstor Satellite Disconnect & Lost Quorum Taints (`drbd.linbit.com/lost-quorum`)
+If a storage satellite fails to attach its backing loopback storage or loses connectivity to the Linstor controller:
+1. `linstor node list` will report the satellite as `OFFLINE`.
+2. Pods requiring storage volume mounts will fail to start (`FailedAttachVolume: ControllerPublishVolume failed ... could not determine device path`).
+3. Linstor will automatically apply `drbd.linbit.com/lost-quorum` `NoSchedule` taints on affected nodes, preventing pod scheduling (`0/3 nodes available ... had untolerated taint(s)`).
+
+**Recovery Steps:**
+1. Verify the `linstor-loopback` service is active on the physical host:
+   ```bash
+   systemctl status linstor-loopback
+   ```
+2. Restart the `linstor-satellite` pod on the affected node to trigger satellite re-registration:
+   ```bash
+   kubectl delete pod -n piraeus-datastore -l app.kubernetes.io/instance=linstor-satellite.<node-name>
+   ```
+3. Verify that `linstor node list` returns `Online` or `Connected`:
+   ```bash
+   kubectl exec -it -n piraeus-datastore deploy/linstor-controller -- linstor node list
+   ```
+4. Remove any stale `drbd.linbit.com/lost-quorum` taints from affected nodes:
+   ```bash
+   kubectl taint nodes <node-name> drbd.linbit.com/lost-quorum-
+   ```
 
 ---
 
