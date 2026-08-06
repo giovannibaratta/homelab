@@ -115,3 +115,18 @@
   loop:
     - all
     - default
+
+- name: Network | Deploy k8s NM connections keepalive service
+  ansible.builtin.template:
+    src: k8s-nmconnections-up.service.j2
+    dest: /etc/systemd/system/k8s-nmconnections-up.service
+    mode: "0644"
+  notify:
+    - Reload systemd daemons for network role
+
+- name: Network | Enable and start k8s NM connections keepalive service
+  ansible.builtin.systemd:
+    name: k8s-nmconnections-up.service
+    enabled: true
+    state: started
+    daemon_reload: true

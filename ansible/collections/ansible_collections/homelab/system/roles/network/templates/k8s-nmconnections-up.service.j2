@@ -1,0 +1,21 @@
+[Unit]
+Description=Bring up k8s NetworkManager connections (k8s-bridge-plug and k8s-cp)
+After=NetworkManager.service network-online.target
+Wants=network-online.target
+# Re-run if NetworkManager restarts
+PartOf=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c '\
+  nmcli c up k8s-bridge-plug && \
+  nmcli c up k8s-cp'
+ExecStop=/bin/sh -c '\
+  nmcli c down k8s-cp; \
+  nmcli c down k8s-bridge-plug'
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
