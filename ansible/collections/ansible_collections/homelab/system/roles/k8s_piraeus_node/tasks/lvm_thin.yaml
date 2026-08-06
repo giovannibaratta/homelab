@@ -1,8 +1,19 @@
 ---
+- name: Piraeus Node | Get active loop device for backing image
+  ansible.builtin.command: "losetup -j {{ linstor_backing_file_path }}"
+  register: losetup_out
+  changed_when: false
+  when: linstor_use_loopback
+  become: true
+
+- name: Piraeus Node | Set active storage device fact
+  ansible.builtin.set_fact:
+    active_linstor_device: "{{ (losetup_out.stdout.split(':')[0]) if linstor_use_loopback else linstor_raw_disk_device }}"
+
 - name: Piraeus Node | Create Volume Group
   community.general.lvg:
     vg: "{{ linstor_volume_group }}"
-    pvs: "{{ linstor_loop_device if linstor_use_loopback else linstor_raw_disk_device }}"
+    pvs: "{{ active_linstor_device }}"
   become: true
 
 - name: Piraeus Node | Create Thin Pool within Volume Group

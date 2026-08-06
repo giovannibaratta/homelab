@@ -9,10 +9,10 @@
 #
 # By applying this filter, we explicitly instruct LVM on the host to:
 # 1. Accept only DRBD virtual devices ("a|/dev/drbd.*|") for storage layer mounting.
-# 2. Reject/ignore the backing physical storage device ("r|{{ linstor_loop_device }}|" or raw disk) from host scans to prevent metadata clashes.
-# 3. Accept all other standard host physical drives ("a|.*|") to allow the host OS to function normally.
+# 2. Reject raw storage disk if specified (when loopback is not used).
+# 3. Accept all standard host physical drives ("a|.*|") for normal OS function.
 
 devices {
-    filter = [ "a|/dev/drbd.*|", "r|{{ linstor_loop_device }}|", {% if not linstor_use_loopback and linstor_raw_disk_device %}"r|{{ linstor_raw_disk_device }}|",{% endif %} "a|.*|" ]
+    filter = [ "a|/dev/drbd.*|", {% if not linstor_use_loopback and linstor_raw_disk_device %}"r|{{ linstor_raw_disk_device }}|",{% endif %} "a|.*|" ]
     write_cache_state = 0
 }

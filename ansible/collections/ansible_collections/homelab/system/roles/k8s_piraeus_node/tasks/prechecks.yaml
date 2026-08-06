@@ -41,25 +41,10 @@
     - linstor_use_loopback
     - backing_file_stat.stat.exists
 
-# NOTE: This check does NOT fail after the first bootstrap.
-# If the loop device is already associated with our correct backing file,
-# "linstor_backing_file_path" will be found in "loop_device_check.stdout",
-# which makes the condition "linstor_backing_file_path not in loop_device_check.stdout"
-# false, meaning the fail task is cleanly skipped (idempotency is preserved).
-- name: Piraeus Node | Check if loop device is already in use
-  ansible.builtin.command: "losetup {{ linstor_loop_device }}"
-  register: loop_device_check
+- name: Piraeus Node | Check existing loop device binding for backing file
+  ansible.builtin.command: "losetup -j {{ linstor_backing_file_path }}"
+  register: backing_loop_check
   failed_when: false
   changed_when: false
   become: true
   when: linstor_use_loopback
-
-- name: Piraeus Node | Fail if loop device is used by another file
-  ansible.builtin.fail:
-    msg: >
-      The specified loop device {{ linstor_loop_device }} is already in use by another backing file: {{ loop_device_check.stdout }}.
-      Please configure a different loop device in your inventory.
-  when:
-    - linstor_use_loopback
-    - loop_device_check.rc == 0
-    - linstor_backing_file_path not in loop_device_check.stdout

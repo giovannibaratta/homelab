@@ -112,7 +112,6 @@ home:
       linstor_use_loopback: true
       linstor_backing_file_size_mb: 51200
       linstor_backing_file_path: /var/local/piraeus/linstor-backing.img
-      linstor_loop_device: /dev/loop100
       ######
       deploy_cloudflare_tunnel: true
 
@@ -161,7 +160,6 @@ home:
       linstor_use_loopback: true
       linstor_backing_file_size_mb: 51200
       linstor_backing_file_path: /app/piraeus/linstor-backing.img
-      linstor_loop_device: /dev/loop100
       ######
       deploy_cloudflare_tunnel: true
 
@@ -205,7 +203,6 @@ home:
       linstor_use_loopback: true
       linstor_backing_file_size_mb: 51200
       linstor_backing_file_path: /var/local/piraeus/linstor-backing.img
-      linstor_loop_device: /dev/loop100
       ######
       deploy_cloudflare_tunnel: true
 

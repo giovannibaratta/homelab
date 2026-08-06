@@ -7,8 +7,8 @@ Before=local-fs.target lvm2-monitor.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/sbin/losetup {{ linstor_loop_device }} {{ linstor_backing_file_path }}
-ExecStop=/sbin/losetup -d {{ linstor_loop_device }}
+ExecStart=/bin/sh -c 'if ! /sbin/losetup -j {{ linstor_backing_file_path }} | grep -q .; then /sbin/losetup -f {{ linstor_backing_file_path }}; fi'
+ExecStop=/bin/sh -c 'DEV=$(/sbin/losetup -j {{ linstor_backing_file_path }} | cut -d: -f1); [ -n "$DEV" ] && /sbin/losetup -d "$DEV"'
 
 [Install]
 WantedBy=multi-user.target
