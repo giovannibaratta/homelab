@@ -1,5 +1,6 @@
 ---
 - name: Create Netbird network Quadlet
+  when: __vpn_any_netbird_enabled
   containers.podman.podman_network:
     name: netbird
     state: quadlet
@@ -19,9 +20,11 @@
     - Restart netbird network
 
 - name: Trigger Handlers for netbird network
+  when: __vpn_any_netbird_enabled
   ansible.builtin.meta: flush_handlers
 
 - name: Start netbird network
+  when: __vpn_any_netbird_enabled
   ansible.builtin.systemd_service:
     # The name is the name of the network + network suffix
     name: netbird-network
@@ -29,7 +32,7 @@
     enabled: true
 
 - name: Deploy Netbird dashboard
-  when: vpn_deploy_dashboard
+  when: vpn_deploy_dashboard | bool
   block:
     - name: Add user {{ vpn_netbird_dashboard_container_user }}
       ansible.builtin.user:
@@ -106,30 +109,11 @@
         state: started
         enabled: true
 
-- name: Ensure Netbird dashboard is stopped and disabled if not deployed
-  when: not vpn_deploy_dashboard | default(false)
-  block:
-    - name: Stop and disable Netbird dashboard
-      ansible.builtin.systemd_service:
-        name: netbird-dashboard
-        state: stopped
-        enabled: false
-      ignore_errors: true
 
-    - name: Remove Netbird dashboard Quadlet
-      ansible.builtin.file:
-        path: /etc/containers/systemd/netbird-dashboard.container
-        state: absent
-      register: __vpn_netbird_dashboard_removed
-
-    - name: Reload systemd for Netbird dashboard
-      when: __vpn_netbird_dashboard_removed.changed
-      ansible.builtin.systemd_service:
-        daemon_reload: true
 
 - name: Deploy stun server
 
-  when: vpn_deploy_stun_server
+  when: vpn_deploy_stun_server | bool
   block:
     - name: Add user {{ vpn_netbird_coturn_container_user }}
       ansible.builtin.user:
@@ -330,7 +314,7 @@
         enabled: true
 
 - name: Deploy netbird-relay
-  when: vpn_deploy_relay_server
+  when: vpn_deploy_relay_server | bool
   block:
     - name: Add user {{ vpn_netbird_relay_container_user }}
       ansible.builtin.user:
@@ -406,7 +390,7 @@
         enabled: true
 
 - name: Deploy netbird-exit-node
-  when: vpn_deploy_exit_node
+  when: vpn_deploy_exit_node | bool
   block:
     - name: Add user {{ vpn_netbird_exit_node_container_user }}
       ansible.builtin.user:
@@ -512,7 +496,7 @@
         enabled: true
 
 - name: Deploy netbird-mgmt
-  when: vpn_deploy_management_server
+  when: vpn_deploy_management_server | bool
   block:
     - name: Add user {{ vpn_netbird_signal_container_user }}
       ansible.builtin.user:
@@ -702,78 +686,12 @@
         state: started
         enabled: true
 
-- name: Ensure Netbird signal and mgmt are stopped and disabled if not deployed
-  when: not vpn_deploy_management_server | default(false)
-  block:
-    - name: Stop and disable Netbird signal and mgmt
-      ansible.builtin.systemd_service:
-        name: "{{ item }}"
-        state: stopped
-        enabled: false
-      loop:
-        - netbird-signal
-        - netbird-mgmt
-      ignore_errors: true
 
-    - name: Remove Netbird signal and mgmt Quadlets
-      ansible.builtin.file:
-        path: "/etc/containers/systemd/{{ item }}.container"
-        state: absent
-      loop:
-        - netbird-signal
-        - netbird-mgmt
-      register: __vpn_netbird_mgmt_sig_removed
 
-    - name: Reload systemd for Netbird signal and mgmt
-      when: __vpn_netbird_mgmt_sig_removed.changed
-      ansible.builtin.systemd_service:
-        daemon_reload: true
-
-- name: Ensure Netbird relay is stopped and disabled if not deployed
-  when: not vpn_deploy_relay_server | default(false)
-  block:
-    - name: Stop and disable Netbird relay
-      ansible.builtin.systemd_service:
-        name: netbird-relay
-        state: stopped
-        enabled: false
-      ignore_errors: true
-
-    - name: Remove Netbird relay Quadlet
-      ansible.builtin.file:
-        path: /etc/containers/systemd/netbird-relay.container
-        state: absent
-      register: __vpn_netbird_relay_removed
-
-    - name: Reload systemd for Netbird relay
-      when: __vpn_netbird_relay_removed.changed
-      ansible.builtin.systemd_service:
-        daemon_reload: true
-
-- name: Ensure Netbird coturn is stopped and disabled if not deployed
-  when: not vpn_deploy_stun_server | default(false)
-  block:
-    - name: Stop and disable Netbird coturn
-      ansible.builtin.systemd_service:
-        name: netbird-coturn
-        state: stopped
-        enabled: false
-      ignore_errors: true
-
-    - name: Remove Netbird coturn Quadlet
-      ansible.builtin.file:
-        path: /etc/containers/systemd/netbird-coturn.container
-        state: absent
-      register: __vpn_netbird_coturn_removed
-
-    - name: Reload systemd for Netbird coturn
-      when: __vpn_netbird_coturn_removed.changed
-      ansible.builtin.systemd_service:
-        daemon_reload: true
 
 - name: Deploy Netbird jump node
 
-  when: vpn_deploy_jump_node
+  when: vpn_deploy_jump_node | bool
   block:
     - name: Add user {{ vpn_netbird_jump_node_container_user }}
       ansible.builtin.user:
@@ -879,3 +797,8 @@
         name: netbird-jump-node
         state: started
         enabled: true
+
+
+
+
+

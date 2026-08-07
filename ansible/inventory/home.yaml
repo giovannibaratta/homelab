@@ -94,11 +94,11 @@ home:
       deploy_coder: false
       deploy_mqtt: false
       deploy_idp: false
-      deploy_netbird: true
+      deploy_netbird: false
       deploy_pinchflat: false
       ##### ad hoc deployments variables #####
-      vpn_deploy_exit_node: true
-      vpn_deploy_jump_node: true
+      vpn_deploy_exit_node: false
+      vpn_deploy_jump_node: false
       vpn_deploy_management_server: false
       vpn_deploy_dashboard: false
       vpn_deploy_stun_server: false
@@ -140,12 +140,12 @@ home:
       deploy_coder: true
       deploy_mqtt: true
       deploy_idp: true
-      deploy_netbird: true
+      deploy_netbird: false
       deploy_pinchflat: true
       deploy_nut: true
       ##### ad hoc deployments variables #####
-      vpn_deploy_exit_node: true
-      vpn_deploy_jump_node: true
+      vpn_deploy_exit_node: false
+      vpn_deploy_jump_node: false
       vpn_deploy_management_server: false
       vpn_deploy_dashboard: false
       vpn_deploy_stun_server: false
@@ -187,10 +187,10 @@ home:
       deploy_coder: false
       deploy_mqtt: false
       deploy_idp: false
-      deploy_netbird: true
+      deploy_netbird: false
       # Ad hoc deployments variables #####
-      vpn_deploy_exit_node: true
-      vpn_deploy_jump_node: true
+      vpn_deploy_exit_node: false
+      vpn_deploy_jump_node: false
       vpn_deploy_management_server: false
       vpn_deploy_dashboard: false
       vpn_deploy_stun_server: false
