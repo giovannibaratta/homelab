@@ -53,6 +53,33 @@ ps aux | grep envoy
 kill -9 <PID>
 ```
 
+### CloudNativePG (CNPG) Replica Pod CrashLoopBackOff (`pg_controldata` failure / Corrupt Volume)
+
+If a CNPG DB replica pod is crashing on a node with `pg_controldata` errors (or corrupt `pg_control` file / missing `pgdata` folder):
+
+1. **Why PVC deletion alone doesn't re-bind**:
+   The static PV (`local-pv-<node>-<cluster>`) has `persistentVolumeReclaimPolicy: Retain`. When the PVC is deleted, the PV moves to `Released` status and retains its `spec.claimRef`. Kubernetes will not bind a new PVC until the `claimRef` is cleared (or the PV is recreated) and the host directory `/app/k8s-db-<cluster>` is cleaned.
+
+2. **Clean-up & Restore Procedure**:
+   - Delete the failing Pod and PVC:
+     ```bash
+     kubectl delete pod -n <namespace> <pod-name>
+     kubectl delete pvc -n <namespace> <pvc-name>
+     ```
+   - Wipe the local host storage path on the target node (e.g. `node3`):
+     ```bash
+     sudo rm -rf /app/k8s-db-<cluster>/*
+     ```
+   - Release the PV by clearing its `claimRef`:
+     ```bash
+     kubectl patch pv local-pv-<node>-<cluster> -p '{"spec":{"claimRef":null}}'
+     ```
+   - Alternatively, delete the PV (`kubectl delete pv local-pv-<node>-<cluster>`) and re-apply the Ansible role:
+     ```bash
+     ansible-playbook -i inventory/home.yaml install_kubernetes.yaml --tags k8s-db
+     ```
+   CNPG will automatically create a new PVC, bind the `Available` PV, and stream a fresh replica sync from the primary database instance.
+
 ---
 
 ## DRBD & Linstor (Piraeus Datastore)
@@ -226,3 +253,84 @@ If `placementCount: "2"` placed active replicas on `node1` and `node2`, but the 
 2. DRBD transparently redirects all read and write block operations over the network (using DRBD's transport layer) to the storage replicas on `node1` and `node2`.
 3. The pod accesses `/dev/drbdX` as if it were local, fully unaware that the blocks are traveling across nodes.
 *Note: To optimize performance, our StorageClasses configure `volumeBindingMode: WaitForFirstConsumer`, which helps the Kubernetes scheduler align pod placement with storage nodes to prioritize data locality whenever possible.*
+
+---
+
+## Kubelet Storage Partitioning & Bind-Mount Architecture
+
+### Storage Layout Across Nodes
+
+In this homelab cluster, the storage partitioning differs between nodes:
+
+- **`node1` & `node3`**: Configured with a single large root partition (~470GB), with ample space (>370GB free). `/var/lib/kubelet` resides directly on `/`.
+- **`node2`**: Configured with a split LVM layout consisting of a small 50GB root logical volume (`system--vg-system--lv`) and a large 750GB application logical volume (`system--vg-app--lv` mounted at `/app`).
+
+### Why Bind Mount (`/app/kubelet` $\rightarrow$ `/var/lib/kubelet`)?
+
+Attempting to change Kubelet's root directory via `--root-dir=/app/kubelet` causes path misalignment with CSI drivers (such as Piraeus/Linstor) and standard Kubernetes controllers which default to and expect socket registration under `/var/lib/kubelet/plugins*`.
+
+By using an **`/etc/fstab` bind mount**:
+1. All physical data (ephemeral pod volumes, CSI volume links, plugins) is stored on the large `/app` filesystem.
+2. Kubernetes, Kubelet, and CSI plugins interact seamlessly with the standard `/var/lib/kubelet` path without requiring custom DaemonSet volume overrides or patched CSI registration arguments.
+3. Ansible configuration stays simple: `kubelet_mount_src: "/app/kubelet"` in `home.yaml` manages the creation and fstab entry via `install_kubernetes.yaml`.
+
+### Step-by-Step Node Migration Procedure
+
+If a node with a small root partition needs to be migrated to use `/app/kubelet`:
+
+1. **Drain the node** (from control-plane):
+   ```bash
+   sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl drain <node> --ignore-daemonsets --delete-emptydir-data --force
+   ```
+
+2. **Stop services on the target node**:
+   ```bash
+   systemctl stop kubelet containerd
+   ```
+
+3. **Unmount active pod volumes & sync data**:
+   ```bash
+   # Unmount lingering mounts
+   mount | grep /var/lib/kubelet | awk '{print $3}' | sort -r | xargs -r umount
+
+   # Ensure destination directory exists
+   mkdir -p /app/kubelet
+   chmod 750 /app/kubelet
+
+   # Sync existing data
+   rsync -aHAXSP --delete /var/lib/kubelet/ /app/kubelet/
+
+   # Backup old directory and create mountpoint
+   mv /var/lib/kubelet /var/lib/kubelet.bak
+   mkdir -p /var/lib/kubelet
+   chmod 755 /var/lib/kubelet
+   ```
+
+4. **Configure `/etc/fstab` & mount**:
+   ```bash
+   echo '/app/kubelet /var/lib/kubelet none defaults,bind 0 0' >> /etc/fstab
+   mount -a
+   findmnt /var/lib/kubelet
+   ```
+
+5. **Start services (or reboot to test persistence)**:
+   ```bash
+   systemctl daemon-reload
+   systemctl start containerd kubelet
+   # or: reboot
+   ```
+
+6. **Uncordon the node and verify**:
+   ```bash
+   sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl uncordon <node>
+   sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o wide
+   sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get pods -n piraeus-datastore -o wide
+   ```
+
+7. **Clean up backup**:
+   ```bash
+   rm -rf /var/lib/kubelet.bak
+   ```
+
+8. **Update Ansible Inventory**:
+   Add `kubelet_mount_src: "/app/kubelet"` under the host in [ansible/inventory/home.yaml](ansible/inventory/home.yaml).

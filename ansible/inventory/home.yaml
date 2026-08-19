@@ -41,6 +41,10 @@ home:
     deploy_adguard: false
     deploy_forgejo: true
     deploy_headlamp: true
+    # IMPORTANT: Kubernetes API Server OIDC flag (WARNING: Keep false during first bootstrap, enable only after Zitadel is deployed)
+    # Zitadel (the IDP) must be deployed and configured first, otherwise the API server will fail
+    # to start because it cannot resolve the Zitadel client IDs and fetch dynamic config.
+    k8s_oidc_enabled: false
     deploy_nut: false
     deploy_cloudflare_tunnel: false
     # Kubernetes Netbird Configuration
@@ -114,6 +118,7 @@ home:
       linstor_backing_file_path: /var/local/piraeus/linstor-backing.img
       ######
       deploy_cloudflare_tunnel: true
+      k8s_node_bootstrapped: true
 
     node2:
       ansible_host: 172.16.255.252
@@ -162,6 +167,8 @@ home:
       linstor_backing_file_path: /app/piraeus/linstor-backing.img
       ######
       deploy_cloudflare_tunnel: true
+      k8s_node_bootstrapped: true
+      kubelet_mount_src: "/app/kubelet"
 
 
     node3:
@@ -205,7 +212,7 @@ home:
       linstor_backing_file_path: /var/local/piraeus/linstor-backing.img
       ######
       deploy_cloudflare_tunnel: true
-
+      k8s_node_bootstrapped: true
 
 kube_control_plane:
   hosts:

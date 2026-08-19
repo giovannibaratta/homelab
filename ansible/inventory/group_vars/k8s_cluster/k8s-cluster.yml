@@ -52,5 +52,21 @@ resolvconf_mode: none
 # Use containerd for K8s. Podman uses crun/runc and its own /var/lib/containers directory.
 # This ensures K8s and Podman run completely isolated from each other on the same physical disk.
 container_manager: containerd
+containerd_storage_dir: "/app/containerd"
+
 
 etcd_data_dir: "/app/k8s-etcd"
+
+drain_fallback_enabled: true
+drain_retries: 0
+drain_fallback_timeout: "1m"
+
+# [OIDC Authentication for API Server]
+kube_oidc_auth: "{{ k8s_oidc_enabled | default(false) }}"
+kube_oidc_url: "https://idp.{{ internal_domain }}"
+kube_oidc_client_id: "{{ headlamp_zitadel_client_id | default('') }}"
+kube_oidc_username_claim: "email"
+kube_oidc_groups_claim: "groups"
+
+system_upgrade: false
+system_upgrade_reboot: "never"

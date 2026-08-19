@@ -21,10 +21,68 @@
         group: root
         mode: "0700"
 
+- name: Prepare custom containerd and kubelet directories
+  hosts: k8s_cluster
+  become: yes
+
+  tasks:
+    - name: Ensure custom containerd storage directory exists
+      file:
+        path: "{{ containerd_storage_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0711"
+
+    - name: Ensure custom kubelet mount source directory exists
+      ansible.builtin.file:
+        path: "{{ kubelet_mount_src }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+      when: kubelet_mount_src is defined
+
+    - name: Ensure default /var/lib/kubelet directory exists
+      ansible.builtin.file:
+        path: "/var/lib/kubelet"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Mount custom directory to /var/lib/kubelet via fstab
+      ansible.posix.mount:
+        path: /var/lib/kubelet
+        src: "{{ kubelet_mount_src }}"
+        fstype: "{{ kubelet_mount_fstype | default('none') }}"
+        opts: "{{ kubelet_mount_opts | default('defaults,bind') }}"
+        state: mounted
+      register: kubelet_mount
+      when: kubelet_mount_src is defined
+
+    - name: Reload systemd daemon to recognize fstab changes
+      ansible.builtin.systemd:
+        daemon_reload: yes
+      when:
+        - kubelet_mount_src is defined
+        - kubelet_mount.changed
+
+
 - name: Install Kubernetes
+  when: k8s_node_bootstrapped is defined and not k8s_node_bootstrapped
   ansible.builtin.import_playbook: kubernetes_sigs.kubespray.cluster
   vars:
     maximal_ansible_version: 2.19.0 # Force check on ansible version to avoid downgrading
+    ip: "{{ network_k8s_ip }}"
+    access_ip: "{{ network_k8s_ip }}"
+  tags: k8s
+
+- name: Update Kubernetes
+  when: k8s_node_bootstrapped is defined and k8s_node_bootstrapped
+  ansible.builtin.import_playbook: kubernetes_sigs.kubespray.upgrade_cluster
+  vars:
+    maximal_ansible_version: 2.19.0
     ip: "{{ network_k8s_ip }}"
     access_ip: "{{ network_k8s_ip }}"
   tags: k8s
