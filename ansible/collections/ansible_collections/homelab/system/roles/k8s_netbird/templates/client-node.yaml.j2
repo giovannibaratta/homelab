@@ -15,8 +15,8 @@ spec:
       labels:
         app: netbird-{{ netbird_node_name }}
     spec:
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: false
+      dnsPolicy: ClusterFirst
       containers:
         - name: netbird
           image: netbirdio/netbird:{{ netbird_node_version }}
@@ -26,7 +26,9 @@ spec:
             - name: NB_ADMIN_URL
               value: "https://netbird.{{ internal_domain }}:443"
             - name: NB_HOSTNAME
-              value: "{{ netbird_node_hostname }}"
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: NB_INTERFACE_NAME
               value: "{{ netbird_node_interface }}"
             - name: NB_SETUP_KEY
