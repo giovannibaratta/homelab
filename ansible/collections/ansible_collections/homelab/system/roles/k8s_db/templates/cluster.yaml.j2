@@ -17,8 +17,16 @@ spec:
     podAntiAffinityType: required
 
   storage:
-    size: {{ __k8s_db_storage_size }}
-    storageClass: local-storage
+    pvcTemplate:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ __k8s_db_storage_size }}
+      storageClassName: local-storage
+      selector:
+        matchLabels:
+          cnpg.io/cluster: {{ __k8s_db_cluster_name }}
 
   type: rw
 

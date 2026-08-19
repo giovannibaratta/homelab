@@ -4,8 +4,17 @@
     _coder_fqdn: "https://coder.{{ internal_domain }}"
     _coder_internal_url: "https://coder.{{ internal_domain }}:8443"
 
-- name: "Deploy Coder"
-  ansible.builtin.import_tasks: deploy_coder.yaml
+- name: Determine if Coder Podman is enabled
+  ansible.builtin.set_fact:
+    __coder_podman_enabled: "{{ (deploy_coder | default(false) | bool) and (coder_deployment_type | default('podman') == 'podman') }}"
 
-- name: "Configure Coder"
+- name: "Deploy Coder (Podman)"
+  ansible.builtin.import_tasks: deploy_coder.yaml
+  when: __coder_podman_enabled | bool
+
+- name: "Configure Coder (Podman)"
   ansible.builtin.import_tasks: configure_coder.yaml
+  when: __coder_podman_enabled | bool
+
+- name: "Undeploy Coder (Podman)"
+  ansible.builtin.import_tasks: undeploy_coder.yaml

@@ -299,12 +299,23 @@
       ignore_errors: yes
       tags: home-assistant
 
-    - when: deploy_coder
-      ansible.builtin.import_role:
+    - ansible.builtin.import_role:
         name: homelab.apps.coder
       become: true
       ignore_errors: yes
-      tags: coder
+      tags:
+      - coder
+      - podman-coder
+
+    - name: Deploy Coder K8s
+      when: (deploy_coder | default(false) | bool) and (coder_deployment_type | default('') == 'k8s')
+      ansible.builtin.import_role:
+        name: homelab.apps.k8s_coder
+      become: true
+      ignore_errors: yes
+      tags:
+      - coder
+      - k8s-coder
 
     - when: deploy_mediastack
       ansible.builtin.import_role:

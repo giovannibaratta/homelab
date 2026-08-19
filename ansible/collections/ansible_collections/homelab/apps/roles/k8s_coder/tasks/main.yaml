@@ -1,0 +1,70 @@
+---
+- name: Coder | Apply namespaces
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'namespaces.yaml.j2') | from_yaml_all }}"
+  run_once: true
+
+- name: Coder | Apply RBAC
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'rbac.yaml.j2') | from_yaml_all }}"
+  run_once: true
+
+- name: Coder | Set Zitadel client credentials facts if defined
+  ansible.builtin.set_fact:
+    __coder_zitadel_client_id: "{{ coder_idp_client_id }}"
+    __coder_zitadel_client_secret: "{{ coder_idp_client_secret }}"
+  when: coder_idp_client_id is defined and coder_idp_client_secret is defined
+  no_log: true
+  run_once: true
+
+- name: Coder | Resolve Zitadel client credentials from terraform if needed
+  when: coder_idp_client_id is not defined or coder_idp_client_secret is not defined
+  run_once: true
+  block:
+    - name: Coder | Find IDP host
+      ansible.builtin.set_fact:
+        coder_idp_host: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+      when: hostvars[item].deploy_idp | default(false)
+
+    - name: Coder | Get Zitadel Terraform outputs
+      command: terraform output -json
+      args:
+        chdir: /app/zitadel/conf/terraform
+      register: zitadel_tf_output
+      changed_when: false
+      delegate_to: "{{ coder_idp_host }}"
+      become: true
+      no_log: true
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ idp_terraform_state_access }}"
+        AWS_SECRET_ACCESS_KEY: "{{ idp_terraform_state_secret }}"
+      when: coder_idp_host is defined
+
+    - name: Coder | Set private Zitadel client credentials facts from terraform
+      ansible.builtin.set_fact:
+        __coder_zitadel_client_id: "{{ (zitadel_tf_output.stdout | from_json).coder_client_id.value }}"
+        __coder_zitadel_client_secret: "{{ (zitadel_tf_output.stdout | from_json).coder_client_secret.value }}"
+      no_log: true
+      when: zitadel_tf_output is defined and zitadel_tf_output.stdout is defined
+
+- name: Coder | Apply Secret
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'secret.yaml.j2') | from_yaml_all }}"
+  no_log: true
+  run_once: true
+
+- name: Coder | Apply Deployment and Service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'deployment.yaml.j2') | from_yaml_all }}"
+  run_once: true
+
+- name: Coder | Apply Traefik IngressRoute
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'traefik-routes.yaml.j2') | from_yaml_all }}"
+  run_once: true

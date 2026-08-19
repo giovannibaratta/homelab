@@ -1,0 +1,31 @@
+---
+- name: Ensure Podman Coder is stopped and disabled if not deployed via Podman
+  when: not (deploy_coder | default(false) | bool) or (coder_deployment_type | default('podman') != 'podman')
+  block:
+    - name: Stop and disable Coder Podman services
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - coder
+        - coder-db
+        - coder-workspaces-network
+        - coder-network
+      ignore_errors: true
+
+    - name: Remove Coder Quadlets
+      ansible.builtin.file:
+        path: "/etc/containers/systemd/{{ item }}"
+        state: absent
+      loop:
+        - coder.container
+        - coder-db.container
+        - coder.network
+        - coder-workspaces.network
+      register: __coder_quadlets_removed
+
+    - name: Reload systemd daemons for Coder
+      when: __coder_quadlets_removed.changed
+      ansible.builtin.systemd_service:
+        daemon_reload: true

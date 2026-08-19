@@ -139,6 +139,10 @@
             storage_size: "10Gi"
             username: "forgejouser"
             password: "{{ forgejo_db_password }}"
+          - name: coder-db
+            storage_size: "10Gi"
+            username: "coder"
+            password: "{{ coder_db_password }}"
 
     - name: Deploy CloudNativePG Clusters (Zitadel Namespace)
       ansible.builtin.import_role:
@@ -206,3 +210,12 @@
         name: homelab.apps.headlamp
       when: deploy_headlamp | default(false)
   tags: k8s-headlamp
+
+- name: Deploy Coder
+  hosts: kube_control_plane
+  become: yes
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.apps.k8s_coder
+      when: (deploy_coder | default(false) | bool) and (coder_deployment_type | default('podman') == 'k8s')
+  tags: k8s-coder
