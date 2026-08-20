@@ -33,6 +33,11 @@ resource "coder_agent" "main" {
     echo "Configuring ephemeral instance ..."
     set -e
 
+    # Ensure ephemeral storage and workspace ownership
+    sudo chown -R ${local.username}:containers /ephermeral 2>/dev/null || true
+    sudo chmod -R 775 /ephermeral 2>/dev/null || true
+    sudo chown -R ${local.username}:${local.username} /workspace 2>/dev/null || true
+
     # Prepare user home with default files on first start
     if [ ! -f ~/.init_done ]; then
       echo "Initializing user home ..."
@@ -148,10 +153,33 @@ resource "kubernetes_pod_v1" "workspace" {
       "kubernetes.io/hostname" = "node2"
     }
 
+    # One-shot init container to guarantee volume ownership before dev container starts
+    init_container {
+      name    = "init-permissions"
+      image   = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.4"
+      command = ["sh", "-c", "chown -R 1001:1001 /ephermeral /workspace /home/${local.username} 2>/dev/null || true; chmod -R 775 /ephermeral 2>/dev/null || true"]
+      security_context {
+        run_as_user = 0
+        privileged  = true
+      }
+      volume_mount {
+        name       = "home-dir"
+        mount_path = "/home/${local.username}"
+      }
+      volume_mount {
+        name       = "workspace-dir"
+        mount_path = "/workspace"
+      }
+      volume_mount {
+        name       = "ephemeral-storage"
+        mount_path = "/ephermeral"
+      }
+    }
+
     # Main Dev Workspace Container (Rootless Podman / DinD in K8s)
     container {
       name              = "dev"
-      image             = "ghcr.io/giovannibaratta/coder-dev-env:latest"
+      image             = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.4"
       image_pull_policy = "Always"
       command           = ["sh", "-c", coder_agent.main.init_script]
 

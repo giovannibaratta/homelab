@@ -8,7 +8,7 @@ ARG USER=coder
 RUN apt-get update && apt-get install -y curl gpg ca-certificates \
         && curl -fsSL http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/home_alvistack.gpg \
         && echo "deb http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /" > /etc/apt/sources.list.d/home:alvistack.list \
-        && printf "Package: podman podman-docker\nPin: release l=home:alvistack\nPin-Priority: 1001\n\nPackage: *\nPin: release l=home:alvistack\nPin-Priority: 100\n" > /etc/apt/preferences.d/podman-pin
+        && printf "Package: *\nPin: release l=home:alvistack\nPin-Priority: 1001\n" > /etc/apt/preferences.d/podman-pin
 
 # python3-yaml required by Podman compose
 # gettext-base for installing envsubst
@@ -23,8 +23,6 @@ RUN apt-get update \
         wget \
         podman \
         podman-docker \
-        aardvark-dns \
-        passt \
         python3-setuptools \
         fuse-overlayfs \
         slirp4netns \
@@ -37,12 +35,29 @@ RUN apt-get update \
         openssh-client \
         zsh
 
+# 1. Install latest Netavark v2.1.0 & Aardvark-DNS v2.1.0 release binaries for Podman 6.x rootless network stack
+# 2. Install upstream passt/pasta package:
+#    Ubuntu 24.04 ships an outdated passt (Feb 2024, 0.0~git20240220) that has a protocol
+#    return-path bug on NATed/forwarded Netavark bridge networks (e.g. podman-compose).
+#    This bug caused outbound WAN HTTPS data transfers to stall immediately after TLS ClientHello.
+#    Installing upstream passt (0.0~git20260728.f8df3f1) resolves the bridge WAN egress issue.
 RUN touch /etc/containers/nodocker \
-        && curl -fsSL -o /tmp/netavark.gz https://github.com/containers/netavark/releases/download/v1.17.2/netavark.gz \
+        && mkdir -p /usr/libexec/podman /usr/lib/podman \
+        && curl -fsSL -o /tmp/netavark.gz https://github.com/containers/netavark/releases/download/v2.1.0/netavark.gz \
         && gunzip /tmp/netavark.gz \
-        && mkdir -p /usr/libexec/podman \
-        && mv /tmp/netavark /usr/libexec/podman/netavark \
-        && chmod +x /usr/libexec/podman/netavark
+        && chmod +x /tmp/netavark \
+        && cp /tmp/netavark /usr/libexec/podman/netavark \
+        && cp /tmp/netavark /usr/lib/podman/netavark \
+        && rm /tmp/netavark \
+        && curl -fsSL -o /tmp/aardvark.gz https://github.com/containers/aardvark-dns/releases/download/v2.1.0/aardvark-dns.gz \
+        && gunzip /tmp/aardvark.gz \
+        && chmod +x /tmp/aardvark \
+        && cp /tmp/aardvark /usr/libexec/podman/aardvark-dns \
+        && cp /tmp/aardvark /usr/lib/podman/aardvark-dns \
+        && rm /tmp/aardvark \
+        && curl -fsSL -o /tmp/passt.deb http://ftp.debian.org/debian/pool/main/p/passt/passt_0.0~git20260728.f8df3f1-1_amd64.deb \
+        && dpkg -i /tmp/passt.deb \
+        && rm /tmp/passt.deb
 
 # Create user after uidmap is installed to ensure subuid/subgid files are handled correctly
 RUN useradd --groups sudo -m --shell /bin/zsh ${USER} \
@@ -95,15 +110,15 @@ RUN mkdir -p ${NVM_DIR}
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.5/install.sh | bash
 
 # install node and npm
-RUN source $NVM_DIR/nvm.sh \
+RUN bash -c "source $NVM_DIR/nvm.sh \
         && nvm install $NODE_VERSION \
         && nvm alias default $NODE_VERSION \
-        && nvm use default
+        && nvm use default"
 
 ENV NODE_PATH=$NVM_DIR/v$NODE_VERSION/lib/node_modules
 ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
-RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/corepack yarn install
+RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/corepack enable
 
 # Change ownership of NVM_DIR so coder user can write to it to install/run npm packages
 RUN chown -R ${USER}:${USER} ${NVM_DIR}
