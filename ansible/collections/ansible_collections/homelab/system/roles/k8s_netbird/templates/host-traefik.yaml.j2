@@ -9,6 +9,8 @@ http:
       service: k8s-ingress-svc@file
       tls:
         certResolver: letsencrypt
+      middlewares:
+        - netbird-chain@file
       priority: 20
 {% endif %}
 
@@ -21,6 +23,8 @@ http:
       service: k8s-ingress-svc@file
       tls:
         certResolver: letsencrypt
+      middlewares:
+        - netbird-chain@file
       priority: 60
 {% endif %}
 
@@ -33,6 +37,8 @@ http:
       service: k8s-ingress-svc@file
       tls:
         certResolver: letsencrypt
+      middlewares:
+        - netbird-chain@file
       priority: 50
 
     netbird-mgmt-grpc-k8s:
@@ -43,6 +49,8 @@ http:
       service: k8s-ingress-svc@file
       tls:
         certResolver: letsencrypt
+      middlewares:
+        - netbird-chain@file
       priority: 50
 {% endif %}
 
@@ -55,5 +63,7 @@ http:
       service: k8s-ingress-svc@file
       tls:
         certResolver: letsencrypt
+      middlewares:
+        - netbird-chain@file
       priority: 50
 {% endif %}

@@ -1,0 +1,33 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: traefik-ingress-isolation
+  namespace: traefik
+{% if k8s_ingress_policy_audit_mode | default(false) | bool %}
+  annotations:
+    # Audit Mode: When enabled, Cilium logs policy violations without dropping packets.
+    policy.cilium.io/audit-mode: "true"
+{% endif %}
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  ingress:
+    # Port 8000 (HTTP / h2c): Only allow traffic originating from Host Traefik (cluster nodes) and internal pods
+    - fromEntities:
+        - host
+        - remote-node
+        - cluster
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+    # Port 2222 (Git SSH): Allow TCP traffic forwarded by Host Traefik proxy and cluster nodes
+    - fromEntities:
+        - host
+        - remote-node
+        - cluster
+      toPorts:
+        - ports:
+            - port: "2222"
+              protocol: TCP

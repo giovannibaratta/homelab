@@ -43,3 +43,10 @@
     state: present
     values: "{{ lookup('template', 'values.yaml.j2') | from_yaml }}"
   run_once: true
+
+- name: Kubernetes Ingress | Apply Cilium Network Policy
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'cilium-network-policy.yaml.j2') | from_yaml }}"
+    state: present
+  when: k8s_ingress_enable_network_policy | default(true) | bool
+  run_once: true

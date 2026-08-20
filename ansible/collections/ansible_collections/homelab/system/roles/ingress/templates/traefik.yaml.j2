@@ -9,16 +9,8 @@ experimental:
       version: {{ ingress_waf_plugin_version }}
 
 entryPoints:
-  # Public Entrypoints with Multi-Layer Security Protection
-  # 
-  # Configuration loaded in order:
-  # 1. middleware.yml - Defines all middleware after plugin is available
-  # 2. traefik.yml - Configures entrypoints with middleware references
-  #
-  # Both entrypoints automatically apply 3-layer security to ALL incoming requests
-  # Middleware chain: rateLimit@file -> inFlightReq@file -> waf@file -> service
-  # This provides comprehensive protection: DDoS -> Concurrency -> Security Analysis
-
+  # Public Insecure Entrypoint for WAN
+  # Automatically redirects all incoming WAN plain HTTP requests to HTTPS (public-secure).
   public-insecure:
     address: :9080
     transport:
@@ -27,15 +19,16 @@ entryPoints:
         writeTimeout: 600
         idleTimeout: 600
     http:
-      middlewares:
-        # Layer 1: Rate limiting (prevent request flooding)
-        - rateLimit@file
-        # Layer 2: Concurrent request limiting (prevent connection exhaustion)
-        - inFlightReq@file
-        # Layer 3: WAF security analysis (deep inspection)
-        - waf@file
+      redirections:
+        entryPoint:
+          to: public-secure
+          scheme: https
+          permanent: true
 
-  # TODO: Is the public-secure protected by the middleware and rate limiter ?
+  # Public entrypoint for HTTPS (port 9443).
+  # NOTE: Do NOT add entryPoint-level middlewares here. Middlewares (rate limiting, concurrency,
+  # and ModSecurity WAF) MUST be attached per router/endpoint (via k8s-routing.yaml.j2 or container
+  # labels like default-chain@file / netbird-chain@file).
   public-secure:
     address: :9443
     transport:

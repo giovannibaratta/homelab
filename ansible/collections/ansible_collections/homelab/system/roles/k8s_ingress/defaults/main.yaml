@@ -1,2 +1,10 @@
 # Available versions https://github.com/traefik/traefik-helm-chart/releases
 k8s_ingress_traefik_chart_version: "41.0.1"
+
+# Cilium Network Policy for Traefik Ingress Controller
+# Enables L3/L4 network isolation restricting access to K8s Traefik (port 8000/2222) to cluster nodes only.
+k8s_ingress_enable_network_policy: true
+
+# Audit Mode: Set to "true" to log unauthorized flows to Hubble without dropping packets.
+# Set to "false" to actively enforce packet drops.
+k8s_ingress_policy_audit_mode: false

@@ -4,10 +4,38 @@ ports:
     expose:
       default: true
     exposedPort: 80
+    # ARCHITECTURE NOTE: Two-Tier Ingress Security
+    # 
+    # Threat Model & Rationale:
+    # A static header token (e.g. X-Traefik-Token) alone over plaintext HTTP only stops blind
+    # bypass, but remains vulnerable to L2 packet sniffing/replay if the internal wire is tapped.
+    # 
+    # Current Defense Strategy:
+    # 1. Trusted Proxy IPs (below): Trusts X-Forwarded-* headers only from cluster/host IPs.
+    # 2. L3/L4 Network Isolation: Restrict access to LoadBalancer IP port 80 via CiliumNetworkPolicy
+    #    (fromEntities: [host, remote-node]), dropping unauthorized LAN bypass attempts before Traefik.
+    #
+    # Future Roadmap:
+    # If end-to-end zero-trust at L7 is needed across untrusted network segments, implement internal
+    # mTLS between Host Traefik and K8s Traefik combined with ForwardAuth token validation.
+    forwardedHeaders:
+      trustedIPs:
+        - "127.0.0.1/32"
+        - "{{ k8s_cp_network }}/{{ k8s_cp_netmask | default(16) }}"
+{% for host in groups['k8s_cluster'] | default([]) | unique %}
+        - "{{ hostvars[host].internal_ip }}/32"
+{% endfor %}
   websecure:
     port: 8443
     expose:
       default: false
+    forwardedHeaders:
+      trustedIPs:
+        - "127.0.0.1/32"
+        - "{{ k8s_cp_network }}/{{ k8s_cp_netmask | default(16) }}"
+{% for host in groups['k8s_cluster'] | default([]) | unique %}
+        - "{{ hostvars[host].internal_ip }}/32"
+{% endfor %}
   # Note: Exposed internally to the LAN and local cluster (mapping to the LoadBalancer's private IP {{ k8s_ingress_lb_ip }}).
   # It is NOT reachable from the WAN/internet as there are no firewall or DNAT rules forwarding port 2222 from public interfaces.
   git-ssh:

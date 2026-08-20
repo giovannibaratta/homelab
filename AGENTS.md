@@ -41,3 +41,22 @@ When creating or modifying Ansible roles managing services/containers:
 
 5. **Boolean Safety**:
    Always pipe boolean variables through `| bool` (e.g. `when: not (deploy_foo | default(false) | bool)`) to prevent Jinja string evaluation bugs (`"false"` string evaluating to truthy).
+
+## Ingress & Traefik Security Middleware Pattern
+
+When exposing any web service or creating/modifying Traefik routes:
+
+1. **Do NOT apply global HTTP middlewares to the `public-secure` (:9443) entrypoint**:
+   Entrypoint middlewares apply unconditionally to all traffic on that port. Streaming/gRPC services (e.g. Netbird) break under ModSecurity WAF deep inspection and need to share port 9443.
+
+2. **Always enforce security middlewares at the router/endpoint level**:
+   - **Default to the most secure**: Always use `default-chain@file` (rate limiting + concurrency control + ModSecurity WAF).
+   - **Opt-out only when strictly needed**: Use alternative chains (e.g. rate limiting + concurrency control, bypassing WAF) only for services that break under deep packet inspection (e.g., VPN, gRPC, or streaming services).
+
+3. **Kubernetes Ingress**:
+   - Add new public Kubernetes domains to `k8s_public_domains` in `inventory/home.yaml`. `homelab.system.ingress` (`k8s-routing.yaml.j2`) will automatically generate the public Traefik routers with all 3 security layers.
+   - Add internal-only Kubernetes domains to `k8s_internal_domains`.
+
+4. **Podman / Container Services**:
+   - When defining Quadlet container labels for exposed services, ALWAYS default to:
+     `traefik.http.routers.<service_name>.middlewares: default-chain@file`

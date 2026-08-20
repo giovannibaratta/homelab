@@ -208,6 +208,7 @@
       traefik.enable: true
       traefik.http.routers.home-assistant.rule: Host(`ha.{{ internal_domain }}`)
       traefik.http.routers.home-assistant.entrypoints: websecure,public-secure
+      traefik.http.routers.home-assistant.middlewares: default-chain@file
       traefik.http.routers.home-assistant.tls.certresolver: letsencrypt
       traefik.http.routers.home-assistant.tls.domains[0].main: ha.{{ internal_domain }}
       traefik.http.services.home-assistant.loadbalancer.server.port: 8123
