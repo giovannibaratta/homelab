@@ -139,14 +139,17 @@
             storage_size: "10Gi"
             username: "forgejouser"
             password: "{{ forgejo_db_password }}"
+            backup_enabled: true
           - name: approvio-db
             storage_size: "10Gi"
             username: "approvio"
             password: "{{ approvio_db_password }}"
+            backup_enabled: false
           - name: coder-db
             storage_size: "10Gi"
             username: "coder"
             password: "{{ coder_db_password }}"
+            backup_enabled: true
 
     - name: Deploy CloudNativePG Clusters (Zitadel Namespace)
       ansible.builtin.import_role:
@@ -159,6 +162,7 @@
             storage_size: "10Gi"
             username: "zitadeladmin"
             password: "{{ idp_zitadel_db_admin_password }}"
+            backup_enabled: true
             priority_class_name: "critical-infra"
             resources:
               requests:

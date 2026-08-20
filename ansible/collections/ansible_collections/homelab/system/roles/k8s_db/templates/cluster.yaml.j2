@@ -53,3 +53,26 @@ spec:
               name: "{{ __k8s_db_cluster_name }}-lb"
             spec:
               type: LoadBalancer
+
+{% if __k8s_db_backup_enabled | default(false) | bool %}
+  backup:
+    target: "primary"
+    retentionPolicy: "{{ __k8s_db_retention_policy }}"
+    barmanObjectStore:
+      destinationPath: "s3://{{ __k8s_db_backup_s3_bucket }}/{{ k8s_db_cluster_namespace }}/{{ __k8s_db_cluster_name }}"
+      endpointURL: "{{ k8s_db_backup_s3_endpoint }}"
+      s3Credentials:
+        accessKeyId:
+          name: "{{ __k8s_db_cluster_name }}-backup-credentials"
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: "{{ __k8s_db_cluster_name }}-backup-credentials"
+          key: SECRET_ACCESS_KEY
+      data:
+        compression: "{{ k8s_db_backup_compression | default('gzip') }}"
+      wal:
+        compression: "{{ k8s_db_backup_compression | default('gzip') }}"
+{% endif %}
+
+
+

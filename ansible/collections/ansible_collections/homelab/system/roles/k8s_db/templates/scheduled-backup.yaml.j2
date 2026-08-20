@@ -1,0 +1,11 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: "{{ __k8s_db_cluster_name }}-daily-backup"
+  namespace: "{{ k8s_db_cluster_namespace }}"
+spec:
+  schedule: "{{ __k8s_db_backup_schedule }}"
+  target: "primary"
+  cluster:
+    name: "{{ __k8s_db_cluster_name }}"
+  backupOwnerReference: self

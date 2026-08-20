@@ -1,3 +1,11 @@
 ---
 k8s_db_clusters: []
 k8s_db_cluster_namespace: cnpg-clusters
+
+# Backup Settings (Cloudflare R2 / S3-compatible)
+k8s_db_backup_enabled: false
+k8s_db_backup_s3_endpoint: ""
+# Note: k8s_db_backup_s3_bucket intentionally has no default and must be provided when backup is enabled
+k8s_db_backup_schedule: "0 0 2 * * *"
+k8s_db_backup_default_retention_policy: "7d"
+k8s_db_backup_compression: "gzip"

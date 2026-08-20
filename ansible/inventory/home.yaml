@@ -1,6 +1,7 @@
 ---
 home:
   vars:
+    k8s_db_backup_s3_bucket: "homelab-cnpg-backups"
     secret_bundle: "{{ lookup('community.general.bitwarden_secrets_manager', '22bdfa7d-f452-4a62-85d3-b40c0095369a').value }}"
     idp_terraform_state_bucket: "homelab-terraform-state"
     idp_terraform_state_s3_type: "other"

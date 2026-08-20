@@ -56,6 +56,27 @@
       loop_control:
         label: "{{ item.name }}"
 
+    - name: CloudNativePG | Determine if backup is enabled for any cluster
+      ansible.builtin.set_fact:
+        __k8s_db_any_backup_enabled: "{{ (k8s_db_backup_enabled | default(false) | bool) or ((k8s_db_clusters | selectattr('backup_enabled', 'defined') | selectattr('backup_enabled') | list | length) > 0) }}"
+
+    - name: CloudNativePG | Validate backup configuration when backup is enabled
+      when: __k8s_db_any_backup_enabled | bool
+      ansible.builtin.assert:
+        that:
+          - k8s_db_backup_s3_bucket is defined
+          - k8s_db_backup_s3_bucket | length > 0
+          - k8s_db_backup_s3_endpoint is defined
+          - k8s_db_backup_s3_endpoint | length > 0
+          - k8s_db_backup_r2_access_key_id is defined
+          - k8s_db_backup_r2_access_key_id | length > 0
+          - k8s_db_backup_r2_secret_access_key is defined
+          - k8s_db_backup_r2_secret_access_key | length > 0
+        fail_msg: >
+          Backup is enabled for one or more clusters, but required backup parameters are missing.
+          Please ensure 'k8s_db_backup_s3_bucket', 'k8s_db_backup_s3_endpoint', 'k8s_db_backup_r2_access_key_id',
+          and 'k8s_db_backup_r2_secret_access_key' are all defined and non-empty.
+
 - name: CloudNativePG | Create local storage directories on each node for each cluster
   when: "'kube_node' in group_names"
   ansible.builtin.file:
@@ -73,7 +94,7 @@
   kubernetes.core.k8s:
     state: present
     definition: "{{ lookup('template', 'persistent-volume.yaml.j2') | from_yaml }}"
-  # For each node in the cluster, we need to crate a PV that points to the local storage on that node.
+  # For each node in the cluster, we need to create a PV that points to the local storage on that node.
   # We can achieve this by looping over the product of the list of clusters and the list of nodes.
   loop: "{{ k8s_db_clusters | product(groups['kube_node']) | list }}"
   loop_control:
@@ -98,6 +119,17 @@
     __k8s_db_db_user: "{{ item.username }}"
     __k8s_db_db_password: "{{ item.password }}"
 
+- name: CloudNativePG | Create backup credentials secret for each cluster
+  when: (item.backup_enabled | default(k8s_db_backup_enabled | default(false))) | bool
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'backup-credentials.yaml.j2') | from_yaml }}"
+  loop: "{{ k8s_db_clusters }}"
+  no_log: true
+  run_once: true
+  vars:
+    __k8s_db_cluster_name: "{{ item.name }}"
+
 - name: CloudNativePG | Render and apply Cluster manifest for each cluster
   run_once: true
   kubernetes.core.k8s:
@@ -113,3 +145,19 @@
     __k8s_db_secret_name: "{{ __k8s_db_cluster_name }}-credentials"
     __k8s_db_resources: "{{ item.resources if item.resources is defined else omit }}"
     __k8s_db_priority_class_name: "{{ item.priority_class_name if item.priority_class_name is defined else omit }}"
+    __k8s_db_backup_enabled: "{{ (item.backup_enabled | default(k8s_db_backup_enabled | default(false))) | bool }}"
+    __k8s_db_backup_s3_bucket: "{{ item.backup_s3_bucket | default(k8s_db_backup_s3_bucket | default('')) }}"
+    __k8s_db_retention_policy: "{{ item.retention_policy | default(k8s_db_backup_default_retention_policy) }}"
+
+- name: CloudNativePG | Render and apply ScheduledBackup for each cluster
+  when: (item.backup_enabled | default(k8s_db_backup_enabled | default(false))) | bool
+  run_once: true
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'scheduled-backup.yaml.j2') | from_yaml }}"
+  loop: "{{ k8s_db_clusters }}"
+  loop_control:
+    label: "{{ item.name }}-daily-backup"
+  vars:
+    __k8s_db_cluster_name: "{{ item.name }}"
+    __k8s_db_backup_schedule: "{{ item.backup_schedule | default(k8s_db_backup_schedule) }}"
