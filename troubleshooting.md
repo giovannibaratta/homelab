@@ -34,3 +34,32 @@ rm -rf /tmp/passt
 ```
 Restart rootless Podman processes to spawn the new `pasta` binary.
 
+## 3. UPS Monitor `Data stale` / USB `Overflow (-8)` on Cypress 0665:5161
+
+### Symptom
+`upsc <ups-name>` fails with `Init SSL without certificate database: Error: Data stale`, `nut-monitor` logs `Poll UPS failed - Data stale`, and Prometheus `nut_ups_load` shows gaps/blanks. Manually testing `nutdrv_qx` reports `read: Overflow (-8)` and `Device not supported!`.
+
+### Root Cause
+Tecnoware / Cypress `0665:5161` is a USB 1.1 Low-Speed (1.5 Mbps) controller. When host systems reboot or when the USB device is hot-plugged across xHCI (USB 3.x) ports, the internal FIFO buffer on the Cypress chip or xHCI transaction translator can lock up in a persistent overflow state, causing `libusb` reads to fail with `LIBUSB_ERROR_OVERFLOW (-8)`.
+
+### Resolution
+1. **Remote USB Reset via Sysfs (without physical access)**:
+   ```bash
+   echo 0 | sudo tee /sys/bus/usb/devices/1-5/authorized
+   sleep 2
+   echo 1 | sudo tee /sys/bus/usb/devices/1-5/authorized
+   ```
+   Or using `usbreset`:
+   ```bash
+   sudo usbreset 0665:5161
+   ```
+2. **Restart NUT services**:
+   ```bash
+   sudo systemctl restart nut-driver@tecnoware nut-server nut-monitor
+   ```
+3. **Verify**:
+   ```bash
+   upsc tecnoware
+   cat /var/lib/node_exporter/textfile_collector/nut.prom
+   ```
+

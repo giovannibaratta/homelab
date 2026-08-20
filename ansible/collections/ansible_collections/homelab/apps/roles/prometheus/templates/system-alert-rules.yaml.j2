@@ -69,6 +69,15 @@ groups:
     annotations:
       summary: "UPS on battery (instance {{ '{{' }} $labels.instance {{ '}}' }})"
       description: "UPS {{ '{{' }} $labels.ups {{ '}}' }} has switched to battery power. Current status code: {{ '{{' }} $value {{ '}}' }}."
+  - alert: UPSMonitoringDown
+    expr: (nut_scrape_success{ups="tecnoware"} == 0) or (absent(nut_ups_status{ups="tecnoware"}) == 1)
+    for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: "UPS monitoring is down on {{ '{{' }} $labels.instance {{ '}}' }}"
+      description: "UPS monitoring data on instance {{ '{{' }} $labels.instance {{ '}}' }} is stale or absent for more than 15 minutes."
+
 - name: Security
   rules:
   - alert: HighUploadSpeed
