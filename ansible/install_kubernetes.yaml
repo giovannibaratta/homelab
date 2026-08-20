@@ -139,6 +139,10 @@
             storage_size: "10Gi"
             username: "forgejouser"
             password: "{{ forgejo_db_password }}"
+          - name: approvio-db
+            storage_size: "10Gi"
+            username: "approvio"
+            password: "{{ approvio_db_password }}"
           - name: coder-db
             storage_size: "10Gi"
             username: "coder"
@@ -163,6 +167,22 @@
               limits:
                 cpu: "1000m"
                 memory: "1Gi"
+
+- name: Deploy Redis Operator
+  hosts: kube_control_plane
+  become: yes
+
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.system.k8s_redis
+      vars:
+        k8s_redis_clusters:
+          - name: approvio-redis
+            storage_size: 2Gi
+            password: "{{ approvio_redis_password }}"
+            mode: replication
+            cluster_size: 3
+      tags: k8s-redis
 
 
 - name: Deploy Forgejo
