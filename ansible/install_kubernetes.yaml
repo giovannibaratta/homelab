@@ -150,6 +150,11 @@
             username: "coder"
             password: "{{ coder_db_password }}"
             backup_enabled: true
+          - name: sungrow-exporter-db
+            storage_size: "10Gi"
+            username: "sungrow_exporter"
+            password: "{{ sungrow_exporter_db_password }}"
+            backup_enabled: true
 
     - name: Deploy CloudNativePG Clusters (Zitadel Namespace)
       ansible.builtin.import_role:

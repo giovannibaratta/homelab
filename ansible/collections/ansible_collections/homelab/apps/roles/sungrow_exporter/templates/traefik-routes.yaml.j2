@@ -1,0 +1,18 @@
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: sungrow-exporter
+  namespace: {{ sungrow_exporter_namespace }}
+  labels:
+    app.kubernetes.io/name: sungrow-exporter
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - match: Host(`sungrow-exporter.{{ internal_domain }}`)
+      kind: Rule
+      services:
+        - name: sungrow-exporter
+          port: {{ sungrow_exporter_port }}

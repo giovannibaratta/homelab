@@ -19,7 +19,7 @@ home:
     k8s_ingress_lb_ip: "172.16.184.10"
     # Provide only the sub-domain prefix. They will be suffixed with .{{ internal_domain }}
     k8s_public_domains: ["approvio", "idp"]
-    k8s_internal_domains: ["git", "ui.k8s", "coder"]
+    k8s_internal_domains: ["git", "ui.k8s", "coder", "sungrow-exporter"]
     network_dyn_dns_entry: "ingress"
     idp_deployment_type: "k8s" # Alternative is docker
     coder_deployment_type: "k8s" # Alternative is podman
@@ -30,6 +30,7 @@ home:
     # Ideally the Terraform state should be on a location that is accessible by all nodes.
     ##### END Required for first setup #####
     ##### Deployment preferences defaults to false for safety #####
+    deploy_sungrow_exporter: true
     deploy_grafana: false
     deploy_prometheus: false
     deploy_alertmanager: false

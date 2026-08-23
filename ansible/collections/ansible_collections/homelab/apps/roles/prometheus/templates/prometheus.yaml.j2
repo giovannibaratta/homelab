@@ -57,6 +57,15 @@ scrape_configs:
     static_configs:
       - targets: ['idp.{{ internal_domain }}']
 
+{% if deploy_sungrow_exporter | default(false) | bool %}
+  - job_name: 'sungrow_exporter'
+    scrape_interval: 30s
+    scheme: https
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ['sungrow-exporter.{{ internal_domain }}']
+{% endif %}
+
 rule_files:
   - /opt/prometheus/conf/rules/*.yaml
 

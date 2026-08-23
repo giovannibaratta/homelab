@@ -1,0 +1,10 @@
+---
+- name: Sungrow Exporter | Determine if component is enabled
+  ansible.builtin.set_fact:
+    __sungrow_exporter_enabled: "{{ deploy_sungrow_exporter | default(false) | bool }}"
+
+- name: Sungrow Exporter | Deploy components
+  ansible.builtin.import_tasks: deploy_sungrow_exporter.yaml
+
+- name: Sungrow Exporter | Undeploy components
+  ansible.builtin.import_tasks: undeploy_sungrow_exporter.yaml

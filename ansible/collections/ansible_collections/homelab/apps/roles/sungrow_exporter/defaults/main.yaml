@@ -1,0 +1,20 @@
+---
+# Deployment toggle
+deploy_sungrow_exporter: false
+
+# Container image
+sungrow_exporter_image: "ghcr.io/giovannibaratta/isolarcloud-exporter:latest"
+sungrow_exporter_namespace: "sungrow-exporter"
+sungrow_exporter_replicas: 1
+sungrow_exporter_port: 9888
+
+# Application Configuration
+sungrow_exporter_poll_interval: 600
+sungrow_exporter_backfill_days: 365
+sungrow_exporter_region: "eu"
+
+# Database Configuration (CNPG Cluster)
+sungrow_exporter_db_host: "sungrow-exporter-db-rw.cnpg-clusters.svc.cluster.local"
+sungrow_exporter_db_port: 5432
+sungrow_exporter_db_name: "sungrow-exporter-db"
+sungrow_exporter_db_user: "sungrow_exporter"

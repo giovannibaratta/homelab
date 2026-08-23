@@ -1,0 +1,45 @@
+---
+- name: Sungrow Exporter | Deploy tasks
+  when: deploy_sungrow_exporter | bool
+  block:
+    - name: Sungrow Exporter | Validate required secrets and credentials
+      ansible.builtin.assert:
+        that:
+          - sungrow_exporter_db_password is defined and (sungrow_exporter_db_password | string | length > 0)
+          - sungrow_exporter_app_key is defined and (sungrow_exporter_app_key | string | length > 0)
+          - sungrow_exporter_app_secret is defined and (sungrow_exporter_app_secret | string | length > 0)
+          - sungrow_exporter_user_account is defined and (sungrow_exporter_user_account | string | length > 0)
+          - sungrow_exporter_user_password is defined and (sungrow_exporter_user_password | string | length > 0)
+        fail_msg: >-
+          One or more mandatory Sungrow Exporter credentials are missing or empty.
+          Ensure sungrow_exporter_db_password, sungrow_exporter_app_key, sungrow_exporter_app_secret,
+          sungrow_exporter_user_account, and sungrow_exporter_user_password are defined in inventory/secrets.
+      run_once: true
+
+    - name: Sungrow Exporter | Ensure namespace exists
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ sungrow_exporter_namespace }}"
+        state: present
+      run_once: true
+      when: sungrow_exporter_namespace != "default"
+
+    - name: Sungrow Exporter | Apply Secret
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'secret.yaml.j2') | from_yaml }}"
+      no_log: true
+      run_once: true
+
+    - name: Sungrow Exporter | Apply Deployment and Service
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'deployment.yaml.j2') | from_yaml_all }}"
+      run_once: true
+
+    - name: Sungrow Exporter | Apply Traefik IngressRoute
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'traefik-routes.yaml.j2') | from_yaml }}"
+      run_once: true

@@ -1,0 +1,93 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sungrow-exporter
+  namespace: {{ sungrow_exporter_namespace }}
+  labels:
+    app.kubernetes.io/name: sungrow-exporter
+spec:
+  replicas: {{ sungrow_exporter_replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sungrow-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sungrow-exporter
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sungrow-exporter
+          image: "{{ sungrow_exporter_image }}"
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http-metrics
+              containerPort: {{ sungrow_exporter_port }}
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: sungrow-exporter-secret
+          env:
+            - name: EXPORTER_HOST
+              value: "0.0.0.0"
+            - name: EXPORTER_PORT
+              value: "{{ sungrow_exporter_port | string }}"
+            - name: POLL_INTERVAL_SECONDS
+              value: "{{ sungrow_exporter_poll_interval | string }}"
+            - name: BACKFILL_MAX_DAYS
+              value: "{{ sungrow_exporter_backfill_days | string }}"
+            - name: ISOLARCLOUD_REGION
+              value: "{{ sungrow_exporter_region }}"
+            - name: DATABASE_AUTO_MIGRATE
+              value: "true"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http-metrics
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http-metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sungrow-exporter
+  namespace: {{ sungrow_exporter_namespace }}
+  labels:
+    app.kubernetes.io/name: sungrow-exporter
+spec:
+  type: ClusterIP
+  ports:
+    - name: http-metrics
+      port: {{ sungrow_exporter_port }}
+      targetPort: http-metrics
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: sungrow-exporter

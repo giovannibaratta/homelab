@@ -1,0 +1,34 @@
+---
+- name: Sungrow Exporter | Undeploy tasks
+  when: not (deploy_sungrow_exporter | default(false) | bool)
+  block:
+    - name: Sungrow Exporter | Remove Traefik IngressRoute
+      kubernetes.core.k8s:
+        state: absent
+        definition: "{{ lookup('template', 'traefik-routes.yaml.j2') | from_yaml }}"
+      run_once: true
+      ignore_errors: true
+
+    - name: Sungrow Exporter | Remove Deployment and Service
+      kubernetes.core.k8s:
+        state: absent
+        definition: "{{ lookup('template', 'deployment.yaml.j2') | from_yaml_all }}"
+      run_once: true
+      ignore_errors: true
+
+    - name: Sungrow Exporter | Remove Secret
+      kubernetes.core.k8s:
+        state: absent
+        definition: "{{ lookup('template', 'secret.yaml.j2') | from_yaml }}"
+      run_once: true
+      ignore_errors: true
+
+    - name: Sungrow Exporter | Remove Namespace
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ sungrow_exporter_namespace }}"
+        state: absent
+      run_once: true
+      when: sungrow_exporter_namespace != "default"
+      ignore_errors: true
