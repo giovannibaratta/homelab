@@ -55,3 +55,97 @@ lovelace:
       title: Camera View
       icon: mdi:camera
       show_in_sidebar: true
+
+# # ==============================================================================
+# Sungrow Solar & Energy Dashboard Integration (via Prometheus)
+# ==============================================================================
+sensor:
+  - platform: rest
+    name: "Sungrow Solar Generation Total"
+    unique_id: sungrow_solar_generation_total
+    resource: "https://prometheus.{{ internal_domain }}/api/v1/query?query=isolarcloud_pv_yield_kwh_total"
+    value_template: "{% raw %}{{ value_json.data.result[0].value[1] | float(0) | round(2) }}{% endraw %}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    scan_interval: 120
+
+  - platform: rest
+    name: "Sungrow Grid Export Total"
+    unique_id: sungrow_grid_export_total
+    resource: "https://prometheus.{{ internal_domain }}/api/v1/query?query=isolarcloud_export_kwh_total"
+    value_template: "{% raw %}{{ value_json.data.result[0].value[1] | float(0) | round(2) }}{% endraw %}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    scan_interval: 120
+
+  - platform: rest
+    name: "Sungrow Grid Import Total"
+    unique_id: sungrow_grid_import_total
+    resource: "https://prometheus.{{ internal_domain }}/api/v1/query?query=isolarcloud_import_kwh_total"
+    value_template: "{% raw %}{{ value_json.data.result[0].value[1] | float(0) | round(2) }}{% endraw %}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total_increasing
+    scan_interval: 120
+
+  - platform: rest
+    name: "Sungrow Daily Solar Production"
+    unique_id: sungrow_daily_solar_production
+    resource: "https://prometheus.{{ internal_domain }}/api/v1/query?query=isolarcloud_daily_pv_yield_kwh"
+    value_template: "{% raw %}{{ value_json.data.result[0].value[1] | float(0) | round(2) }}{% endraw %}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total
+    scan_interval: 120
+
+  - platform: rest
+    name: "Sungrow Daily Grid Export"
+    unique_id: sungrow_daily_grid_export
+    resource: "https://prometheus.{{ internal_domain }}/api/v1/query?query=isolarcloud_daily_export_kwh"
+    value_template: "{% raw %}{{ value_json.data.result[0].value[1] | float(0) | round(2) }}{% endraw %}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total
+    scan_interval: 120
+
+  - platform: rest
+    name: "Sungrow Daily Self Consumption"
+    unique_id: sungrow_daily_self_consumption
+    resource: "https://prometheus.{{ internal_domain }}/api/v1/query?query=isolarcloud_daily_self_consumption_kwh"
+    value_template: "{% raw %}{{ value_json.data.result[0].value[1] | float(0) | round(2) }}{% endraw %}"
+    unit_of_measurement: "kWh"
+    device_class: energy
+    state_class: total
+    scan_interval: 120
+
+  - platform: rest
+    name: "Sungrow Live House Load Power"
+    unique_id: sungrow_live_house_load_power
+    resource: "https://prometheus.{{ internal_domain }}/api/v1/query?query=isolarcloud_load_power_watts"
+    value_template: "{% raw %}{{ value_json.data.result[0].value[1] | float(0) | round(0) }}{% endraw %}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    scan_interval: 60
+
+  - platform: rest
+    name: "Sungrow Live Solar PV Power"
+    unique_id: sungrow_live_solar_pv_power
+    resource: "https://prometheus.{{ internal_domain }}/api/v1/query?query=isolarcloud_pv_power_watts"
+    value_template: "{% raw %}{{ value_json.data.result[0].value[1] | float(0) | round(0) }}{% endraw %}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    scan_interval: 60
+
+  - platform: rest
+    name: "Sungrow Live Grid Feed-in Power"
+    unique_id: sungrow_live_grid_feedin_power
+    resource: "https://prometheus.{{ internal_domain }}/api/v1/query?query=isolarcloud_feedin_power_watts"
+    value_template: "{% raw %}{{ value_json.data.result[0].value[1] | float(0) | round(0) }}{% endraw %}"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    scan_interval: 60

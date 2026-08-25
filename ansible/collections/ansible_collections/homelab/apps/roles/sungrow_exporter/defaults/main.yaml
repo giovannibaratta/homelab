@@ -9,7 +9,7 @@ sungrow_exporter_replicas: 1
 sungrow_exporter_port: 9888
 
 # Application Configuration
-sungrow_exporter_poll_interval: 600
+sungrow_exporter_poll_interval: 300
 sungrow_exporter_backfill_days: 365
 sungrow_exporter_region: "eu"
 

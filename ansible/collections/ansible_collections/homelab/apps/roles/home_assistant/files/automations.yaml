@@ -40,19 +40,11 @@
   mode: single
 - id: "1756649357117"
   alias: EnergyProductionDaily
-  description: ""
+  description: "Daily solar production and self-consumption summary report at 20:00"
   triggers:
-    - entity_id:
-        - sensor.energymetersolar_power
-      for:
-        hours: 0
-        minutes: 15
-        seconds: 0
-      below: 50
-      trigger: numeric_state
-  conditions:
-    - condition: time
-      after: "19:00:00"
+    - trigger: time
+      at: "20:00:00"
+  conditions: []
   actions:
     - action: telegram_bot.send_message
       metadata: {}
@@ -60,10 +52,12 @@
         config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
         authentication: digest
         parse_mode: html
-        title: ☀️ Produzione Solare Giornaliera
-        message:
-          "Produzione totale di oggi: <b>{{ states('sensor.dailysolarproduction')
-          | round(2) }}</b> kWh"
+        title: ☀️ <b>Riepilogo Solare Giornaliero</b>
+        message: >-
+          📊 <b>Dati Solari di Oggi:</b>
+          • Produzione Totale: <b>{{ states('sensor.sungrow_daily_solar_production') }} kWh</b>
+          • Autoconsumo: <b>{{ states('sensor.sungrow_daily_self_consumption') }} kWh</b> ({{ ((states('sensor.sungrow_daily_self_consumption') | float(0) / ([states('sensor.sungrow_daily_solar_production') | float(1), 0.1] | max)) * 100) | round(1) }}%)
+          • Immessa in Rete: <b>{{ states('sensor.sungrow_daily_grid_export') }} kWh</b>
   mode: single
 - id: "1766243679440"
   alias: Spegnere luce in cucina
@@ -240,4 +234,28 @@
         config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
         parse_mode: html
         message: '✅ Info: UPS è tornato in modalità linea (rete elettrica)!'
+  mode: single
+- id: '1768822000004'
+  alias: Sungrow - High House Power Usage Alert
+  description: 'Notify via Telegram if house consumption exceeds 4500W for 2 minutes (with 30m debounce)'
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.sungrow_live_house_load_power
+      above: 3000
+      for:
+        minutes: 2
+  conditions:
+    - condition: template
+      value_template: >-
+        {{ state_attr('automation.sungrow_high_house_power_usage_alert', 'last_triggered') is none or (now() - state_attr('automation.sungrow_high_house_power_usage_alert', 'last_triggered')).total_seconds() > 1800 }}
+  actions:
+    - action: telegram_bot.send_message
+      metadata: {}
+      data:
+        config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
+        parse_mode: html
+        message: >-
+          ⚠️ <b>Attenzione Spegni le luci, questa non è una centrale nucleare!</b>
+          La potenza assorbita dalla casa è di <b>{{ (states('sensor.sungrow_live_house_load_power') | float(0) / 1000) | round(2) }} kW</b>.
+          Produzione solare attuale: <b>{{ (states('sensor.sungrow_live_solar_pv_power') | float(0) / 1000) | round(2) }} kW</b>.
   mode: single
