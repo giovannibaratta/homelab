@@ -50,7 +50,6 @@
       metadata: {}
       data:
         config_entry_id: 01K0EH39E2K0KR0C66KNV4HHQG
-        authentication: digest
         parse_mode: html
         title: ☀️ <b>Riepilogo Solare Giornaliero</b>
         message: >-
