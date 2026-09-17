@@ -4,12 +4,25 @@
 # ==============================================================================
 
 # [Kubernetes Version]
-kube_version: 1.34.3
-runc_version: 1.3.4
+kube_version: 1.35.4
+runc_version: 1.4.2
+
+# Prepare every Kubernetes node to run isolated Coder workspaces.
+coder_workspace_security_enabled: true
+kubelet_config_extra_args:
+  userNamespaces:
+    # Podman's 100000:131072 subordinate range ends at 231071.
+    idsPerPod: 262144
+
+# [Cluster Node IPs]
+# Explicitly bind Kubespray internal access IP to dedicated K8s control plane IP per host
+ip: "{{ network_k8s_ip }}"
+access_ip: "{{ network_k8s_ip }}"
+
 
 # As per documentation, when using Cilium the kube owner must be set to root to prevent
 # crash loopback errors.
-# https://github.com/kubernetes-sigs/kubespray/blob/release-2.30/docs/CNI/cilium.md
+# https://github.com/kubernetes-sigs/kubespray/blob/release-2.31/docs/CNI/cilium.md
 kube_owner: root
 
 #[Network Subnets]
@@ -70,3 +83,10 @@ kube_oidc_groups_claim: "groups"
 
 system_upgrade: false
 system_upgrade_reboot: "never"
+
+# [Admission Registration / Feature Gates]
+kube_apiserver_feature_gates:
+  - "MutatingAdmissionPolicy=true"
+
+kube_api_runtime_config:
+  - "admissionregistration.k8s.io/v1beta1=true"

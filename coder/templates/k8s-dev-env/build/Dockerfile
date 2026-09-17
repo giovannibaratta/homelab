@@ -18,13 +18,12 @@ RUN apt-get update \
         && apt-get install -y \
         apt-transport-https \
         git \
-        sudo \
+        libcap2-bin \
         vim \
         wget \
         podman \
         podman-docker \
         python3-setuptools \
-        fuse-overlayfs \
         slirp4netns \
         uidmap \
         jq \
@@ -33,7 +32,11 @@ RUN apt-get update \
         python3-dotenv \
         gettext-base \
         openssh-client \
-        zsh
+        zsh \
+        ripgrep \
+        bubblewrap
+
+# AppArmor policy belongs to the node's coder_workspace_security Ansible role.
 
 # 1. Install latest Netavark v2.1.0 & Aardvark-DNS v2.1.0 release binaries for Podman 6.x rootless network stack
 # 2. Install upstream passt/pasta package:
@@ -60,15 +63,15 @@ RUN touch /etc/containers/nodocker \
         && rm /tmp/passt.deb
 
 # Create user after uidmap is installed to ensure subuid/subgid files are handled correctly
-RUN useradd --groups sudo -m --shell /bin/zsh ${USER} \
-        && echo "${USER} ALL=(ALL) NOPASSWD:ALL" >/etc/sudoers.d/${USER} \
-        && chmod 0440 /etc/sudoers.d/${USER} \
+RUN useradd --uid 1001 --user-group -K SUB_UID_COUNT=0 -K SUB_GID_COUNT=0 -m --shell /bin/zsh ${USER} \
         && groupadd -f containers \
         && usermod -aG containers ${USER}
 
-# Manually ensure subuid/subgid entries exist for rootless Podman
-RUN echo "${USER}:100000:65536" >> /etc/subuid && \
-        echo "${USER}:100000:65536" >> /etc/subgid
+# Preserve BOTH previous adjacent coder ranges and their container-ID mapping.
+# Replace the image's allocation files to remove Ubuntu's overlapping range.
+# Do not shrink to 65536 IDs: existing storage may use the upper half.
+RUN printf '%s:100000:131072\n' "${USER}" > /etc/subuid && \
+        printf '%s:100000:131072\n' "${USER}" > /etc/subgid
 
 # Use podman-compose instead of docker-compose. Docker compose requires a socket to be
 # available, creating the socket in the container is not so easy.
@@ -89,10 +92,27 @@ location = "docker.io"
 EOF
 
 # Podman configurations to run container as non-root user
-RUN mkdir -p /ephermeral/podman/storage && \
-        chown -R ${USER}:containers /ephermeral && \
-        chmod -R 775 /ephermeral && \
-        printf "[storage]\ndriver = \"overlay\"\ngraphroot = \"/ephermeral/podman/storage\"\nrunroot = \"/tmp/podman-run-1001\"\n" > /etc/containers/storage.conf
+RUN mkdir -p /ephemeral/podman/storage && \
+        chown -R ${USER}:containers /ephemeral && \
+        chmod -R 775 /ephemeral && \
+        printf "[storage]\ndriver = \"overlay\"\ngraphroot = \"/ephemeral/podman/storage\"\nrunroot = \"/tmp/podman-run-1001\"\n" > /etc/containers/storage.conf
+
+# Use kernel rootless overlay: no host /dev/fuse or runtime socket is exposed.
+# Nested containers inherit the node's outer AppArmor profile. "unconfined"
+# here suppresses an OCI request to load/switch an INNER AppArmor profile;
+# it cannot remove the already-enforced outer profile (no change_profile rule).
+# Kubernetes owns the outer cgroup; no writable host cgroup mount is needed.
+# Keep the Dockerfile self-contained: the build runner stages only this file.
+RUN printf '%s\n' \
+        '[containers]' \
+        'apparmor_profile = "unconfined"' \
+        'cgroups = "disabled"' \
+        'keyring = false' \
+        'log_driver = "k8s-file"' \
+        '' \
+        '[engine]' \
+        'cgroup_manager = "cgroupfs"' \
+        'events_logger = "file"' > /etc/containers/containers.conf
 
 # Install developer tools
 RUN apt-get update && apt-get install -y \
@@ -126,6 +146,14 @@ RUN chown -R ${USER}:${USER} ${NVM_DIR}
 RUN mkdir -p /workspace && \
         chown -R ${USER}:${USER} /workspace
 
+# Keep this after all apt/package installation, which can restore setuid bits.
+# Helpers stay UID 1001 and acquire only their individual mapping capability.
+# No general-purpose setuid/sudo path to outer-container root remains.
+RUN find /usr -xdev -type f -perm /6000 -exec chmod a-s {} + \
+        && setcap cap_setuid=ep /usr/bin/newuidmap \
+        && setcap cap_setgid=ep /usr/bin/newgidmap \
+        && getcap /usr/bin/newuidmap /usr/bin/newgidmap
+
 USER ${USER}
 
 # Install Oh My Zsh and zsh-autosuggestions
@@ -136,6 +164,9 @@ RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master
 
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g corepack
 RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g @anthropic-ai/claude-code
+# The pinned Coder module installs only codex; the npm package also supplies
+# codex-code-mode-host, which is required for Codex tool execution.
+RUN $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm install -g @openai/codex
 
 RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
 

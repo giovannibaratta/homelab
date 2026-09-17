@@ -1,0 +1,152 @@
+# Managed by coder_workspace_security. See the role README before changing.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile coder-workspace flags=(attach_disconnected,mediate_deleted) {
+{% for kind in ['workspace', 'bwrap', 'podman'] %}
+{% if kind != 'workspace' %}
+  profile coder-workspace-{{ kind }} flags=(attach_disconnected,mediate_deleted) {
+{% endif %}
+    # Child profiles do NOT inherit parent rules. Repeat protections in each.
+    network inet stream,
+    network inet6 stream,
+    network inet dgram,
+    network inet6 dgram,
+    network unix,
+    network netlink,
+
+{% if kind == 'workspace' %}
+    # No userns or mount permission for ordinary workspace processes.
+    deny mount,
+    deny pivot_root,
+{% else %}
+    userns,
+    mount,
+    remount,
+    umount,
+    pivot_root,
+{% endif %}
+    # The outer pod bounding set is only SETUID/SETGID. Other capabilities
+    # are usable only after entering an unprivileged user namespace.
+{% if kind == 'workspace' %}
+    capability setuid,
+    capability setgid,
+{% else %}
+    capability chown,
+    capability dac_override,
+    capability dac_read_search,
+    capability fowner,
+    capability fsetid,
+    capability kill,
+    capability setgid,
+    capability setuid,
+    capability setpcap,
+    capability net_bind_service,
+    capability net_admin,
+    capability sys_chroot,
+    capability sys_admin,
+    capability mknod,
+    capability setfcap,
+{% if kind == 'podman' %}
+    # Namespace/process inspection observed during rootless initialization.
+    # The outer bounding set still excludes SYS_PTRACE; peer rules still apply.
+    capability sys_ptrace,
+{% endif %}
+{% endif %}
+
+    # Receive lifecycle signals from the outer runtime; never signal it.
+    signal (receive) peer=unconfined,
+    signal (receive) peer=runc,
+    signal (receive) peer=crun,
+{% for peer in ['coder-workspace', 'coder-workspace//coder-workspace-bwrap', 'coder-workspace//coder-workspace-podman'] %}
+    signal (send,receive) peer={{ peer }},
+    ptrace (read,readby,trace,tracedby) peer={{ peer }},
+{% endfor %}
+
+    # Read libraries/configuration; parent writes are limited to workspace volumes.
+    / r,
+    /** mr,
+    /{home,workspace,ephemeral,tmp}/ rw,
+    /{home,workspace,ephemeral,tmp}/** rwkl,
+    /var/tmp/ rw,
+    /var/tmp/** rwkl,
+    /dev/ rw,
+    /dev/** rw,
+{% if kind == 'bwrap' %}
+    # Bubblewrap creates mount-point files and directories throughout a private
+    # staging root before pivot_root. AppArmor can expose those paths with a
+    # staging prefix rather than their final /dev, /proc or workspace names.
+    # The payload inherits this profile because bwrap sets no_new_privs before
+    # exec. Its mount namespace and dropped capabilities provide the per-command
+    # write boundary; the explicit sensitive-path denials below remain a backstop.
+    / rw,
+    /** rwklm,
+{% endif %}
+{% if kind == 'podman' %}
+    # OCI payloads need to modify arbitrary paths in their overlay root. This
+    # also broadens the Podman runtime's file access, but the outer Kubernetes
+    # root is read-only and only intended workspace volumes are writable.
+    / rw,
+    /** rwklm,
+    # Overlay copy-up is mediated against the backing mount's disconnected
+    # path, not just /ephemeral. Confirmed by node2's metacopy-check denial.
+    # Limit this alias to Podman's storage in the named emptyDir. This rule
+    # does not mount/expose any additional host or other-Pod filesystem.
+    /kubelet/pods/*/volumes/kubernetes.io~empty-dir/ephemeral-storage/podman/storage/ rw,
+    /kubelet/pods/*/volumes/kubernetes.io~empty-dir/ephemeral-storage/podman/storage/** rwkl,
+{% endif %}
+    # Helpers/runtime need process-local proc files, including UID/GID maps.
+    @{PROC}/[0-9]*/** rw,
+    @{PROC}/self/** rw,
+    @{PROC}/thread-self/** rw,
+
+    # Parent profiles cannot modify the workspace image's system paths.
+{% if kind != 'podman' %}
+    deny /{usr,bin,sbin,lib,lib64,etc}/** wkl,
+{% endif %}
+    # Explicit denials remain effective when Podman file access is broadened.
+    deny /sys/** wklx,
+    deny /sys/kernel/security/** rwklx,
+    # Retain sensitive-path protection with Unmasked proc in a Pod userns.
+    deny /sys/firmware/** rwklx,
+    deny /sys/devices/virtual/powercap/** rwklx,
+    deny @{PROC}/{asound,acpi,scsi}/** rwklx,
+    deny @{PROC}/{interrupts,latency_stats,sched_debug} rwklx,
+{% if kind == 'podman' %}
+    # Netavark/OCI setup writes network sysctls in its NEW network namespace.
+    # The outer pod has no NET_ADMIN, so it cannot change the outer network.
+    @{PROC}/sys/net/** rw,
+    deny @{PROC}/sys/[^n]** wklx,
+    deny @{PROC}/sys/n[^e]** wklx,
+    deny @{PROC}/sys/ne[^t]** wklx,
+    deny @{PROC}/sys/net?** wklx,
+{% else %}
+    deny @{PROC}/sys/** wklx,
+{% endif %}
+    deny @{PROC}/{sysrq-trigger,kcore,kmem,mem,keys,timer_list} rwklx,
+    deny @{PROC}/{[0-9]*,self,thread-self}/mem rwklx,
+    # Prevent direct AppArmor relabels, including /proc/self/task/<tid>.
+    deny @{PROC}/**/attr/** w,
+    deny /dev/{mem,kmem,port,kmsg} rwklx,
+    deny /{,var/}run/{docker.sock,podman/podman.sock,containerd/**,crio/**} rwklx,
+    deny /var/run/secrets/kubernetes.io/** rwklx,
+
+{% if kind == 'workspace' %}
+    /** ix,
+    /usr/bin/bwrap Cx -> coder-workspace-bwrap,
+    /usr/bin/podman Cx -> coder-workspace-podman,
+{% elif kind == 'bwrap' %}
+    # A Px transition is rejected after bwrap sets no_new_privs because the
+    # workspace profile is not a strict subset. bwrap installs the sandbox mounts
+    # and drops capabilities before executing the helper or requested command.
+    /** ix,
+{% else %}
+    # Podman re-exec, mapping helpers, pasta/netavark and OCI payloads inherit
+    # confinement. No Ux or change_profile permission.
+    /** ix,
+{% endif %}
+{% if kind != 'workspace' %}
+  }
+{% endif %}
+{% endfor %}
+}

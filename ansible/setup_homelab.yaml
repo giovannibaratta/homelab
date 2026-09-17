@@ -307,6 +307,16 @@
       - coder
       - podman-coder
 
+    # Node-local security is separate from Coder's cluster resources. The role
+    # checks its own per-host opt-in and requires Kubernetes storage to exist.
+    - name: Configure Coder workspace node security
+      ansible.builtin.import_role:
+        name: homelab.system.coder_workspace_security
+      become: true
+      tags:
+        - k8s-coder-security
+        - k8s-coder
+
     - name: Deploy Coder K8s
       when: (deploy_coder | default(false) | bool) and (coder_deployment_type | default('') == 'k8s')
       ansible.builtin.import_role:

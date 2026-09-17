@@ -1,0 +1,59 @@
+# TUN is a clone device: each open creates an independent interface. Advertising
+# 32 slots allows 32 workspaces; each workspace can run multiple inner containers.
+# This trusted node component registers DeviceSpecs with kubelet. It does not
+# need privileged mode, host networking, a Kubernetes token or the whole /dev.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: coder-tun-device-plugin
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: coder-tun-device-plugin
+  template:
+    metadata:
+      labels:
+        app: coder-tun-device-plugin
+    spec:
+      automountServiceAccountToken: false
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: plugin
+          image: "{{ coder_tun_device_plugin_image }}"
+          args:
+            - --device
+            - '{"name":"coder-tun","groups":[{"count":32,"paths":[{"path":"/dev/net/tun"}]}]}'
+          securityContext:
+            runAsUser: 0
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: registration
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: tun-discovery
+              mountPath: /dev/net
+              readOnly: true
+      volumes:
+        - name: registration
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+            type: Directory
+        - name: tun-discovery
+          hostPath:
+            path: /dev/net
+            type: Directory

@@ -87,6 +87,17 @@
     access_ip: "{{ network_k8s_ip }}"
   tags: k8s
 
+# Run after Kubespray and, critically, after mounting /var/lib/kubelet.
+- name: Configure Coder workspace node security
+  hosts: k8s_cluster
+  become: true
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.system.coder_workspace_security
+  tags:
+    - k8s-coder-security
+    - k8s-coder
+
 - name: Customize K8s control plane networking
   hosts: kube_control_plane
   become: yes

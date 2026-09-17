@@ -4,6 +4,8 @@ k8s_coder_workspaces_namespace: coder-workspaces
 # Available versions https://github.com/coder/coder/pkgs/container/coder
 coder_version: v2.35.4
 k8s_coder_replicas: 1
+# Upstream manifest image; override with a reviewed digest for reproducible deploys.
+coder_tun_device_plugin_image: squat/generic-device-plugin:latest
 
 coder_db_host: "coder-db-rw.cnpg-clusters.svc"
 coder_db_port: "5432"

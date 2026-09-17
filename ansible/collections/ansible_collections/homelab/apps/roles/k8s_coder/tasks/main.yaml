@@ -1,4 +1,12 @@
 ---
+- name: Coder | Allocate TUN devices through kubelet
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'tun-device-plugin.yaml.j2') | from_yaml }}"
+  run_once: true
+  tags:
+    - k8s-coder-tun
+
 - name: Coder | Apply namespaces
   kubernetes.core.k8s:
     state: present

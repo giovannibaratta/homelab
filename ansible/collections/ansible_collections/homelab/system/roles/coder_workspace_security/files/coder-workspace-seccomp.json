@@ -1,0 +1,20 @@
+{
+  "defaultAction": "SCMP_ACT_ALLOW",
+  "architectures": ["SCMP_ARCH_X86_64", "SCMP_ARCH_X86", "SCMP_ARCH_X32"],
+  "syscalls": [
+    {
+      "names": [
+        "add_key", "request_key", "keyctl",
+        "bpf", "perf_event_open", "userfaultfd",
+        "io_uring_setup", "io_uring_enter", "io_uring_register",
+        "init_module", "finit_module", "delete_module",
+        "kexec_load", "kexec_file_load", "reboot",
+        "swapon", "swapoff",
+        "open_by_handle_at", "name_to_handle_at",
+        "acct", "lookup_dcookie", "iopl", "ioperm"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 1
+    }
+  ]
+}

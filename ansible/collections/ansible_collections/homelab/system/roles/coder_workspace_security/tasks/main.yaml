@@ -1,0 +1,106 @@
+---
+# See ../README.md for the layers, ownership boundaries and deployment sequence.
+# This role installs node-local files, NOT Kubernetes or containerd settings.
+# Disabled means leave existing profiles alone: unloading a live AppArmor
+# profile would remove confinement from processes that are already running.
+- name: Configure security on workspace execution nodes
+  when: coder_workspace_security_enabled | default(false) | bool
+  block:
+    - name: Persist TUN driver for rootless container networking
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/coder-tun.conf
+        content: "tun\n"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Make the TUN clone device available to the device plugin
+      ansible.builtin.command:
+        cmd: modprobe tun
+      changed_when: false
+
+    # Kubernetes provisioning owns this mount. Never create files underneath
+    # an absent bind mount: they would disappear when provisioning mounts it.
+    - name: Check configured kubelet bind mount is already active
+      ansible.builtin.command:
+        cmd: mountpoint --quiet /var/lib/kubelet
+      changed_when: false
+      check_mode: false
+      when: kubelet_mount_src is defined
+
+    - name: Verify kubelet data directory exists
+      ansible.builtin.stat:
+        path: /var/lib/kubelet
+      register: __coder_kubelet_root
+
+    - name: Require Kubernetes provisioning before workspace security
+      ansible.builtin.assert:
+        that: __coder_kubelet_root.stat.isdir | default(false) | bool
+        fail_msg: "Provision Kubernetes first; this role does not create or mount /var/lib/kubelet."
+
+    - name: Install node AppArmor parser
+      ansible.builtin.apt:
+        name: apparmor
+        state: present
+
+    - name: Verify the workspace seccomp architecture
+      ansible.builtin.assert:
+        that: ansible_architecture == 'x86_64'
+        fail_msg: "Add the target architecture to coder-workspace-seccomp.json before enabling this node."
+
+    # Localhost seccomp paths in Pod specs are relative to this directory.
+    # Only the named JSON is managed; other profiles are not removed.
+    - name: Ensure kubelet seccomp profile directory exists
+      ansible.builtin.file:
+        path: /var/lib/kubelet/seccomp
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install workspace seccomp denylist
+      ansible.builtin.copy:
+        src: coder-workspace-seccomp.json
+        dest: /var/lib/kubelet/seccomp/coder-workspace.json
+        owner: root
+        group: root
+        mode: "0644"
+        validate: python3 -m json.tool %s
+
+    # Assert the host protection; never weaken it with a node-wide sysctl write.
+    - name: Verify Ubuntu user namespace restriction stays enabled
+      ansible.builtin.command:
+        cmd: sysctl -n kernel.apparmor_restrict_unprivileged_userns
+      register: __coder_userns_restriction
+      changed_when: false
+      check_mode: false
+      failed_when: __coder_userns_restriction.stdout | trim != '1'
+
+    # Validate before replacing the file, then atomically replace the loaded
+    # policy. Do not unload first: that would create an unconfined interval.
+    - name: Install and validate complete workspace policy
+      ansible.builtin.template:
+        src: coder-workspace.apparmor.j2
+        dest: /etc/apparmor.d/coder-workspace
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+        validate: apparmor_parser --skip-kernel-load --skip-read-cache %s
+      register: __coder_apparmor_policy
+
+    - name: Read loaded profiles (including after reboot)
+      ansible.builtin.command:
+        cmd: cat /sys/kernel/security/apparmor/profiles
+      register: __coder_loaded_profiles
+      changed_when: false
+      check_mode: false
+
+    - name: Load or replace workspace policy without an unconfined interval
+      ansible.builtin.command:
+        cmd: apparmor_parser --replace --skip-read-cache /etc/apparmor.d/coder-workspace
+      when: >-
+        (__coder_apparmor_policy.changed | bool) or
+        ('coder-workspace (enforce)' not in __coder_loaded_profiles.stdout_lines) or
+        ('coder-workspace//coder-workspace-bwrap (enforce)' not in __coder_loaded_profiles.stdout_lines) or
+        ('coder-workspace//coder-workspace-podman (enforce)' not in __coder_loaded_profiles.stdout_lines)

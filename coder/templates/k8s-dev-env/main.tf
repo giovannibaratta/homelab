@@ -33,10 +33,8 @@ resource "coder_agent" "main" {
     echo "Configuring ephemeral instance ..."
     set -e
 
-    # Ensure ephemeral storage and workspace ownership
-    sudo chown -R ${local.username}:containers /ephermeral 2>/dev/null || true
-    sudo chmod -R 775 /ephermeral 2>/dev/null || true
-    sudo chown -R ${local.username}:${local.username} /workspace 2>/dev/null || true
+    # Volume ownership is prepared by init-permissions; no runtime sudo.
+    install -d -m 0700 /tmp/podman-run-1001
 
     # Prepare user home with default files on first start
     if [ ! -f ~/.init_done ]; then
@@ -138,53 +136,114 @@ resource "kubernetes_persistent_volume_claim_v1" "workspace" {
 # Workspace Pod inside isolated coder-workspaces namespace
 resource "kubernetes_pod_v1" "workspace" {
   count = data.coder_workspace.me.start_count
+
   metadata {
     name      = "coder-${lower(data.coder_workspace_owner.me.name)}-${lower(data.coder_workspace.me.name)}"
     namespace = "coder-workspaces"
+
+
     labels = {
       "app.kubernetes.io/name"     = "coder-workspace"
       "app.kubernetes.io/instance" = data.coder_workspace.me.name
+      "security.coder.dev/bwrap"   = "true"
     }
   }
 
   spec {
     # Pin workspace strictly to node2
+    automount_service_account_token = false
+
     node_selector = {
       "kubernetes.io/hostname" = "node2"
     }
 
     # One-shot init container to guarantee volume ownership before dev container starts
     init_container {
-      name    = "init-permissions"
-      image   = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.4"
-      command = ["sh", "-c", "chown -R 1001:1001 /ephermeral /workspace /home/${local.username} 2>/dev/null || true; chmod -R 775 /ephermeral 2>/dev/null || true"]
+      name  = "init-permissions"
+      image = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.5"
+      # Do not recursively chown Podman data or persistent workspaces: subordinate
+      # IDs in existing files must survive restarts. Only prepare mount roots.
+      command = ["sh", "-ec", "chown 1001:1001 /ephemeral /workspace /home/${local.username}; chmod 0770 /ephemeral"]
+
       security_context {
-        run_as_user = 0
-        privileged  = true
+        run_as_user                = 0
+        privileged                 = false
+        allow_privilege_escalation = false
+        read_only_root_filesystem  = true
+        capabilities {
+          drop = ["ALL"]
+          add  = ["CHOWN", "FOWNER"]
+        }
+        seccomp_profile {
+          type = "RuntimeDefault"
+        }
       }
+
       volume_mount {
         name       = "home-dir"
         mount_path = "/home/${local.username}"
       }
+
       volume_mount {
         name       = "workspace-dir"
         mount_path = "/workspace"
       }
+
       volume_mount {
         name       = "ephemeral-storage"
-        mount_path = "/ephermeral"
+        mount_path = "/ephemeral"
       }
     }
 
     # Main Dev Workspace Container (Rootless Podman / DinD in K8s)
     container {
       name              = "dev"
-      image             = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.4"
+      image             = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.5"
       image_pull_policy = "Always"
       command           = ["sh", "-c", coder_agent.main.init_script]
 
+      # Kubelet injects TUN and its device-cgroup permission for rootless Pasta.
+      # A hostPath mount alone does not grant device-cgroup access.
+      resources {
+        limits = {
+          "devic.es/coder-tun" = "1"
+        }
+        requests = {
+          "devic.es/coder-tun" = "1"
+        }
+      }
+
       security_context {
-        privileged = true
+        privileged                = false
+        run_as_user               = 1001
+        run_as_group              = 1001
+        run_as_non_root           = true
+        read_only_root_filesystem = true
+        # Required for file-capability newuidmap/newgidmap. No sudo/setuid tools.
+        allow_privilege_escalation = true
+        capabilities {
+          drop = ["ALL"]
+          add  = ["SETUID", "SETGID"]
+        }
+
+        # Node-local denylist preserves namespace/mount calls while blocking
+        # unrelated high-risk kernel APIs. Installed alongside AppArmor.
+        seccomp_profile {
+          type              = "Localhost"
+          localhost_profile = "coder-workspace.json"
+        }
+      }
+
+      # The Unix user is fixed at coder:1001 in the image, but the persistent
+      # home volume is mounted using the Coder owner's username.
+      env {
+        name  = "HOME"
+        value = "/home/${local.username}"
+      }
+
+      env {
+        name  = "XDG_RUNTIME_DIR"
+        value = "/tmp/podman-run-1001"
       }
 
       env {
@@ -196,31 +255,58 @@ resource "kubernetes_pod_v1" "workspace" {
         name       = "home-dir"
         mount_path = "/home/${local.username}"
       }
+
       volume_mount {
         name       = "workspace-dir"
         mount_path = "/workspace"
       }
+
       volume_mount {
         name       = "ephemeral-storage"
-        mount_path = "/ephermeral"
+        mount_path = "/ephemeral"
+      }
+
+      volume_mount {
+        name       = "tmp"
+        mount_path = "/tmp"
+      }
+
+      volume_mount {
+        name       = "var-tmp"
+        mount_path = "/var/tmp"
       }
     }
 
     # Volumes
     volume {
+      name = "tmp"
+      empty_dir {}
+    }
+
+    volume {
+      name = "var-tmp"
+      empty_dir {}
+    }
+
+    volume {
       name = "home-dir"
+
       persistent_volume_claim {
         claim_name = kubernetes_persistent_volume_claim_v1.home.metadata[0].name
       }
     }
+
     volume {
       name = "workspace-dir"
+
       persistent_volume_claim {
         claim_name = kubernetes_persistent_volume_claim_v1.workspace.metadata[0].name
       }
     }
+
     volume {
       name = "ephemeral-storage"
+
       empty_dir {}
     }
   }

@@ -1,0 +1,4 @@
+---
+# Enable only on nodes that can run the Coder workspace Pod. Terraform currently
+# pins that Pod to node2. Profiles must exist before the kubelet starts a Pod.
+coder_workspace_security_enabled: false
