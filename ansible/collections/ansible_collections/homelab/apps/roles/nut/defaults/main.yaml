@@ -5,6 +5,9 @@ nut_ups_port: "auto"
 nut_ups_vendorid: "0665"
 nut_ups_productid: "5161"
 nut_ups_desc: "Tecnoware UPS"
+nut_usbreset_command: usbreset
+nut_usbreset_device: "{{ nut_ups_vendorid }}:{{ nut_ups_productid }}"
+nut_usbreset_cooldown_seconds: 300
 
 nut_listen_addresses:
   - ip: 127.0.0.1

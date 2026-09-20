@@ -3,6 +3,21 @@ set -euo pipefail
 
 PROM_FILE="/var/lib/node_exporter/textfile_collector/nut.prom"
 TEMP_FILE="${PROM_FILE}.tmp"
+LOCK_FILE="/run/lock/nut-to-prometheus.lock"
+RESET_STATE_FILE="/run/nut-ups-last-usbreset"
+USBRESET_COMMAND="{{ nut_usbreset_command }}"
+USBRESET_DEVICE="{{ nut_usbreset_device }}"
+USBRESET_COOLDOWN_SECONDS={{ nut_usbreset_cooldown_seconds }}
+
+# Prevent overlapping timer invocations and repeated USB resets during an outage.
+exec 9>"$LOCK_FILE"
+flock -n 9 || exit 0
+
+UPS_ERROR_FILE=$(mktemp)
+cleanup() {
+    rm -f "$UPS_ERROR_FILE" "$TEMP_FILE"
+}
+trap cleanup EXIT
 
 # Write headers
 echo "# HELP nut_battery_charge UPS battery charge percentage" > "$TEMP_FILE"
@@ -20,8 +35,47 @@ echo "# TYPE nut_ups_status gauge" >> "$TEMP_FILE"
 echo "# HELP nut_scrape_success 1 if last NUT scrape succeeded, 0 otherwise" >> "$TEMP_FILE"
 echo "# TYPE nut_scrape_success gauge" >> "$TEMP_FILE"
 
-# Fetch data using upsc
-DATA=$(/usr/bin/upsc {{ nut_ups_name }} 2>/dev/null || true)
+# Fetch data using upsc while retaining the surfaced error.
+UPS_RC=0
+if DATA=$(/usr/bin/upsc {{ nut_ups_name }} 2>"$UPS_ERROR_FILE"); then
+    UPS_RC=0
+else
+    UPS_RC=$?
+fi
+
+UPS_ERROR=$(cat "$UPS_ERROR_FILE")
+
+# A stale USB protocol/SSL session can leave the NUT driver unusable. Reset the
+# specific UPS device once, then retry the read. The exporter service runs as
+# root, so sudo is not needed here.
+if [ -n "$UPS_ERROR" ] && { [ "$UPS_RC" -ne 0 ] || [ -z "$DATA" ]; }; then
+    logger -t nut-to-prometheus "upsc failed (rc=$UPS_RC): $UPS_ERROR"
+
+    NOW=$(date +%s)
+    LAST_RESET=0
+    if [ -r "$RESET_STATE_FILE" ]; then
+        LAST_RESET=$(cat "$RESET_STATE_FILE" 2>/dev/null || echo 0)
+    fi
+
+    if [ $((NOW - LAST_RESET)) -ge "$USBRESET_COOLDOWN_SECONDS" ]; then
+        if command -v "$USBRESET_COMMAND" >/dev/null 2>&1; then
+            logger -t nut-to-prometheus "resetting USB UPS device $USBRESET_DEVICE"
+            if "$USBRESET_COMMAND" "$USBRESET_DEVICE" >>"$UPS_ERROR_FILE" 2>&1; then
+                printf '%s\n' "$NOW" > "$RESET_STATE_FILE"
+                sleep 2
+                if DATA=$(/usr/bin/upsc {{ nut_ups_name }} 2>"$UPS_ERROR_FILE"); then
+                    UPS_RC=0
+                else
+                    UPS_RC=$?
+                fi
+            else
+                logger -t nut-to-prometheus "USB reset failed for $USBRESET_DEVICE"
+            fi
+        else
+            logger -t nut-to-prometheus "$USBRESET_COMMAND is not installed"
+        fi
+    fi
+fi
 
 if [ -n "$DATA" ]; then
     # Extract values
