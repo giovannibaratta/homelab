@@ -71,3 +71,27 @@ additionalArguments:
   - "--entryPoints.web.transport.respondingTimeouts.readTimeout=0s"
   - "--entryPoints.web.transport.respondingTimeouts.writeTimeout=0s"
   - "--entryPoints.web.transport.respondingTimeouts.idleTimeout=0s"
+
+# The node-local firewall/WAF maintenance can briefly delay the health endpoint.
+# Give Traefik time to recover before kubelet restarts the replica.
+startupProbe:
+  httpGet:
+    path: /ping
+    port: 8080
+  failureThreshold: 12
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+
+livenessProbe:
+  failureThreshold: 6
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 10
+
+readinessProbe:
+  failureThreshold: 3
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 10
