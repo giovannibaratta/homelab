@@ -49,6 +49,9 @@ service:
   spec:
     loadBalancerIP: "{{ k8s_ingress_lb_ip }}"
 
+deployment:
+  replicas: 3
+
 providers:
   kubernetesCRD:
     enabled: true
