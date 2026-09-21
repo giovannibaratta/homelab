@@ -171,6 +171,13 @@
       become: true
       tags: ingress
 
+    - ansible.builtin.import_role:
+        name: homelab.system.crowdsec
+      become: true
+      tags:
+        - security
+        - crowdsec
+
     - when: deploy_idp
       name: Identity provider
       block:

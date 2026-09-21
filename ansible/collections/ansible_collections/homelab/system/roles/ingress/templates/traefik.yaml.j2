@@ -118,27 +118,34 @@ certificatesResolvers:
 # Enable access logs
 accessLog:
   format: json
+  filePath: /var/log/traefik/access.json
+  bufferingSize: 0
   fields:
+    defaultMode: drop
+    headers:
+      defaultMode: drop
+      names:
+        User-Agent: keep
     names:
-      ClientAddr: drop
-      ClientHost: drop
+      ClientAddr: keep
+      ClientHost: keep
       ClientPort: drop
       ClientUsername: drop
-      DownstreamContentSize: drop
+      DownstreamContentSize: keep
       DownstreamStatus: keep
-      Duration: drop
+      Duration: keep
       OriginContentSize: drop
       OriginDuration: drop
       OriginStatus: drop
       Overhead: drop
-      RequestAddr: drop
+      RequestAddr: keep
       RequestContentSize: drop
       RequestCount: drop
       RequestHost: keep
       RequestMethod: keep
       RequestPath: keep
       RequestPort: drop
-      RequestProtocol: drop
+      RequestProtocol: keep
       RequestScheme: drop
       RetryAttempts: drop
       RouterName: keep
@@ -149,5 +156,5 @@ accessLog:
       StartUTC: keep
       TLSCipher: drop
       TLSVersion: drop
-      entryPointName: drop
-      time: drop
+      entryPointName: keep
+      time: keep

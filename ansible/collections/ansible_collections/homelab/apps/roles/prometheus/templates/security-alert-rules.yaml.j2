@@ -1,0 +1,20 @@
+groups:
+- name: CrowdSec
+  rules:
+  - alert: CrowdSecDown
+    expr: up{job="crowdsec"} == 0
+    for: 10m
+    labels:
+      severity: warning
+      component: security
+    annotations:
+      summary: "CrowdSec is down on {{ '{{' }} $labels.host {{ '}}' }}"
+      description: "CrowdSec metrics have been unreachable on {{ '{{' }} $labels.host {{ '}}' }} for over 10 minutes. Public endpoint detection may be blind."
+  - alert: CrowdSecScenarioTriggered
+    expr: sum by (instance, host) (increase(cs_bucket_overflowed_total{job="crowdsec"}[15m])) > 0
+    labels:
+      severity: warning
+      component: security
+    annotations:
+      summary: "CrowdSec scenario triggered on {{ '{{' }} $labels.host {{ '}}' }}"
+      description: "A CrowdSec scenario overflowed in the last 15 minutes on {{ '{{' }} $labels.host {{ '}}' }}. Review local alerts; this is a detection, not proof of compromise."

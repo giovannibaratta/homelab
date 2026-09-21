@@ -1,0 +1,5 @@
+{% for acquisition in crowdsec_acquisition %}
+{{ acquisition | to_nice_yaml }}
+{% if not loop.last %}---
+{% endif %}
+{% endfor %}

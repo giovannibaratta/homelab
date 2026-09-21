@@ -41,6 +41,53 @@
     - /app/traefik/work/certificates
     - /app/traefik/conf/modsecurity-waf
 
+- name: Create security log readers group
+  ansible.builtin.group:
+    name: security-logs
+    system: true
+
+- name: Create private Traefik access log directory
+  ansible.builtin.file:
+    path: "{{ ingress_traefik_log_dir }}"
+    state: directory
+    owner: "{{ traefik_container_user }}"
+    group: security-logs
+    mode: "2750"
+
+- name: Ensure Traefik access log exists without truncating it
+  ansible.builtin.file:
+    path: "{{ ingress_traefik_log_dir }}/access.json"
+    state: touch
+    owner: "{{ traefik_container_user }}"
+    group: security-logs
+    mode: "0640"
+    access_time: preserve
+    modification_time: preserve
+
+- name: Install access log rotation utility
+  ansible.builtin.package:
+    name: logrotate
+    state: present
+
+- name: Configure Traefik access log rotation
+  ansible.builtin.copy:
+    content: |
+      {{ ingress_traefik_log_dir }}/access.json {
+          daily
+          maxsize 100M
+          rotate 7
+          missingok
+          notifempty
+          compress
+          delaycompress
+          copytruncate
+          su {{ traefik_container_user }} security-logs
+      }
+    dest: /etc/logrotate.d/traefik-access
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Get the group ID of the 'containers' group
   ansible.builtin.getent:
     database: group
@@ -322,6 +369,7 @@
       - "/app/traefik/conf/traefik.yaml:/etc/traefik/traefik.yml:ro"
       - "/app/traefik/conf/dynamic:/etc/traefik/dynamic:ro"
       - "/app/traefik/work:/app/traefik/work"
+      - "{{ ingress_traefik_log_dir }}:/var/log/traefik"
 
     uidmap:
       - 0:{{ traefik_container_user_result.uid }}:1

@@ -1,0 +1,200 @@
+---
+- name: Configure detection-only CrowdSec
+  when: deploy_crowdsec | bool
+  block:
+    - name: Create security log readers group
+      ansible.builtin.group:
+        name: "{{ crowdsec_log_group }}"
+        system: true
+
+    - name: Look up the ingress log group
+      ansible.builtin.getent:
+        database: group
+        key: "{{ crowdsec_log_group }}"
+
+    - name: Create CrowdSec service user
+      ansible.builtin.user:
+        name: "{{ crowdsec_container_user }}"
+        system: true
+        create_home: false
+        shell: /usr/sbin/nologin
+      register: crowdsec_user_result
+
+    - name: Create CrowdSec directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ crowdsec_user_result.uid }}"
+        group: "{{ crowdsec_log_group }}"
+        mode: "0700"
+      loop:
+        - "{{ crowdsec_config_dir }}"
+        - "{{ crowdsec_data_dir }}"
+
+    - name: Install rsyslog and logrotate for the CrowdSec auth feed
+      ansible.builtin.package:
+        name:
+          - rsyslog
+          - logrotate
+        state: present
+
+    - name: Ensure rsyslog is running
+      ansible.builtin.systemd_service:
+        name: rsyslog.service
+        state: started
+        enabled: true
+
+    - name: Permit rsyslog to write the CrowdSec auth feed
+      ansible.builtin.user:
+        name: syslog
+        groups: "{{ crowdsec_log_group }}"
+        append: true
+      register: crowdsec_rsyslog_user
+
+    - name: Create CrowdSec auth log directory
+      ansible.builtin.file:
+        path: "{{ crowdsec_auth_log_dir }}"
+        state: directory
+        owner: root
+        group: "{{ crowdsec_log_group }}"
+        mode: "0770"
+      register: __crowdsec_auth_log_dir_result
+
+    - name: Create CrowdSec auth log
+      ansible.builtin.file:
+        path: "{{ crowdsec_auth_log_path }}"
+        state: touch
+        owner: root
+        group: "{{ crowdsec_log_group }}"
+        mode: "0660"
+        access_time: preserve
+        modification_time: preserve
+      register: __crowdsec_auth_log_result
+
+    - name: Configure rsyslog CrowdSec auth feed
+      ansible.builtin.template:
+        src: crowdsec-auth-rsyslog.conf.j2
+        dest: "{{ crowdsec_rsyslog_config_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+      register: crowdsec_rsyslog_config
+
+    - name: Validate complete rsyslog configuration
+      ansible.builtin.command: /usr/sbin/rsyslogd -N1
+      changed_when: false
+      when: crowdsec_rsyslog_config.changed
+
+    - name: Restart rsyslog after CrowdSec auth feed update
+      ansible.builtin.systemd_service:
+        name: rsyslog.service
+        state: restarted
+      when: >-
+        crowdsec_rsyslog_user.changed or
+        __crowdsec_auth_log_dir_result.changed or
+        __crowdsec_auth_log_result.changed or
+        crowdsec_rsyslog_config.changed
+
+    - name: Configure CrowdSec auth log rotation
+      ansible.builtin.copy:
+        content: |
+          {{ crowdsec_auth_log_path }} {
+              daily
+              maxsize 50M
+              rotate 7
+              missingok
+              notifempty
+              compress
+              delaycompress
+              copytruncate
+              create 0660 root {{ crowdsec_log_group }}
+          }
+        dest: "{{ crowdsec_auth_logrotate_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Write CrowdSec managed configuration
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "{{ crowdsec_config_dir }}/{{ item }}"
+        owner: "{{ crowdsec_user_result.uid }}"
+        group: "{{ crowdsec_log_group }}"
+        mode: "0600"
+      loop:
+        - config.yaml.local
+        - acquis.yaml
+      notify: Restart CrowdSec service
+
+    - name: Create CrowdSec network Quadlet
+      containers.podman.podman_network:
+        name: "{{ crowdsec_network_name }}"
+        state: quadlet
+        disable_dns: false
+        dns: "{{ podman_dns }}"
+        driver: bridge
+        force: true
+        recreate: true
+        internal: false
+        interface_name: podman-crowdsec
+        opt:
+          isolate: true
+      notify:
+        - Reload systemd daemons for CrowdSec
+        - Restart CrowdSec network
+
+    - name: Apply CrowdSec network handlers
+      ansible.builtin.meta: flush_handlers
+
+    - name: Start CrowdSec network
+      ansible.builtin.systemd_service:
+        name: "{{ crowdsec_network_name }}-network"
+        state: started
+        enabled: true
+
+    - name: Create CrowdSec Quadlet
+      containers.podman.podman_container:
+        name: crowdsec
+        state: quadlet
+        image: "docker.io/crowdsecurity/crowdsec:{{ crowdsec_version }}"
+        network: "{{ crowdsec_network_name }}"
+        publish:
+          - "127.0.0.1:{{ crowdsec_lapi_port }}:8080"
+          - "{{ crowdsec_metrics_address }}:{{ crowdsec_metrics_port }}:6060"
+        env: "{{ crowdsec_environment | combine({'COLLECTIONS': crowdsec_collections | join(' '), 'CUSTOM_HOSTNAME': inventory_hostname}) }}"
+        volumes:
+          - "{{ crowdsec_config_dir }}:/etc/crowdsec"
+          - "{{ crowdsec_data_dir }}:/var/lib/crowdsec/data"
+          - "{{ crowdsec_traefik_log_dir }}:/var/log/traefik:ro"
+          - "{{ crowdsec_auth_log_dir }}:/var/log/crowdsec:ro"
+        uidmap:
+          - "0:{{ crowdsec_user_result.uid }}:1"
+          - "1:4000000000:100000"
+        gidmap:
+          - "0:{{ getent_group[crowdsec_log_group][1] }}:1"
+          - "1:4000000000:100000"
+        quadlet_options:
+          - |
+            [Unit]
+            Wants=network-online.target
+            After=network-online.target traefik.service
+            StartLimitIntervalSec=0
+
+            [Service]
+            Restart=always
+            RestartSec=15s
+            MemoryMax=512M
+
+            [Install]
+            WantedBy=default.target
+      notify:
+        - Reload systemd daemons for CrowdSec
+        - Restart CrowdSec service
+
+    - name: Apply CrowdSec handlers
+      ansible.builtin.meta: flush_handlers
+
+    - name: Start CrowdSec
+      ansible.builtin.systemd_service:
+        name: crowdsec.service
+        state: started

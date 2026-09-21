@@ -1,0 +1,10 @@
+---
+- name: Determine if CrowdSec is enabled
+  ansible.builtin.set_fact:
+    __crowdsec_any_enabled: "{{ deploy_crowdsec | default(false) | bool }}"
+
+- name: Deploy CrowdSec
+  ansible.builtin.import_tasks: deploy_crowdsec.yaml
+
+- name: Undeploy CrowdSec
+  ansible.builtin.import_tasks: undeploy_crowdsec.yaml

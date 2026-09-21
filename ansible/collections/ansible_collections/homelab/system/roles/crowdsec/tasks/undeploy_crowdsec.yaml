@@ -1,0 +1,50 @@
+---
+- name: Remove disabled CrowdSec service while preserving evidence
+  when: not (deploy_crowdsec | default(false) | bool)
+  block:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Stop CrowdSec if installed
+      ansible.builtin.systemd_service:
+        name: crowdsec.service
+        state: stopped
+      when: "'crowdsec.service' in ansible_facts.services"
+
+    - name: Remove CrowdSec Quadlet
+      ansible.builtin.file:
+        path: /etc/containers/systemd/crowdsec.container
+        state: absent
+      notify: Reload systemd daemons for CrowdSec
+
+    - name: Remove CrowdSec rsyslog feed configuration
+      ansible.builtin.file:
+        path: "{{ crowdsec_rsyslog_config_path }}"
+        state: absent
+      register: crowdsec_rsyslog_config_removal
+
+    - name: Reload rsyslog after CrowdSec auth feed removal
+      ansible.builtin.systemd_service:
+        name: rsyslog.service
+        state: reloaded
+      when: crowdsec_rsyslog_config_removal.changed
+
+    - name: Remove CrowdSec auth log rotation configuration
+      ansible.builtin.file:
+        path: "{{ crowdsec_auth_logrotate_path }}"
+        state: absent
+
+    - name: Stop CrowdSec network
+      ansible.builtin.systemd_service:
+        name: "{{ crowdsec_network_name }}-network"
+        state: stopped
+      when: "'{{ crowdsec_network_name }}-network.service' in ansible_facts.services"
+
+    - name: Remove CrowdSec network Quadlet
+      ansible.builtin.file:
+        path: "/etc/containers/systemd/{{ crowdsec_network_name }}.network"
+        state: absent
+      notify: Reload systemd daemons for CrowdSec
+
+    - name: Apply CrowdSec cleanup
+      ansible.builtin.meta: flush_handlers

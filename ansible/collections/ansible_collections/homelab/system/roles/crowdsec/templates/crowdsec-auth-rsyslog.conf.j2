@@ -1,0 +1,12 @@
+# Duplicate SSH authentication events for the CrowdSec container.
+# Keep this separate from the general syslog feed to limit disk and I/O overhead.
+if (($syslogfacility-text == 'auth' or $syslogfacility-text == 'authpriv') and $programname == 'sshd') then {
+    action(
+        type="omfile"
+        file="{{ crowdsec_auth_log_path }}"
+        fileCreateMode="0660"
+        fileOwner="root"
+        fileGroup="{{ crowdsec_log_group }}"
+        dirCreateMode="0770"
+    )
+}

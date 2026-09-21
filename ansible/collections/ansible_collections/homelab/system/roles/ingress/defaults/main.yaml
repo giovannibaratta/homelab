@@ -1,6 +1,7 @@
 ---
 # Available versions https://hub.docker.com/_/traefik/tags
 ingress_traefik_version: v3.7.10
+ingress_traefik_log_dir: /var/log/traefik
 
 # WAF Configuration
 # Available versions https://hub.docker.com/r/owasp/modsecurity-crs/tags

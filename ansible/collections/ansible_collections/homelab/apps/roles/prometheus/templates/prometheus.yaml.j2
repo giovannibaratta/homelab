@@ -57,6 +57,22 @@ scrape_configs:
     static_configs:
       - targets: ['idp.{{ internal_domain }}']
 
+{% set crowdsec_targets = namespace(hosts=[]) %}
+{% for host in groups['all'] %}
+{% if hostvars[host].deploy_crowdsec | default(false) | bool %}
+{% set crowdsec_targets.hosts = crowdsec_targets.hosts + [host] %}
+{% endif %}
+{% endfor %}
+  - job_name: 'crowdsec'
+    scrape_interval: 15s
+    static_configs:{{ ' []' if not crowdsec_targets.hosts else '' }}
+{% for host in crowdsec_targets.hosts %}
+      - targets: ['{{ hostvars[host].crowdsec_metrics_address | default(hostvars[host].internal_ip) }}:{{ hostvars[host].crowdsec_metrics_port | default(6060) }}']
+        labels:
+          instance: '{{ hostvars[host].internal_ip }}'
+          host: '{{ host }}'
+{% endfor %}
+
 {% if deploy_sungrow_exporter | default(false) | bool %}
   - job_name: 'sungrow_exporter'
     scrape_interval: 30s

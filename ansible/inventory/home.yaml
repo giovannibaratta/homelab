@@ -73,6 +73,7 @@ home:
     #### Shared deployment variables #####
     linstor_volume_group: linstor_vg
     linstor_thin_pool: thin_pool
+    deploy_crowdsec: true
   hosts:
     node1:
       ansible_host: 172.16.255.251

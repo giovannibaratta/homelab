@@ -1,0 +1,46 @@
+---
+deploy_crowdsec: false
+crowdsec_version: v1.8.1
+crowdsec_container_user: crowdsec
+crowdsec_network_name: crowdsec
+crowdsec_config_dir: /app/crowdsec/conf
+crowdsec_data_dir: /app/crowdsec/data
+crowdsec_metrics_address: "{{ internal_ip }}"
+crowdsec_traefik_log_dir: /var/log/traefik
+crowdsec_auth_log_dir: /var/log/crowdsec
+crowdsec_auth_log_path: "{{ crowdsec_auth_log_dir }}/auth.log"
+crowdsec_rsyslog_config_path: /etc/rsyslog.d/30-crowdsec-auth.conf
+crowdsec_auth_logrotate_path: /etc/logrotate.d/crowdsec-auth
+crowdsec_log_group: security-logs
+crowdsec_metrics_port: 6060
+crowdsec_lapi_port: 18081
+crowdsec_collections:
+  - crowdsecurity/traefik
+crowdsec_environment:
+  DISABLE_ONLINE_API: "true"
+  DISABLE_LOCAL_API: "false"
+  DISABLE_AGENT: "false"
+crowdsec_acquisition:
+  - source: file
+    filenames:
+      - /var/log/traefik/access.json
+    labels:
+      type: traefik
+  - source: file
+    filenames:
+      - "{{ crowdsec_auth_log_path }}"
+    labels:
+      type: syslog
+crowdsec_config_override:
+  api:
+    server:
+      listen_uri: "0.0.0.0:8080"
+  prometheus:
+    enabled: true
+    level: full
+    listen_addr: "0.0.0.0"
+    listen_port: 6060
+  db_config:
+    flush:
+      max_age: 7d
+      max_items: 10000
