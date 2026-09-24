@@ -3,7 +3,7 @@
   ansible.builtin.apt_key:
     keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
     url: https://apt.releases.hashicorp.com/gpg
-    id: 798AEC654E5C15428C8E42EEAA16FCBCA621E701
+    id: D55C0D1AC78A8D8126CB631CFC9CA96ACA026560
     state: present
 
 - name: Add hashicorp apt repository
