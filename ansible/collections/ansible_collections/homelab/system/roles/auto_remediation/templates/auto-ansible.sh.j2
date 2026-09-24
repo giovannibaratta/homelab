@@ -121,18 +121,32 @@ mkdir -p "${METRICS_DIR}"
 # Initialize counters if they don't exist
 RUNS=0
 FAILURES=0
+CONSECUTIVE_FAILURES=0
 if [ -f "$METRICS_FILE" ]; then
     RUNS=$(grep "^auto_ansible_runs_total " "$METRICS_FILE" | cut -d' ' -f2 || echo 0)
     FAILURES=$(grep "^auto_ansible_failures_total " "$METRICS_FILE" | cut -d' ' -f2 || echo 0)
+
+    CONSECUTIVE_FAILURES=$(awk '$1 == "auto_ansible_consecutive_failures" { print $2; found=1; exit } END { if (!found) print "missing" }' "$METRICS_FILE")
+    if [ "$CONSECUTIVE_FAILURES" = "missing" ]; then
+        # Seed the new streak metric from the last known run during migration.
+        PREVIOUS_STATUS=$(awk '$1 == "auto_ansible_last_run_status" { print $2; found=1; exit } END { if (!found) print "" }' "$METRICS_FILE")
+        if [ "$PREVIOUS_STATUS" = "0" ]; then
+            CONSECUTIVE_FAILURES=1
+        else
+            CONSECUTIVE_FAILURES=0
+        fi
+    fi
 fi
 
 RUNS=$((RUNS + 1))
 STATUS=1
 if [ $EXIT_CODE -ne 0 ]; then
     FAILURES=$((FAILURES + 1))
+    CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
     STATUS=0
     log "Ansible playbook failed with exit code ${EXIT_CODE}"
 else
+    CONSECUTIVE_FAILURES=0
     log "Ansible playbook completed successfully"
 fi
 
@@ -151,6 +165,9 @@ auto_ansible_runs_total $RUNS
 # HELP auto_ansible_failures_total Total number of auto-ansible failures.
 # TYPE auto_ansible_failures_total counter
 auto_ansible_failures_total $FAILURES
+# HELP auto_ansible_consecutive_failures Number of consecutive failed Auto-Ansible runs.
+# TYPE auto_ansible_consecutive_failures gauge
+auto_ansible_consecutive_failures $CONSECUTIVE_FAILURES
 EOF
 
 mv "${TEMP_METRICS_FILE}" "${METRICS_FILE}"
