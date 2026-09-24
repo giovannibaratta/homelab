@@ -339,6 +339,16 @@
     job: "{{ __uptime_robot_dir }}/update-uptimerobot-ips.sh >/dev/null 2>&1"
     special_time: daily
 
+# Keep /etc/nftables.conf partially managed: container and system networking
+# can maintain rules outside our block. A global flush would delete those
+# runtime tables when this file is loaded, so remove only this unsafe directive.
+- name: Remove global nftables ruleset flush
+  ansible.builtin.lineinfile:
+    path: /etc/nftables.conf
+    regexp: '^\s*flush ruleset\s*$'
+    state: absent
+
+# Intentionally preserve host-owned content outside the Ansible markers.
 - name: Copy nftables shared rules
   ansible.builtin.blockinfile:
     path: /etc/nftables.conf
