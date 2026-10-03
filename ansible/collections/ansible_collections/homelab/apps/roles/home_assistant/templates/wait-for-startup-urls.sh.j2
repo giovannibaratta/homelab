@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Give integrations time to become ready, then start Home Assistant regardless.
+# Do not log URLs: they may contain integration credentials.
+
+urls=(
+{% for url in home_assistant_startup_urls %}
+    {{ url | quote }}
+{% endfor %}
+)
+timeout={{ home_assistant_startup_timeout | int }}
+retry_interval={{ home_assistant_startup_retry_interval | int }}
+request_timeout={{ home_assistant_startup_request_timeout | int }}
+
+if (( {% raw %}${#urls[@]}{% endraw %} == 0 )); then
+    exit 0
+fi
+if ! command -v curl >/dev/null 2>&1; then
+    echo "WARNING: curl unavailable; continuing Home Assistant startup" >&2
+    exit 0
+fi
+
+deadline=$((SECONDS + timeout))
+while (( SECONDS < deadline )); do
+    ready=true
+    for index in "${!urls[@]}"; do
+        remaining=$((deadline - SECONDS))
+        if (( remaining <= 0 )); then
+            ready=false
+            break
+        fi
+        probe_timeout=$request_timeout
+        if (( probe_timeout > remaining )); then
+            probe_timeout=$remaining
+        fi
+        # curl verifies TLS trust and hostname by default. Require HTTP 2xx.
+        if status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --connect-timeout "$probe_timeout" --max-time "$probe_timeout" \
+            -- "${urls[index]}") && [[ "$status" == 2[0-9][0-9] ]]; then
+            continue
+        fi
+        echo "Home Assistant startup endpoint $((index + 1)) is not ready; retrying"
+        ready=false
+        break
+    done
+    if [[ "$ready" == true ]]; then
+        echo "Home Assistant startup endpoints are ready"
+        exit 0
+    fi
+    remaining=$((deadline - SECONDS))
+    delay=$retry_interval
+    if (( delay > remaining )); then
+        delay=$remaining
+    fi
+    if (( delay > 0 )); then
+        sleep "$delay"
+    fi
+done
+
+echo "WARNING: Startup endpoints still unavailable after ${timeout}s; continuing Home Assistant startup" >&2
+exit 0

@@ -25,35 +25,30 @@
   with_items:
     - "{{ home_assistant_conf_dir }}"
     - "{{ home_assistant_data_dir }}"
-    - "{{ home_assistant_database_dir }}"
     - "{{ home_assistant_conf_dir }}/custom_components"
 
 - name: Clone yi-hack Home Assistant integration
   ansible.builtin.git:
     repo: https://github.com/roleoroleo/yi-hack_ha_integration.git
-    dest: /tmp/yi-hack_ha_integration
+    dest: /app/home-assistant/yi-hack_ha_integration
     version: 48deb895c3653f7e69496904d3fbc1697efe4cf2
     force: yes
 
 - name: Copy yi_hack custom component
   ansible.builtin.copy:
-    src: /tmp/yi-hack_ha_integration/custom_components/yi_hack/
+    src: /app/home-assistant/yi-hack_ha_integration/custom_components/yi_hack/
     dest: "{{ home_assistant_conf_dir }}/custom_components/yi_hack/"
     owner: "{{ home_assistant_container_user }}"
     group: "{{ home_assistant_container_user }}"
     mode: "0644"
     remote_src: yes
+  notify: Restart Home Assistant service
 
-- name: Clean up temporary clone
-  ansible.builtin.file:
-    path: /tmp/yi-hack_ha_integration
-    state: absent
-
-- name: Change ownership of {{ home_assistant_database_dir }}
+- name: Create PostgreSQL data directory with its mapped ownership
   ansible.builtin.file:
     path: "{{ home_assistant_database_dir }}"
     state: directory
-    recurse: true
+    mode: "0700"
     owner: "{{ home_assistant_db_container_user }}"
     group: "{{ home_assistant_db_container_user }}"
 
@@ -173,6 +168,23 @@
   notify:
     - Restart Home Assistant service
 
+- name: Validate Home Assistant startup check settings
+  ansible.builtin.assert:
+    that:
+      - home_assistant_startup_timeout | int > 0
+      - home_assistant_startup_retry_interval | int > 0
+      - home_assistant_startup_request_timeout | int > 0
+    quiet: true
+
+- name: Install Home Assistant startup endpoint check
+  ansible.builtin.template:
+    src: wait-for-startup-urls.sh.j2
+    dest: /app/home-assistant/wait-for-startup-urls.sh
+    owner: root
+    group: root
+    mode: "0700"
+  notify: Restart Home Assistant service
+
 - name: Create Home Assistant Quadlet
   containers.podman.podman_container:
     name: home-assistant
@@ -219,6 +231,10 @@
         WantedBy=default.target
         [Unit]
         Requires=home-assistant-db.service
+        After=home-assistant-db.service
+        [Service]
+        ExecStartPre=-/usr/bin/bash /app/home-assistant/wait-for-startup-urls.sh
+        TimeoutStartSec={{ (home_assistant_startup_timeout | int) + 120 }}
   notify:
     - Reload systemd daemons for home-assistant role
     - Restart Home Assistant service

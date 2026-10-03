@@ -13,6 +13,14 @@ home_assistant_timezone: "Europe/Rome"
 home_assistant_internal_url: "https://ha.{{ internal_domain }}:8443"
 home_assistant_external_url: "https://ha.{{ internal_domain }}"
 
+# URLs used by integrations. Wait briefly for readiness; failures do not block startup.
+# Empty means no startup wait.
+# Set these in inventory alongside the Home Assistant configuration requirements.
+home_assistant_startup_urls: []
+home_assistant_startup_timeout: 180
+home_assistant_startup_retry_interval: 5
+home_assistant_startup_request_timeout: 10
+
 # Zigbee2MQTT configuration https://github.com/koenkk/zigbee2mqtt/pkgs/container/zigbee2mqtt
 zigbee2mqtt_version: "2.13.0"
 zigbee2mqtt_container_user: "zigbee2mqtt"

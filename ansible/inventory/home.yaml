@@ -146,6 +146,9 @@ home:
       deploy_mediastack: true
       deploy_logging: true
       deploy_home_assistant: true
+      # The configured REST sensors need this HTTPS route ready before setup.
+      home_assistant_startup_urls:
+        - "https://prometheus.{{ internal_domain }}/-/ready"
       deploy_coder: true
       deploy_mqtt: true
       deploy_idp: true
