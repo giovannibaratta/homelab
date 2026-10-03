@@ -31,6 +31,7 @@
 - name: Uncompress netavark
   ansible.builtin.command:
     cmd: gunzip -d -k -f /tmp/netavark_{{ containers_netavark_version }}.gz
+    creates: /tmp/netavark_{{ containers_netavark_version }}
 
 - name: Copy netavark executable
   ansible.builtin.copy:
@@ -93,6 +94,8 @@
     path: /etc/containers/nodocker
     state: touch
     mode: "0644"
+    access_time: preserve
+    modification_time: preserve
 
 - name: Create directory {{ containers_storage_dir }}
   ansible.builtin.file:
