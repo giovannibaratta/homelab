@@ -37,6 +37,7 @@ home:
     deploy_mediastack: false
     deploy_logging: false
     deploy_home_assistant: false
+    deploy_remote_control: false
     deploy_coder: true
     deploy_mqtt: false
     deploy_idp: false

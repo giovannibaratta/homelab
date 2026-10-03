@@ -214,12 +214,14 @@
             remote_control_oauth2_client_secret: "{{ idp_zitadel_terraform_output.outputs.olivetin_client_secret.value }}"
           tags: idp
 
-        # Remote control depends on the OAuth available only with the IDP provider
-        - ansible.builtin.import_role:
-            name: homelab.system.remote_control
-          become: true
-          ignore_errors: yes
-          tags: remote-control
+    # Enabling remote control requires OAuth credentials from the IDP block
+    # above or supplied separately. Import unconditionally so cleanup also
+    # runs when the IDP provider is disabled.
+    - ansible.builtin.import_role:
+        name: homelab.system.remote_control
+      become: true
+      ignore_errors: yes
+      tags: remote-control
 
     - ansible.builtin.import_role:
         name: homelab.system.vpn

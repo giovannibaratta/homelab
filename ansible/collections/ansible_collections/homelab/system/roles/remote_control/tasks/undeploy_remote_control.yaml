@@ -1,0 +1,32 @@
+---
+- name: Clean up disabled remote control
+  when: not (deploy_remote_control | default(false) | bool)
+  block:
+    - name: Gather service facts for OliveTin cleanup
+      ansible.builtin.service_facts:
+
+    - name: Stop and disable OliveTin services
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - olivetin.service
+        - docker-socket-proxy-ro.service
+        - olivetin-network.service
+      when: item in ansible_facts.services
+
+    - name: Remove OliveTin Quadlet definitions
+      ansible.builtin.file:
+        path: "/etc/containers/systemd/{{ item }}"
+        state: absent
+      loop:
+        - olivetin.container
+        - docker-socket-proxy-ro.container
+        - olivetin.network
+      register: __remote_control_quadlet_removal
+
+    - name: Reload systemd after removing OliveTin Quadlets
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: __remote_control_quadlet_removal.changed
