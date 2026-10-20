@@ -1,5 +1,7 @@
 # Available versions https://github.com/traefik/traefik-helm-chart/releases
-k8s_ingress_traefik_chart_version: "41.0.1"
+k8s_ingress_traefik_chart_version: "42.0.0"
+# Pin the proxy image separately: chart 42.0.0 defaults to v3.7.14.
+k8s_ingress_traefik_version: "v3.7.15"
 
 # Cilium Network Policy for Traefik Ingress Controller
 # Enables L3/L4 network isolation restricting access to K8s Traefik (port 8000/2222) to cluster nodes only.
