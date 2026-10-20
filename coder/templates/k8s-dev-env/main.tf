@@ -160,7 +160,7 @@ resource "kubernetes_pod_v1" "workspace" {
     # One-shot init container to guarantee volume ownership before dev container starts
     init_container {
       name  = "init-permissions"
-      image = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.5"
+      image = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.7"
       # Do not recursively chown Podman data or persistent workspaces: subordinate
       # IDs in existing files must survive restarts. Only prepare mount roots.
       command = ["sh", "-ec", "chown 1001:1001 /ephemeral /workspace /home/${local.username}; chmod 0770 /ephemeral"]
@@ -198,7 +198,7 @@ resource "kubernetes_pod_v1" "workspace" {
     # Main Dev Workspace Container (Rootless Podman / DinD in K8s)
     container {
       name              = "dev"
-      image             = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.5"
+      image             = "ghcr.io/giovannibaratta/coder-dev-env:v0.0.7"
       image_pull_policy = "Always"
       command           = ["sh", "-c", coder_agent.main.init_script]
 

@@ -1,0 +1,10 @@
+# Shared defaults for both workspace images. User/project settings can override
+# these defaults; credentials remain in the user's persistent CODEX_HOME.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+cli_auth_credentials_store = "file"
+
+# Both Kubernetes templates mount disposable caches at /ephemeral. Allow that
+# volume in addition to the selected project and normal temporary paths.
+[sandbox_workspace_write]
+writable_roots = ["/ephemeral"]
