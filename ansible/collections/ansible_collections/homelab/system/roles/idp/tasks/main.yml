@@ -1,34 +1,10 @@
-- name: Deploy Zitadel on Host (Docker)
-  ansible.builtin.import_tasks: deploy_zitadel.yaml
-  when: idp_docker_enabled
-
-- name: Stop Zitadel Host/Docker Services
-  when: not idp_docker_enabled
-  block:
-    - name: Stop and disable host zitadel service
-      ansible.builtin.systemd_service:
-        name: zitadel
-        state: stopped
-        enabled: false
-      ignore_errors: true
-
-    - name: Stop and disable host zitadel-db service
-      ansible.builtin.systemd_service:
-        name: zitadel-db
-        state: stopped
-        enabled: false
-      ignore_errors: true
-
-- name: IDP | Load machinekey from host file
-  ansible.builtin.slurp:
-    src: "{{ idp_zitadel_conf_dir | default('/app/zitadel/conf') }}/machinekey/zitadel-admin-sa.json"
-  register: host_machinekey_content
-  run_once: true
-  when: idp_docker_enabled
-
-- name: IDP | Emit machinekey fact for configure role
+---
+- name: Determine if host Zitadel is enabled
   ansible.builtin.set_fact:
-    idp_config_jwt_json: "{{ (host_machinekey_content.content | b64decode) | from_json }}"
-    cacheable: true
-  run_once: true
-  when: idp_docker_enabled
+    __idp_any_enabled: "{{ idp_docker_enabled | default(false) | bool }}"
+
+- name: Deploy host Zitadel
+  ansible.builtin.import_tasks: deploy_zitadel.yaml
+
+- name: Undeploy host Zitadel
+  ansible.builtin.import_tasks: undeploy_zitadel.yaml

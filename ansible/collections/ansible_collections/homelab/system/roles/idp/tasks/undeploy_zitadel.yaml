@@ -1,0 +1,34 @@
+---
+- name: Clean up disabled host Zitadel stack
+  when: not (__idp_any_enabled | bool)
+  block:
+    - name: Gather service facts for host Zitadel cleanup
+      ansible.builtin.service_facts:
+
+    # Generated units cannot reliably be disabled with systemctl. Removing their
+    # Quadlet sources below removes their generated boot dependencies as well.
+    - name: Stop host Zitadel services before removing their Quadlets
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+      loop:
+        - zitadel.service
+        - zitadel-db.service
+        - zitadel-network.service
+      when: item in ansible_facts.services
+      register: __idp_stopped_units
+
+    - name: Remove host Zitadel Quadlet definitions
+      ansible.builtin.file:
+        path: "/etc/containers/systemd/{{ item }}"
+        state: absent
+      loop:
+        - zitadel.container
+        - zitadel-db.container
+        - zitadel.network
+      register: __idp_removed_quadlets
+
+    - name: Reload systemd after host Zitadel cleanup
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: (__idp_removed_quadlets.changed | bool) or (__idp_stopped_units.changed | bool)

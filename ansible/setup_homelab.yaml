@@ -178,16 +178,17 @@
         - security
         - crowdsec
 
-    - when: deploy_idp
+    - name: Manage host identity provider lifecycle
+      ansible.builtin.import_role:
+        name: homelab.system.idp
+      become: true
+      tags: idp
+      vars:
+        idp_docker_enabled: "{{ (deploy_idp | default(false) | bool) and (idp_deployment_type | default('docker') == 'docker') }}"
+
+    - when: deploy_idp | default(false) | bool
       name: Identity provider
       block:
-        - ansible.builtin.import_role:
-            name: homelab.system.idp
-          become: true
-          tags: idp
-          vars:
-            idp_docker_enabled: "{{ idp_deployment_type == 'docker' }}"
-
         - ansible.builtin.import_role:
             name: homelab.system.k8s_idp
           become: true
