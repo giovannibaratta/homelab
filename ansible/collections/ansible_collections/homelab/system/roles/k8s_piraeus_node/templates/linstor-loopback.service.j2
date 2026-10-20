@@ -1,8 +1,11 @@
 [Unit]
 Description=Persistent Loopback device for Linstor Datastore
-DefaultDependencies=no
+# The backing file may live on a separate filesystem (for example /app).
+# Keep normal boot/shutdown dependencies and wait for that filesystem.
+RequiresMountsFor={{ linstor_backing_file_path | dirname }}
 After=systemd-udev-trigger.service systemd-modules-load.service
-Before=local-fs.target lvm2-monitor.service
+# LVM monitoring precedes local mounts; ordering before it creates a cycle.
+Before=kubelet.service
 
 [Service]
 Type=oneshot
