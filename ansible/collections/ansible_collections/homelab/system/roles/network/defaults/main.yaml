@@ -5,6 +5,10 @@ ddclient_conf_dir: /app/ddclient/conf
 ddclient_work_dir: /app/ddclient/work
 vrrp_virtual_router_id: 90
 network_is_router: false
+
+# Required: explicitly provide SSH source addresses or CIDRs in the caller.
+network_ssh_allowed_sources: []
+
 __uptime_robot_dir: /app/nftables-uptime-robot
 ddclient_node_conf_dir: /app/ddclient-node/conf
 ddclient_node_work_dir: /app/ddclient-node/work

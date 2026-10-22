@@ -1,4 +1,13 @@
 ---
+- name: Network | Require explicit SSH allowed sources
+  ansible.builtin.assert:
+    that:
+      - network_ssh_allowed_sources | type_debug == 'list'
+      - network_ssh_allowed_sources | length > 0
+      - network_ssh_allowed_sources | select('string') | list | length == network_ssh_allowed_sources | length
+      - network_ssh_allowed_sources | map('trim') | reject('equalto', '') | list | length == network_ssh_allowed_sources | length
+    fail_msg: Set network_ssh_allowed_sources to a non-empty list of SSH source addresses or CIDRs before running the network role.
+
 # Disabled until Bitwarden Secret manager will fix the bug to access
 # multiple variables in the same block.
 # https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7

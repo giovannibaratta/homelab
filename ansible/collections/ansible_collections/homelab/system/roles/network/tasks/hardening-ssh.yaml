@@ -10,6 +10,7 @@
     mode: "0644"
     owner: root
     group: root
+    validate: /usr/sbin/sshd -t -f %s
     content: |
       ListenAddress {{ internal_interface_ip }}
       PermitRootLogin no
@@ -19,8 +20,8 @@
       # Max time to complete a connection
       LoginGraceTime 20
       PermitEmptyPasswords no
-      # Allow all users from the internal network, podman networks, and Netbird (CGNAT) network
-      AllowUsers *@{{ (internal_network + '/' + internal_network_netmask) | ansible.utils.ipaddr('network/prefix') }} *@10.0.0.0/8 *@100.64.0.0/10
+      # Allow SSH only from explicitly configured source addresses or networks.
+      AllowUsers {{ network_ssh_allowed_sources | unique | map('regex_replace', '^', '*@') | join(' ') }}
       # Not used in this specific Environment
       ChallengeResponseAuthentication no
       PasswordAuthentication no

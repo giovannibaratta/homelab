@@ -138,6 +138,11 @@
     - ansible.builtin.import_role:
         name: homelab.system.network
       become: true
+      vars:
+        # Cloudflare uses LAN sources; NetBird also uses the jump pod subnet.
+        network_ssh_allowed_sources:
+          - "{{ internal_network }}/{{ internal_network_netmask_length }}"
+          - "{{ kube_pods_subnet }}"
       tags:
         - first-setup
         - system-network
