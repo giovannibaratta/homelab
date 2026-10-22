@@ -80,7 +80,7 @@
           traefik.enable: true
           traefik.http.routers.netbird.rule: Host(`netbird.{{ internal_domain }}`)
           traefik.http.routers.netbird.entrypoints: websecure,public-secure
-          traefik.http.routers.netbird.middlewares: netbird-chain@file
+          traefik.http.routers.netbird.middlewares: default-chain@file
           traefik.http.routers.netbird.tls.certresolver: letsencrypt
           traefik.http.routers.netbird.tls.domains[0].main: netbird.{{ internal_domain }}
           traefik.http.services.netbird.loadbalancer.server.port: 80
@@ -628,7 +628,7 @@
           traefik.enable: true
           traefik.http.routers.netbird-api.rule: "Host(`netbird.{{ internal_domain }}`)&&PathPrefix(`/api`)"
           traefik.http.routers.netbird-api.service: netbird-api
-          traefik.http.routers.netbird-api.middlewares: netbird-chain@file
+          traefik.http.routers.netbird-api.middlewares: default-chain@file
           traefik.http.services.netbird-api.loadbalancer.server.port: 8080
           traefik.http.routers.netbird-api.entrypoints: websecure,public-secure
           traefik.http.routers.netbird-api.tls.certresolver: letsencrypt

@@ -10,7 +10,7 @@ http:
       tls:
         certResolver: letsencrypt
       middlewares:
-        - netbird-chain@file
+        - default-chain@file
       priority: 20
 {% endif %}
 
@@ -38,7 +38,7 @@ http:
       tls:
         certResolver: letsencrypt
       middlewares:
-        - netbird-chain@file
+        - default-chain@file
       priority: 50
 
     netbird-mgmt-grpc-k8s:
