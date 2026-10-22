@@ -86,7 +86,9 @@ table ip firewall {
     ct state invalid log prefix "Invalid state " drop
 
     # --- Allow UptimeRobot Traffic ---
-    ip saddr @uptimerobot_ips accept comment "Allow UptimeRobot checks"
+    # UptimeRobot must bypass GeoIP only for the public web ingress ports.
+    # Do not let its source allow-list bypass destination-port restrictions.
+    ip saddr @uptimerobot_ips ip daddr {{ internal_ip_address }} tcp dport { 9080, 9443 } accept comment "Allow UptimeRobot web checks"
 
     # Filter packet not coming from allowed countries checking the meta mark
     # set by geoip4. Geoblocking must be performed after the connection tracker
