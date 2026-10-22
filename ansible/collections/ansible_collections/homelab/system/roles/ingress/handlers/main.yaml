@@ -1,4 +1,10 @@
 ---
+- name: Restart ingress authentication proxy
+  ansible.builtin.systemd_service:
+    name: ingress-auth.service
+    state: restarted
+  when: __ingress_auth_any_enabled | default(false) | bool
+
 - name: Reload systemd daemons for ingress role
   ansible.builtin.systemd_service:
     daemon_reload: true

@@ -1,0 +1,35 @@
+---
+- name: Validate authentication credential inputs
+  ansible.builtin.assert:
+    that: (ingress_auth_client_id | length > 0) == (ingress_auth_client_secret | length > 0)
+    fail_msg: "Provide both ingress_auth_client_id and ingress_auth_client_secret, or leave both empty to remove OAuth2 Proxy and the LAN dashboard route. Loopback access remains available."
+
+- name: Initialize authentication credentials
+  ansible.builtin.set_fact:
+    __ingress_auth_client_id: "{{ ingress_auth_client_id }}"
+    __ingress_auth_client_secret: "{{ ingress_auth_client_secret }}"
+  no_log: true
+
+- name: Determine whether authentication is configured
+  ansible.builtin.set_fact:
+    __ingress_auth_any_enabled: "{{ (deploy_ingress_auth | bool) and (__ingress_auth_client_id | length > 0) and (__ingress_auth_client_secret | length > 0) and (ingress_auth_allowed_emails | length > 0) }}"
+
+- name: Deploy authentication proxy
+  ansible.builtin.import_tasks: deploy_auth.yaml
+
+- name: Undeploy authentication proxy
+  ansible.builtin.import_tasks: undeploy_auth.yaml
+
+- name: Render dashboard routes with current authentication state
+  ansible.builtin.template:
+    src: dashboard.yaml.j2
+    dest: /app/traefik/conf/dynamic/dashboard.yaml
+    mode: "0600"
+    owner: "{{ traefik_container_user }}"
+    group: "{{ traefik_container_user }}"
+  notify: Restart Traefik service
+
+- name: Explain deferred authentication
+  ansible.builtin.debug:
+    msg: "LAN dashboard disabled: enable deploy_ingress_auth, provision the ingress_auth OIDC client, and configure ingress_auth_allowed_emails. Loopback dashboard remains available."
+  when: not (__ingress_auth_any_enabled | bool)

@@ -147,6 +147,10 @@ filtering:
   parental_block_host: family-block.dns.adguard.com
   safebrowsing_block_host: standard-block.dns.adguard.com
   rewrites:
+{% for rewrite in adguard_dns_rewrites %}
+    - domain: {{ rewrite.domain | to_json }}
+      answer: {{ rewrite.answer | to_json }}
+{% endfor %}
     - domain: '*.{{ internal_domain }}'
       answer: 172.16.255.254
     # For now we hardcode the values, but these

@@ -1,0 +1,58 @@
+---
+- name: IDP Config | Publish the private output artifact
+  # Check mode does not apply the Terraform plan; do not publish existing outputs
+  # as the result of that plan or change the consumer artifact during a dry run.
+  when: not (ansible_check_mode | bool)
+  block:
+    - name: Validate the artifact destination and output selection
+      ansible.builtin.assert:
+        that:
+          - idp_config_output_artifact_key is defined and idp_config_output_artifact_key | trim | length > 0
+          - idp_output_artifact_region is defined and idp_output_artifact_region | trim | length > 0
+          - idp_config_output_artifact_key != 'idp/terraform.tfstate'
+          - idp_config_published_outputs is defined
+          - idp_config_published_outputs is sequence
+          - idp_config_published_outputs is not string
+          - idp_config_published_outputs is not mapping
+          - idp_config_published_outputs | select('string') | list | length == idp_config_published_outputs | length
+        fail_msg: "Provide a separate artifact key/region and a list of Terraform output names to publish."
+
+    - name: Initialize the selected output values
+      ansible.builtin.set_fact:
+        __idp_config_published_outputs: {}
+      no_log: true
+
+    - name: Select existing outputs requested by the caller
+      ansible.builtin.set_fact:
+        __idp_config_published_outputs: "{{ __idp_config_published_outputs | combine({item: idp_zitadel_terraform_output.outputs[item].value}) }}"
+      loop: "{{ idp_config_published_outputs }}"
+      when: item in idp_zitadel_terraform_output.outputs
+      no_log: true
+
+    # Always replace the artifact, including with an empty outputs dictionary,
+    # so consumers cannot keep using outputs removed by a successful apply.
+    - name: Write the versioned private output artifact to the existing S3 bucket
+      amazon.aws.s3_object:
+        mode: put
+        endpoint_url: "{{ idp_terraform_state_endpoint }}"
+        bucket: "{{ idp_terraform_state_bucket }}"
+        object: "{{ idp_config_output_artifact_key }}"
+        region: "{{ idp_output_artifact_region }}"
+        access_key: "{{ idp_terraform_state_access }}"
+        secret_key: "{{ idp_terraform_state_secret }}"
+        content: "{{ {'schema_version': 1, 'outputs': __idp_config_published_outputs} | to_json }}"
+        overwrite: different
+        ignore_nonexistent_bucket: true
+        # R2 does not implement object ACLs or AWS SSE-S3 request headers.
+        # Access control/encryption at rest are provided by the private bucket.
+        permission: []
+        encrypt: "{{ idp_terraform_state_s3_type == 'aws' }}"
+        headers:
+          ContentType: application/json
+          CacheControl: no-store
+      no_log: true
+
+    - name: Discard intermediate published values
+      ansible.builtin.set_fact:
+        __idp_config_published_outputs: {}
+      no_log: true

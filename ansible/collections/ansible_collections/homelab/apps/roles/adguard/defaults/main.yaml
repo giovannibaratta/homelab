@@ -1,3 +1,4 @@
 ---
+adguard_dns_rewrites: []
 # Available versions https://hub.docker.com/r/adguard/adguardhome/tags
 adguard_version: v0.107.73

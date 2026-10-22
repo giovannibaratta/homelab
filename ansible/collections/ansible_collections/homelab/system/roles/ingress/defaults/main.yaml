@@ -3,6 +3,19 @@
 ingress_traefik_version: v3.7.15
 ingress_traefik_log_dir: /var/log/traefik
 
+# Authentication is optional; incomplete configuration keeps the LAN dashboard closed.
+deploy_ingress_auth: true
+ingress_auth_version: v7.15.0
+ingress_auth_port: 4180
+ingress_auth_cookie_name: "__Host-ingress_auth"
+ingress_auth_issuer_url: "https://idp.{{ internal_domain }}"
+# Caller supplies the OIDC client credentials. Empty inputs remove OAuth2 Proxy
+# and the LAN dashboard route; loopback dashboard access remains available.
+ingress_auth_client_id: ""
+ingress_auth_client_secret: ""
+# Exact administrator email addresses; empty means no LAN dashboard is exposed.
+ingress_auth_allowed_emails: []
+
 # WAF Configuration
 # Available versions https://hub.docker.com/r/owasp/modsecurity-crs/tags
 ingress_waf_version: 4.28.0-nginx-202608050608

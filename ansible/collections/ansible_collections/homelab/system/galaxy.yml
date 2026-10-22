@@ -6,6 +6,7 @@ readme: README.md
 authors:
   - Giovanni Baratta
 dependencies:
+  amazon.aws: ">=9.2.0,<10.0.0"
   sdorra.porkbun: ">=1.0.0"
   community.crypto: ">=2.8.0"
 license:

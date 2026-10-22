@@ -9,6 +9,10 @@ experimental:
       version: {{ ingress_waf_plugin_version }}
 
 entryPoints:
+  # Host networking makes this reachable only locally or through an SSH tunnel.
+  management:
+    address: "127.0.0.1:8080"
+
   # Public Insecure Entrypoint for WAN
   # Automatically redirects all incoming WAN plain HTTP requests to HTTPS (public-secure).
   public-insecure:
@@ -89,8 +93,9 @@ entryPoints:
         idleTimeout: 0
 
 api:
-  # Dashboard is served on port 8080
-  insecure: true
+  # Keep the API and dashboard off the unauthenticated :8080 entrypoint.
+  # dashboard.yaml exposes api@internal through the LAN-restricted HTTPS router.
+  insecure: false
   dashboard: true
 
 providers:

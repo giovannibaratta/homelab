@@ -166,10 +166,35 @@
       tags: system-logging
       ignore_errors: yes
 
+    - name: Read published IDP outputs before ingress
+      ansible.builtin.import_role:
+        name: homelab.system.s3_read_config
+      become: true
+      vars:
+        s3_read_config_endpoint: "{{ idp_terraform_state_endpoint }}"
+        s3_read_config_bucket: "{{ idp_terraform_state_bucket }}"
+        s3_read_config_object_key: "{{ idp_s3_artifact_key }}"
+        s3_read_config_region: "{{ idp_output_artifact_region }}"
+        s3_read_config_access_key: "{{ idp_terraform_state_access }}"
+        s3_read_config_secret_key: "{{ idp_terraform_state_secret }}"
+      tags:
+        - s3-read-config
+        - ingress
+
     - ansible.builtin.import_role:
         name: homelab.system.ingress
       become: true
       tags: ingress
+      vars:
+        # Saved credentials may be absent on the first run, before Zitadel is
+        # provisioned. Empty inputs let ingress skip OAuth2 Proxy and keep the
+        # LAN dashboard closed while retaining loopback access. The next run
+        # reads the published S3 output artifact and enables authentication.
+        ingress_auth_client_id: "{{ (s3_read_config_outputs | default({})).get('ingress_auth_client_id', '') }}"
+        ingress_auth_client_secret: "{{ (s3_read_config_outputs | default({})).get('ingress_auth_client_secret', '') }}"
+        # Secret bundle value: comma-separated addresses. Missing/empty means
+        # no allowed users, so ingress keeps the LAN dashboard closed.
+        ingress_auth_allowed_emails: "{{ (ingress_allowed_emails | default('')).split(',') | map('trim') | reject('equalto', '') | unique | list }}"
 
     - ansible.builtin.import_role:
         name: homelab.system.crowdsec
@@ -202,6 +227,10 @@
             name: homelab.system.idp_config
           vars:
             idp_config_external_port: "{{ '8443' if (idp_deployment_type == 'docker') else '443' }}"
+            idp_config_output_artifact_key: "{{ idp_s3_artifact_key }}"
+            idp_config_published_outputs:
+              - ingress_auth_client_id
+              - ingress_auth_client_secret
           become: true
           tags: idp
 
@@ -249,6 +278,14 @@
       ansible.builtin.import_role:
         name: homelab.apps.adguard
       become: true
+      vars:
+        # Each dashboard must reach its own Traefik instance, not the gateway VIP.
+        adguard_dns_rewrites: >-
+          {%- set records = [] -%}
+          {%- for host in groups['home'] -%}
+          {%- set _ = records.append({'domain': 'traefik-' ~ host ~ '.' ~ internal_domain, 'answer': hostvars[host].internal_ip}) -%}
+          {%- endfor -%}
+          {{ records }}
       tags:
         - first-setup
         - adguard

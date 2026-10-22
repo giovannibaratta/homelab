@@ -4,6 +4,8 @@ home:
     k8s_db_backup_s3_bucket: "homelab-cnpg-backups"
     secret_bundle: "{{ lookup('community.general.bitwarden_secrets_manager', '22bdfa7d-f452-4a62-85d3-b40c0095369a').value }}"
     idp_terraform_state_bucket: "homelab-terraform-state"
+    idp_s3_artifact_key: "idp/outputs.json"
+    idp_output_artifact_region: "auto" # Cloudflare R2 signing region
     idp_terraform_state_s3_type: "other"
     ##### Required for first setup #####
     internal_network: 172.16.0.0
@@ -60,6 +62,15 @@ home:
     k8s_netbird_deploy_coturn: true
 
     idp_dynamic_apps:
+      # One client shared by host-local proxies; cookies remain scoped to each host.
+      - name: ingress_auth
+        redirect_uris:
+          - "https://traefik-node1.{{ internal_domain }}:8443/oauth2/callback"
+          - "https://traefik-node2.{{ internal_domain }}:8443/oauth2/callback"
+          - "https://traefik-node3.{{ internal_domain }}:8443/oauth2/callback"
+        app_type: "OIDC_APP_TYPE_WEB"
+        auth_method_type: "OIDC_AUTH_METHOD_TYPE_BASIC"
+        id_token_userinfo_assertion: true
       - name: forgejo
         redirect_uris:
           - "https://git.{{ internal_domain }}/user/oauth2/Zitadel/callback"

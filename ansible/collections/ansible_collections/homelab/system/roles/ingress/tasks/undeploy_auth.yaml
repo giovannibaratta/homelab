@@ -1,0 +1,38 @@
+---
+- name: Remove unavailable or disabled authentication proxy
+  when: not (__ingress_auth_any_enabled | bool)
+  block:
+    - name: Gather services for authentication cleanup
+      ansible.builtin.service_facts:
+
+    - name: Stop and disable authentication proxy and network in order
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - ingress-auth.service
+        - ingress-auth-network.service
+      when: item in ansible_facts.services
+
+    - name: Remove authentication container and network Quadlets
+      ansible.builtin.file:
+        path: "/etc/containers/systemd/{{ item }}"
+        state: absent
+      loop:
+        - ingress-auth.container
+        - ingress-auth.network
+      register: __ingress_auth_removed
+
+    - name: Reload systemd after authentication cleanup
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: __ingress_auth_removed.changed
+
+    - name: Remove client configuration while retaining cookie secret
+      ansible.builtin.file:
+        path: "/app/traefik/auth/{{ item }}"
+        state: absent
+      loop:
+        - oauth2-proxy.cfg
+        - allowed-emails

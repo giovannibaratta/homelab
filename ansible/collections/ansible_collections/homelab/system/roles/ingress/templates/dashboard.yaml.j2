@@ -1,0 +1,52 @@
+# The playbook supplies per-host dashboard DNS rewrites to the AdGuard role.
+http:
+  routers:
+    traefik-dashboard-local:
+      rule: "PathPrefix(`/api`) || PathPrefix(`/dashboard`)"
+      entryPoints:
+        - management
+      service: api@internal
+{% if __ingress_auth_any_enabled | default(false) | bool %}
+    traefik-dashboard:
+      rule: "Host(`traefik-{{ inventory_hostname }}.{{ internal_domain }}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+      entryPoints:
+        - websecure
+      service: api@internal
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - dashboard-lan-only@file
+        - ingress-oidc@file
+        - default-chain@file
+
+    ingress-auth-callback:
+      rule: "Host(`traefik-{{ inventory_hostname }}.{{ internal_domain }}`) && PathPrefix(`/oauth2/`)"
+      entryPoints:
+        - websecure
+      service: ingress-auth
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - dashboard-lan-only@file
+        - default-chain@file
+
+  services:
+    ingress-auth:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:{{ ingress_auth_port }}"
+
+  middlewares:
+    ingress-oidc:
+      forwardAuth:
+        # Static upstream returns 202 after login; unauthenticated users are redirected.
+        address: "http://127.0.0.1:{{ ingress_auth_port }}/"
+        trustForwardHeader: false
+        addAuthCookiesToResponse:
+          - {{ ingress_auth_cookie_name | to_json }}
+    dashboard-lan-only:
+      ipAllowList:
+        # Use the connection source address, never a supplied forwarded header.
+        sourceRange:
+          - "{{ internal_network }}/{{ internal_network_netmask_length }}"
+{% endif %}

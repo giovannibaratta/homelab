@@ -1,0 +1,109 @@
+---
+- name: Deploy configured OAuth2 Proxy
+  when: __ingress_auth_any_enabled | bool
+  block:
+    - name: Look up container user for authentication UID mapping
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ traefik_container_user }}"
+
+    - name: Create private authentication directory
+      ansible.builtin.file:
+        path: /app/traefik/auth
+        state: directory
+        owner: "{{ traefik_container_user }}"
+        group: "{{ traefik_container_user }}"
+        mode: "0700"
+
+    - name: Create persistent cookie encryption secret
+      ansible.builtin.copy:
+        content: "{{ lookup('ansible.builtin.password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+        dest: /app/traefik/auth/cookie-secret
+        force: false
+        owner: "{{ traefik_container_user }}"
+        group: "{{ traefik_container_user }}"
+        mode: "0600"
+      no_log: true
+
+    - name: Read persistent cookie encryption secret
+      ansible.builtin.slurp:
+        src: /app/traefik/auth/cookie-secret
+      register: __ingress_auth_cookie
+      no_log: true
+
+    - name: Write allowed administrator emails
+      ansible.builtin.copy:
+        content: "{{ ingress_auth_allowed_emails | join('\n') }}\n"
+        dest: /app/traefik/auth/allowed-emails
+        owner: "{{ traefik_container_user }}"
+        group: "{{ traefik_container_user }}"
+        mode: "0600"
+      no_log: true
+      notify: Restart ingress authentication proxy
+
+    - name: Render OAuth2 Proxy configuration
+      ansible.builtin.template:
+        src: oauth2-proxy.cfg.j2
+        dest: /app/traefik/auth/oauth2-proxy.cfg
+        owner: "{{ traefik_container_user }}"
+        group: "{{ traefik_container_user }}"
+        mode: "0600"
+      no_log: true
+      notify: Restart ingress authentication proxy
+
+    - name: Create dedicated authentication network Quadlet
+      containers.podman.podman_network:
+        name: ingress-auth
+        state: quadlet
+        driver: bridge
+        disable_dns: false
+        dns: "{{ podman_dns }}"
+        # Outbound connectivity is needed for DNS and the OIDC issuer.
+        internal: false
+        opt:
+          isolate: true
+      register: __ingress_auth_network_quadlet
+      notify: Restart ingress authentication proxy
+
+    - name: Create OAuth2 Proxy Quadlet
+      containers.podman.podman_container:
+        name: ingress-auth
+        state: quadlet
+        image: "quay.io/oauth2-proxy/oauth2-proxy:{{ ingress_auth_version }}"
+        # Referencing the Quadlet file adds the generated network dependency.
+        network: ingress-auth.network
+        ports:
+          - "127.0.0.1:{{ ingress_auth_port }}:4180"
+        user: "0:0"
+        uidmap:
+          - "0:{{ ansible_facts.getent_passwd[traefik_container_user][1] }}:1"
+          - "1:4000000000:100000"
+        gidmap:
+          - "0:{{ ansible_facts.getent_passwd[traefik_container_user][2] }}:1"
+          - "1:4000000000:100000"
+        command: "--config=/etc/oauth2-proxy/oauth2-proxy.cfg"
+        volumes:
+          - /app/traefik/auth:/etc/oauth2-proxy:ro
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=multi-user.target
+            [Unit]
+            StartLimitIntervalSec=0
+            [Service]
+            Restart=always
+            RestartSec=15s
+      notify: Restart ingress authentication proxy
+      register: __ingress_auth_quadlet
+
+    - name: Reload systemd for authentication Quadlet
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: __ingress_auth_quadlet.changed or __ingress_auth_network_quadlet.changed
+
+    # No dependency from Traefik to this service: IDP outages must not stop ingress.
+    - name: Enable and start authentication proxy
+      ansible.builtin.systemd_service:
+        name: ingress-auth.service
+        enabled: true
+        state: started

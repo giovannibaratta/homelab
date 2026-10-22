@@ -1,0 +1,83 @@
+---
+- name: Read the published S3 configuration artifact
+  run_once: true
+  block:
+    - name: Validate artifact location and credentials
+      ansible.builtin.assert:
+        that:
+          - s3_read_config_endpoint is defined and s3_read_config_endpoint is string and s3_read_config_endpoint | trim | length > 0
+          - s3_read_config_bucket is defined and s3_read_config_bucket is string and s3_read_config_bucket | trim | length > 0
+          - s3_read_config_object_key is defined and s3_read_config_object_key is string and s3_read_config_object_key | trim | length > 0
+          - s3_read_config_region is defined and s3_read_config_region is string and s3_read_config_region | trim | length > 0
+          - s3_read_config_access_key is defined and s3_read_config_access_key | length > 0
+          - s3_read_config_secret_key is defined and s3_read_config_secret_key | length > 0
+        fail_msg: "Provide the S3 configuration artifact endpoint, bucket, object key, region and credentials."
+      no_log: true
+
+    - name: Reset configuration output facts
+      ansible.builtin.set_fact:
+        s3_read_config_available: false
+        s3_read_config_outputs: {}
+      no_log: true
+
+    # A successful listing without this exact key is bootstrap. Permission,
+    # missing-bucket and connectivity errors fail normally, never as bootstrap.
+    - name: Check whether the output artifact has been published
+      amazon.aws.s3_object_info:
+        endpoint_url: "{{ s3_read_config_endpoint }}"
+        bucket_name: "{{ s3_read_config_bucket }}"
+        prefix: "{{ s3_read_config_object_key }}"
+        max_keys: 1
+        access_key: "{{ s3_read_config_access_key }}"
+        secret_key: "{{ s3_read_config_secret_key }}"
+        region: "{{ s3_read_config_region }}"
+      register: __s3_read_config_artifact_keys
+      no_log: true
+
+    - name: Read and validate published outputs
+      when: s3_read_config_object_key in __s3_read_config_artifact_keys.s3_keys
+      block:
+        - name: Read the artifact into memory
+          amazon.aws.s3_object:
+            mode: getstr
+            endpoint_url: "{{ s3_read_config_endpoint }}"
+            bucket: "{{ s3_read_config_bucket }}"
+            object: "{{ s3_read_config_object_key }}"
+            access_key: "{{ s3_read_config_access_key }}"
+            secret_key: "{{ s3_read_config_secret_key }}"
+            region: "{{ s3_read_config_region }}"
+          register: __s3_read_config_artifact_read
+          changed_when: false
+          no_log: true
+
+        - name: Parse the published JSON artifact
+          ansible.builtin.set_fact:
+            __s3_read_config_artifact: "{{ __s3_read_config_artifact_read.contents | from_json }}"
+          no_log: true
+
+        - name: Validate the artifact contract
+          ansible.builtin.assert:
+            that:
+              - __s3_read_config_artifact is mapping
+              - __s3_read_config_artifact.schema_version == 1
+              - __s3_read_config_artifact.outputs is mapping
+            fail_msg: "Invalid S3 configuration artifact: expected schema_version 1 and an outputs dictionary."
+          no_log: true
+
+        - name: Share the published output dictionary with consumers
+          ansible.builtin.set_fact:
+            s3_read_config_available: true
+            s3_read_config_outputs: "{{ __s3_read_config_artifact.outputs }}"
+          no_log: true
+
+      always:
+        - name: Discard raw artifact results
+          ansible.builtin.set_fact:
+            __s3_read_config_artifact: {}
+            __s3_read_config_artifact_read: {}
+          no_log: true
+
+    - name: Explain bootstrap when the artifact is absent
+      ansible.builtin.debug:
+        msg: "S3 configuration artifact does not exist. Returning available=false and an empty output dictionary."
+      when: not (s3_read_config_available | bool)

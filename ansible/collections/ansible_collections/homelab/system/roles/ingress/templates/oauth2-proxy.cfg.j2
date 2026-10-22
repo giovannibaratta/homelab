@@ -1,0 +1,24 @@
+provider = "oidc"
+oidc_issuer_url = {{ ingress_auth_issuer_url | to_json }}
+client_id = {{ __ingress_auth_client_id | to_json }}
+client_secret = {{ __ingress_auth_client_secret | to_json }}
+# Listen on the container bridge; Podman publishes only on host loopback.
+http_address = "0.0.0.0:4180"
+reverse_proxy = true
+# v7.15 has no trusted_proxy_ips setting; loopback port publication and Traefik's
+# trustForwardHeader=false keep externally supplied forwarded headers untrusted.
+upstreams = ["static://202"]
+redirect_url = "https://traefik-{{ inventory_hostname }}.{{ internal_domain }}:8443/oauth2/callback"
+whitelist_domains = ["traefik-{{ inventory_hostname }}.{{ internal_domain }}:8443"]
+authenticated_emails_file = "/etc/oauth2-proxy/allowed-emails"
+scope = "openid profile email offline_access"
+code_challenge_method = "S256"
+insecure_oidc_skip_nonce = false
+skip_provider_button = true
+cookie_secret = {{ (__ingress_auth_cookie.content | b64decode) | to_json }}
+cookie_name = {{ ingress_auth_cookie_name | to_json }}
+cookie_secure = true
+cookie_httponly = true
+cookie_samesite = "lax"
+cookie_expire = "2h"
+cookie_refresh = "1h"
