@@ -2,6 +2,20 @@
 - name: Read the published S3 configuration artifact
   run_once: true
   block:
+    - name: Gather installed system packages
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Require the system Python S3 SDK packages
+      ansible.builtin.assert:
+        that:
+          - "'python3-boto3' in ansible_facts.packages"
+          - "'python3-botocore' in ansible_facts.packages"
+        fail_msg: >-
+          s3_read_config requires the python3-boto3 and python3-botocore
+          system packages on {{ inventory_hostname }}. Run system-base
+          or install these packages before retrying. No S3 request has been made.
+
     - name: Validate artifact location and credentials
       ansible.builtin.assert:
         that:
