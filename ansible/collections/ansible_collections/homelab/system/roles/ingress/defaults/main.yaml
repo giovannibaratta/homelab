@@ -2,6 +2,9 @@
 # Available versions https://hub.docker.com/_/traefik/tags
 ingress_traefik_version: v3.7.15
 ingress_traefik_log_dir: /var/log/traefik
+# Optional exporter bound only to the host's internal address.
+ingress_traefik_metrics_enabled: false
+ingress_traefik_metrics_port: 8082
 
 # Authentication is optional; incomplete configuration keeps the LAN dashboard closed.
 deploy_ingress_auth: true

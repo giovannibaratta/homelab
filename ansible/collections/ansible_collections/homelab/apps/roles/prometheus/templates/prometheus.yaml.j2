@@ -2,6 +2,18 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
+{% if prometheus_traefik_targets | default([]) | length > 0 %}
+  - job_name: 'traefik-host'
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+{% for host in prometheus_traefik_targets %}
+      - targets: ['{{ hostvars[host].internal_ip }}:{{ prometheus_traefik_metrics_port | default(8082) }}']
+        labels:
+          node: '{{ host }}'
+{% endfor %}
+{% endif %}
+
   - job_name: 'prometheus'
     scrape_interval: 15s
     static_configs:

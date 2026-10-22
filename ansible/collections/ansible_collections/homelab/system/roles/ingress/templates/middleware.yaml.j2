@@ -20,9 +20,11 @@ http:
         average: {{ ingress_waf_rate_limit_average }}
         period: {{ ingress_waf_rate_limit_period }}
         burst: {{ ingress_waf_rate_limit_burst }}
-        sourceCriterion:
-          ipStrategy:
-            depth: 1  # Use real client IP (accounting for proxy headers)
+        # Omit sourceCriterion deliberately: RateLimit defaults to connection IP.
+        # Our public DNAT path adds no X-Forwarded-For header. depth: 1 would
+        # select an empty IP for direct clients, sharing their limiter bucket.
+        # Clients behind one NAT/proxy still share its connection source IP;
+        # review trusted proxies before switching to forwarded-header identity.
 
     # In-Flight Request Limiting Middleware (Layer 2 Defense)
     # Controls concurrent connections per IP to prevent resource exhaustion
@@ -30,9 +32,12 @@ http:
     inFlightReq:
       inFlightReq:
         amount: {{ ingress_waf_inflight_limit }}
+        # Unlike RateLimit, InFlightReq defaults to request hostname when this
+        # block is omitted, sharing a budget across clients of that hostname.
+        # Explicit depth: 0, with no excludedIPs, selects the connection IP.
         sourceCriterion:
           ipStrategy:
-            depth: 1  # Use real client IP (accounting for proxy headers)
+            depth: 0
 
     # WAF Security Middleware (Layer 3 Defense)
     # Forwards requests to ModSecurity for deep security analysis

@@ -9,6 +9,12 @@ experimental:
       version: {{ ingress_waf_plugin_version }}
 
 entryPoints:
+{% if ingress_traefik_metrics_enabled | bool %}
+  # Machine-only LAN endpoint; no public ingress router or WAN port mapping.
+  # Reserved name excludes this listener from routers' default entrypoints.
+  traefik:
+    address: "{{ internal_ip_address }}:{{ ingress_traefik_metrics_port }}"
+{% endif %}
   # Host networking makes this reachable only locally or through an SSH tunnel.
   management:
     address: "127.0.0.1:8080"
@@ -106,6 +112,15 @@ providers:
   file:
     directory: "/etc/traefik/dynamic"
     watch: false
+
+{% if ingress_traefik_metrics_enabled | bool %}
+metrics:
+  prometheus:
+    entryPoint: traefik
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+{% endif %}
 
 log:
   level: INFO

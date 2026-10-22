@@ -14,6 +14,8 @@
     # The directory is used to save finished media that can be served
     media_data_dir: /external/media
     bridge_name: br0
+    ingress_traefik_metrics_enabled: true
+    ingress_traefik_metrics_port: 8082
 
   pre_tasks:
     - name: Verify Ansible version
@@ -301,6 +303,8 @@
       become: true
       vars:
         prometheus_targets: "{{ groups['all'] }}"
+        prometheus_traefik_targets: "{{ groups['all'] if (ingress_traefik_metrics_enabled | bool) else [] }}"
+        prometheus_traefik_metrics_port: "{{ ingress_traefik_metrics_port }}"
       ignore_errors: yes
       tags: prometheus
 
