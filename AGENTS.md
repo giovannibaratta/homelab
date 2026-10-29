@@ -1,4 +1,6 @@
-Never execute write command on this local host of the remote host. This inlucdes ssh commands, or proxying to the hosts via Ansible.
+You may create, edit, move, and remove project files within `homelab` as required for the user's task.
+
+Do not write or change the local system outside this project folder. Do not execute commands that write to or change remote systems, including via SSH or Ansible. Permission to edit project files does not authorize builds, deployments, or other system changes.
 
 You can inspect the hosts (not the local one) using the availabe skills 'ansible-nodes'.
 
