@@ -1,0 +1,30 @@
+---
+- name: Remove disabled Gluetun client service definitions
+  when: not (__vpn_client_enabled | bool)
+  block:
+    - name: Inspect existing services before Gluetun cleanup
+      ansible.builtin.service_facts:
+
+    - name: Stop and disable existing Gluetun services
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - gluetun.service
+        - gluetun-network.service
+      when: item in ansible_facts.services
+
+    - name: Remove only Gluetun Quadlet definitions
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/containers/systemd/gluetun.container
+        - /etc/containers/systemd/gluetun.network
+      register: __vpn_client_quadlets_removed
+
+    - name: Reload systemd after Gluetun cleanup
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: __vpn_client_quadlets_removed.changed | bool

@@ -1,0 +1,155 @@
+---
+- name: Deploy selected commercial VPN provider
+  when: __vpn_client_enabled | bool
+  block:
+    - name: Add user {{ vpn_client_container_user }}
+      ansible.builtin.user:
+        name: "{{ vpn_client_container_user }}"
+        comment: User used to run the commercial Gluetun VPN client
+        create_home: false
+        shell: /usr/sbin/nologin
+      register: vpn_client_container_user_result
+
+    - name: Create gluetun directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0700" # Gluetun requires strict permissions
+        owner: "{{ vpn_client_container_user }}"
+        group: "{{ vpn_client_container_user }}"
+      with_items:
+        - "{{ vpn_client_conf_dir }}"
+
+    - name: Create gluetun network Quadlet
+      containers.podman.podman_network:
+        name: gluetun
+        state: quadlet
+        # Enable DNS resolution based on container names
+        disable_dns: false
+        dns: "{{ podman_dns }}"
+        driver: bridge
+        force: true
+        recreate: true
+        internal: false
+        interface_name: podman-gluetun
+        opt:
+          isolate: True
+      notify:
+        - Reload systemd daemons for vpn role
+        - Restart gluetun network
+
+    - name: Trigger Handlers for gluetun network
+      ansible.builtin.meta: flush_handlers
+
+    - name: Start gluetun network
+      ansible.builtin.systemd_service:
+        # The name is the name of the network + network suffix
+        name: gluetun-network
+        state: started
+        enabled: true
+
+    # Run before any handler can start/restart the tunnel with stale metadata.
+    - name: Refresh VPN server catalogue when needed
+      ansible.builtin.import_tasks: refresh_servers.yaml
+      when: vpn_server_refresh_enabled | bool
+
+    - name: Copy gluetun.env file
+      ansible.builtin.template:
+        src: gluetun.env.j2
+        dest: "{{ vpn_client_conf_dir }}/gluetun.env"
+        mode: "0600"
+        owner: "{{ vpn_client_container_user }}"
+        group: "{{ vpn_client_container_user }}"
+      no_log: true
+      diff: false
+      notify:
+        - Restart gluetun service
+
+    - name: Create gluetun Quadlet
+      containers.podman.podman_container:
+        name: gluetun
+        state: quadlet
+        image: docker.io/qmcgaw/gluetun:{{ vpn_client_version }}
+        env_file: "{{ vpn_client_conf_dir }}/gluetun.env"
+        recreate: true
+        network: gluetun
+        restart_policy: on-failure
+        init: true
+        delete_depend: true
+        delete_time: 60
+
+        # Required for VPN tunnel creation
+        cap_add:
+          - "NET_ADMIN"
+
+        # Required for Tun interface
+        device:
+          - "/dev/net/tun:/dev/net/tun"
+
+        sysctl:
+          net.ipv4.conf.all.rp_filter: 2
+          # Gluetun usually handles ipv6 internally, but this is safe to keep
+          net.ipv6.conf.all.disable_ipv6: 1
+
+        # Use the image's native command
+        healthcheck: /gluetun-entrypoint healthcheck
+        healthcheck_start_period: 120s
+        healthcheck_interval: 20s
+        healthcheck_retries: 5
+
+        # 'stop' since systemd is managing it (it will restart)
+        healthcheck_failure_action: stop
+
+        # Mount the config dir to /gluetun so it can store server cache/state
+        volumes:
+          - "{{ vpn_client_conf_dir}}:/gluetun:Z"
+
+        # User mapping to keep files on host owned by the specific user
+        uidmap:
+          - 0:{{ vpn_client_container_user_result.uid }}:1
+          - 1:4000000000:100000
+
+        gidmap:
+          - 0:{{ vpn_client_container_user_result.group }}:1
+          - 1:4000000000:100000
+
+        quadlet_options:
+          - |
+            [Install]
+            WantedBy=default.target
+            [Service]
+            Restart=always
+            RestartSec=120s
+            # ExecStop cleanups
+            ExecStop=/usr/bin/podman rm -v -f -i --cidfile=%t/%N.cid --depend
+            ExecStopPost=-/usr/bin/podman rm -v -f -i --cidfile=%t/%N.cid --depend
+
+      notify:
+        - Reload systemd daemons for vpn role
+        - Restart gluetun service
+
+    - name: Trigger Handlers for gluetun
+      ansible.builtin.meta: flush_handlers
+
+    - name: Start gluetun
+      ansible.builtin.systemd_service:
+        name: gluetun
+        state: started
+        enabled: true
+
+    - name: Wait for Gluetun readiness
+      containers.podman.podman_container_info:
+        name: gluetun
+      register: __vpn_client_health
+      # Container inspection includes environment credentials; never log it.
+      no_log: true
+      until:
+        - __vpn_client_health.containers | length == 1
+        - >-
+          (__vpn_client_health.containers[0].State.Health.Status
+           | default(__vpn_client_health.containers[0].State.Healthcheck.Status
+           | default('unknown'))) == 'healthy'
+      # About five minutes, including the image's health-check start period.
+      retries: 30
+      delay: 10
+      when: not ansible_check_mode

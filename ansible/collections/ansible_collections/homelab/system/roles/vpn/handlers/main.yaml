@@ -28,12 +28,12 @@
     state: restarted
     name: netbird-coturn
 
-- name: Restart protonvpn network
+- name: Restart gluetun network
   ansible.builtin.systemd_service:
     state: restarted
-    name: protonvpn-network
+    name: gluetun-network
 
-- name: Restart protonvpn service
+- name: Restart gluetun service
   ansible.builtin.systemd_service:
     state: restarted
-    name: protonvpn
+    name: gluetun

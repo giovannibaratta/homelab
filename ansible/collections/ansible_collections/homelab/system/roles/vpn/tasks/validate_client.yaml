@@ -1,0 +1,55 @@
+---
+- name: Validate supported VPN provider and protocol
+  ansible.builtin.assert:
+    that:
+      - vpn_service_provider is defined and vpn_service_provider in ['protonvpn', 'nordvpn']
+      - vpn_client_type in ['wireguard', 'openvpn']
+      - vpn_openvpn_protocol in ['udp', 'tcp']
+    fail_msg: "vpn_service_provider is required: choose protonvpn or nordvpn, with wireguard or openvpn; OpenVPN transport must be udp or tcp."
+
+- name: Validate VPN server filters
+  ansible.builtin.assert:
+    that:
+      - item is sequence and item is not string and item is not mapping
+      - item | reject('string') | list | length == 0
+      - item | select('search', '[\r\n,]') | list | length == 0
+    fail_msg: "VPN server filters must be lists of strings without commas or newlines."
+  loop:
+    - "{{ vpn_server_countries }}"
+    - "{{ vpn_server_hostnames }}"
+
+- name: Validate selected provider WireGuard secret
+  ansible.builtin.assert:
+    that:
+      - __vpn_wireguard_key is string
+      - __vpn_wireguard_key | length == 44
+      - __vpn_wireguard_key is match('^[A-Za-z0-9+/]{43}=$')
+    fail_msg: "Provide the selected provider's WireGuard private key; see the VPN role README."
+  vars:
+    __vpn_wireguard_key: "{{ vars['vpn_' ~ vpn_service_provider ~ '_wireguard_privatekey'] | default('') }}"
+  when: vpn_client_type == 'wireguard'
+  no_log: true
+
+- name: Validate selected provider OpenVPN service credentials
+  ansible.builtin.assert:
+    that:
+      - __vpn_openvpn_user is string and __vpn_openvpn_password is string
+      - __vpn_openvpn_user | trim | length > 0
+      - __vpn_openvpn_password | trim | length > 0
+      - __vpn_openvpn_user is not search('[\r\n]')
+      - __vpn_openvpn_password is not search('[\r\n]')
+    fail_msg: "Provide the selected provider's OpenVPN service credentials; see the VPN role README."
+  vars:
+    __vpn_openvpn_user: "{{ vars['vpn_' ~ vpn_service_provider ~ '_openvpn_user'] | default('') }}"
+    __vpn_openvpn_password: "{{ vars['vpn_' ~ vpn_service_provider ~ '_openvpn_password'] | default('') }}"
+  when: vpn_client_type == 'openvpn'
+  no_log: true
+
+- name: Validate server catalogue refresh settings
+  ansible.builtin.assert:
+    that:
+      - vpn_server_refresh_max_age_days is integer
+      - vpn_server_refresh_max_age_days | int >= 1
+      - not (vpn_server_refresh_enabled | bool) or vpn_service_provider == 'nordvpn'
+      - not (vpn_server_refresh_force | bool) or (vpn_server_refresh_enabled | bool)
+    fail_msg: "Automatic catalogue refresh supports NordVPN only; use a positive integer age and enable refresh before forcing it."

@@ -14,6 +14,7 @@
     # The directory is used to save finished media that can be served
     media_data_dir: /external/media
     bridge_name: br0
+    vpn_service_provider: nordvpn
     ingress_traefik_metrics_enabled: true
     ingress_traefik_metrics_port: 8082
 
@@ -263,7 +264,6 @@
     - ansible.builtin.import_role:
         name: homelab.system.vpn
       become: true
-      ignore_errors: yes
       tags: vpn
 
     - name: Deploy Netbird K8s

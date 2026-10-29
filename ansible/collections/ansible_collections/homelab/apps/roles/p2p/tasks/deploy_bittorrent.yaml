@@ -91,7 +91,7 @@
 
     env_file: "{{ bittorrent_work_dir }}/bittorrent.env"
     recreate: true
-    network: container:protonvpn
+    network: container:gluetun
 
     # Resource limits: 2 CPUs and 4 GiB memory
     cpu_shares: 2048
@@ -126,7 +126,9 @@
         [Install]
         WantedBy=default.target
         [Unit]
-        Requires=protonvpn.service
+        Requires=gluetun.service
+        After=gluetun.service
+        PartOf=gluetun.service
         StartLimitIntervalSec=0
         [Service]
         Restart=always

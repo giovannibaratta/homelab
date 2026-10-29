@@ -4,8 +4,22 @@ vpn_deploy_jump_node: true
 vpn_deploy_management_server: true
 vpn_deploy_dashboard: true
 vpn_deploy_stun_server: true
-vpn_deploy_protonvpn: true
+vpn_deploy_client: true
 vpn_deploy_relay_server: true
+
+# Commercial VPN client (Gluetun)
+# Caller must supply vpn_service_provider: protonvpn | nordvpn when enabled.
+vpn_client_type: wireguard # wireguard | openvpn
+vpn_server_countries: [Italy]
+# Optional explicit server filter; normally select by country instead.
+vpn_server_hostnames: []
+# Nord's updater needs no extra account credentials; Proton's does.
+vpn_server_refresh_enabled: "{{ vpn_service_provider | default('') == 'nordvpn' }}"
+vpn_server_refresh_max_age_days: 15
+# One-run override, for example: -e vpn_server_refresh_force=true
+vpn_server_refresh_force: false
+vpn_openvpn_protocol: udp # udp | tcp
+# Credentials are provider-specific secrets, not defaults. See README.md.
 
 # Available versions https://hub.docker.com/r/netbirdio/dashboard/tags
 vpn_netbird_dashboard_version: "v2.95.0"
@@ -37,7 +51,7 @@ vpn_netbird_coturn_version: 4.11.0
 vpn_netbird_coturn_container_user: netbirdcoturn
 vpn_netbird_coturn_conf_dir: /app/netbird-coturn/conf
 vpn_netbird_coturn_cert_dir: /app/netbird-coturn/certs
-vpn_protonvpn_container_user: protonvpn
+vpn_client_container_user: gluetun
 # Available versions https://hub.docker.com/r/qmcgaw/gluetun/tags
-vpn_protonvpn_version: v3.41.1
-vpn_protonvpn_conf_dir: /app/protonvpn/conf
+vpn_client_version: v3.41.1
+vpn_client_conf_dir: /app/gluetun/conf

@@ -1,0 +1,95 @@
+---
+# This is a host-networked, unprivileged one-shot updater, not a VPN container.
+# It receives no tunnel secrets, capabilities or devices. The success marker is
+# separate from servers.json: upstream timestamps/mtime do not record when our
+# refresh succeeded, and Gluetun may rewrite the cache during ordinary startup.
+- name: Inspect cached VPN server catalogue
+  ansible.builtin.stat:
+    path: "{{ vpn_client_conf_dir }}/servers.json"
+    checksum_algorithm: sha256
+  register: __vpn_servers_before
+
+- name: Inspect successful provider refresh marker
+  ansible.builtin.stat:
+    path: "{{ vpn_client_conf_dir }}/.servers-refreshed-{{ vpn_service_provider }}"
+  register: __vpn_servers_marker
+
+- name: Determine whether the server catalogue needs refreshing
+  ansible.builtin.set_fact:
+    __vpn_servers_refresh_due: >-
+      {{ (vpn_server_refresh_force | bool)
+         or not __vpn_servers_before.stat.exists
+         or not __vpn_servers_marker.stat.exists
+         or ((now(utc=true).timestamp() | float)
+             - (__vpn_servers_marker.stat.mtime | default(0) | float)
+             >= (vpn_server_refresh_max_age_days | int) * 86400) }}
+
+- name: Refresh outdated VPN server catalogue
+  when:
+    - __vpn_servers_refresh_due | bool
+    - not ansible_check_mode
+  block:
+    - name: Download provider server data using the pinned Gluetun updater
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/podman
+          - run
+          - --rm
+          - --network=host
+          - --security-opt=no-new-privileges
+          # Do not relabel the live VPN container's private SELinux volume.
+          - --security-opt=label=disable
+          - --cap-drop=all
+          - --user
+          - "{{ vpn_client_container_user_result.uid }}:{{ vpn_client_container_user_result.group }}"
+          - --volume
+          - "{{ vpn_client_conf_dir }}:/gluetun"
+          - "docker.io/qmcgaw/gluetun:{{ vpn_client_version }}"
+          - update
+          - -enduser
+          - -providers
+          - "{{ vpn_service_provider }}"
+      # Compare the persisted bytes below; success alone is not a service change.
+      changed_when: false
+      # Bound the network operation without blocking Ansible's connection.
+      async: 300
+      poll: 5
+
+    - name: Inspect refreshed VPN server catalogue
+      ansible.builtin.stat:
+        path: "{{ vpn_client_conf_dir }}/servers.json"
+        checksum_algorithm: sha256
+      register: __vpn_servers_after
+
+    - name: Require a persisted server catalogue before recording success
+      ansible.builtin.assert:
+        that:
+          - __vpn_servers_after.stat.exists
+          - __vpn_servers_after.stat.size | default(0) | int > 0
+        fail_msg: "Gluetun updater did not persist servers.json; the refresh will be retried next run."
+
+    - name: Record successful provider catalogue refresh
+      ansible.builtin.file:
+        path: "{{ vpn_client_conf_dir }}/.servers-refreshed-{{ vpn_service_provider }}"
+        state: touch
+        owner: "{{ vpn_client_container_user }}"
+        group: "{{ vpn_client_container_user }}"
+        mode: "0600"
+      # Bookkeeping only; do not report a service change for a fresh timestamp.
+      changed_when: false
+
+    - name: Restart Gluetun when the server catalogue changed
+      ansible.builtin.debug:
+        msg: "The VPN server catalogue changed; Gluetun will reload it."
+      changed_when: >-
+        (__vpn_servers_before.stat.checksum | default(''))
+        != __vpn_servers_after.stat.checksum
+      notify: Restart gluetun service
+
+- name: Report pending server catalogue refresh in check mode
+  ansible.builtin.debug:
+    msg: "The VPN server catalogue would be refreshed before starting Gluetun."
+  changed_when: true
+  when:
+    - ansible_check_mode
+    - __vpn_servers_refresh_due | bool
