@@ -19,9 +19,11 @@
     name: ddclient-network
 
 - name: Restart ddclient service
-  ansible.builtin.systemd_service:
-    state: restarted
-    name: ddclient
+  # Unlike state=restarted, try-restart does not start an inactive backup's
+  # updater. Keepalived decides which host should run the shared service.
+  ansible.builtin.command:
+    argv: [systemctl, try-restart, ddclient.service]
+  changed_when: true
 
 - name: Restart ddclient-node service
   ansible.builtin.systemd_service:

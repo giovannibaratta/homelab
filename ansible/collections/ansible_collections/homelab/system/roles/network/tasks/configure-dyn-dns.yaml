@@ -96,8 +96,8 @@
 
         quadlet_options:
           - |
-            [Install]
-            WantedBy=default.target
+            # Keepalived starts this only on the current VIP owner.
+            # No WantedBy: the shared updater must not autostart on backups.
             [Unit]
             StartLimitIntervalSec=0
             [Service]
@@ -183,16 +183,9 @@
 - name: Trigger Handlers for ddclient
   ansible.builtin.meta: flush_handlers
 
-# We keep the service stopped and disabled by default because it is 
-# dynamically managed by the keepalived-nft-manager.sh script.
-# Only the node in the "master" state will run ddclient to update the 
-# shared DNS record.
-- name: Disable shared ddclient service by default
-  ansible.builtin.systemd_service:
-    name: ddclient
-    state: stopped
-    enabled: false
-  when: network_gateway_role is defined
+# Keepalived owns shared ddclient runtime state. Do not stop it here: on the
+# VIP owner its reconciliation script would immediately start it again and can
+# cancel this play's systemd job. Boot activation is omitted in its Quadlet.
 
 - name: Start ddclient-node
   ansible.builtin.systemd_service:
