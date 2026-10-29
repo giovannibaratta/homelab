@@ -1,0 +1,94 @@
+---
+- name: Resolve Jellyfin GPU configuration
+  ansible.builtin.import_tasks: detect-jellyfin-gpu.yaml
+
+- name: Add Jellyfin service user
+  ansible.builtin.user:
+    name: "{{ media_server_jellyfin_container_user }}"
+    comment: User used to run Jellyfin
+    create_home: false
+    shell: /usr/sbin/nologin
+    group: "{{ media_shared_group }}"
+  register: media_server_jellyfin_container_user_result
+
+- name: Create Jellyfin application directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ media_server_jellyfin_container_user }}"
+    group: "{{ media_shared_group }}"
+    mode: "0770"
+  loop:
+    - "{{ media_server_jellyfin_conf_dir }}"
+    - "{{ media_server_jellyfin_cache_dir }}"
+
+- name: Create Jellyfin network Quadlet
+  containers.podman.podman_network:
+    name: jellyfin
+    state: quadlet
+    disable_dns: false
+    dns: "{{ podman_dns }}"
+    driver: bridge
+    internal: false
+    interface_name: podman-jellyfin
+    opt:
+      isolate: true
+  notify:
+    - Reload systemd daemons for media-server role
+    - Restart jellyfin network
+
+- name: Apply Jellyfin network handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Start Jellyfin network
+  ansible.builtin.systemd_service:
+    name: jellyfin-network
+    state: started
+    enabled: true
+
+- name: Prepare managed Jellyfin configuration
+  ansible.builtin.import_tasks: configure-jellyfin.yaml
+
+- name: Create Jellyfin container Quadlet
+  containers.podman.podman_container:
+    name: jellyfin
+    state: quadlet
+    image: "docker.io/jellyfin/jellyfin:{{ media_server_jellyfin_version }}"
+    network: jellyfin
+    # Run the official image without root, using host IDs for bind permissions.
+    user: "{{ media_server_jellyfin_container_user_result.uid }}:{{ media_gid }}"
+    group_add: "{{ __media_server_jellyfin_groups }}"
+    device: "{{ __media_server_jellyfin_devices }}"
+    env:
+      JELLYFIN_PublishedServerUrl: "https://{{ media_server_jellyfin_domain }}"
+    volumes:
+      - "{{ media_server_jellyfin_conf_dir }}:/config"
+      - "{{ media_server_jellyfin_cache_dir }}:/cache"
+      - "{{ media_server_media_dir }}:/data:ro"
+    labels:
+      traefik.enable: true
+      traefik.http.routers.jellyfin.rule: "Host(`{{ media_server_jellyfin_domain }}`)"
+      traefik.http.routers.jellyfin.entrypoints: websecure
+      traefik.http.routers.jellyfin.middlewares: default-chain@file
+      traefik.http.routers.jellyfin.tls.certresolver: letsencrypt
+      traefik.http.routers.jellyfin.tls.domains[0].main: "{{ media_server_jellyfin_domain }}"
+      traefik.http.services.jellyfin.loadbalancer.server.port: 8096
+    quadlet_options:
+      - |
+        [Service]
+        ExecStartPre=/usr/bin/setpriv --reuid={{ media_server_jellyfin_container_user_result.uid }} --regid={{ media_gid }} --clear-groups /usr/bin/python3 {{ (media_server_jellyfin_managed_dir ~ '/manage_config.py') | quote }} --manifest {{ (media_server_jellyfin_managed_dir ~ '/settings.json') | quote }}
+
+        [Install]
+        WantedBy=default.target
+  notify:
+    - Reload systemd daemons for media-server role
+    - Restart jellyfin service
+
+- name: Apply Jellyfin container handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Start Jellyfin
+  ansible.builtin.systemd_service:
+    name: jellyfin
+    state: started
+    enabled: true

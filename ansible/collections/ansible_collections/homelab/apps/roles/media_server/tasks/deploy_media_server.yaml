@@ -1,0 +1,25 @@
+---
+- name: Prepare shared media group
+  when: __media_server_any_enabled | bool
+  block:
+    - name: Ensure shared media group exists
+      ansible.builtin.group:
+        name: "{{ media_shared_group }}"
+        state: present
+      register: media_group_result
+
+    - name: Set shared media group ID
+      ansible.builtin.set_fact:
+        media_gid: "{{ media_group_result.gid }}"
+
+- name: Deploy Plex component
+  when: deploy_media_server_plex | bool
+  block:
+    - name: Import Plex deployment
+      ansible.builtin.import_tasks: deploy-plex.yaml
+
+- name: Deploy Jellyfin component
+  when: deploy_media_server_jellyfin | bool
+  block:
+    - name: Import Jellyfin deployment
+      ansible.builtin.import_tasks: deploy-jellyfin.yaml

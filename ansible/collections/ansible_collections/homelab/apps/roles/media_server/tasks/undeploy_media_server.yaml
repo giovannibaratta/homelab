@@ -1,0 +1,60 @@
+---
+- name: Gather services for disabled component cleanup
+  ansible.builtin.service_facts:
+  when: >-
+    not (deploy_media_server_plex | default(false) | bool) or
+    not (deploy_media_server_jellyfin | default(false) | bool)
+
+- name: Undeploy disabled Plex component
+  when: not (deploy_media_server_plex | default(false) | bool)
+  block:
+    # Quadlet units are generated: removing their source disables boot startup.
+    # Stop the container before the network; never remove any data directories.
+    - name: Stop existing Plex units
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+      when: item in ansible_facts.services
+      loop:
+        - plex.service
+        - plex-network.service
+
+    - name: Remove disabled Plex Quadlet definitions
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/containers/systemd/plex.container
+        - /etc/containers/systemd/plex.network
+      register: __media_server_plex_quadlets_removed
+
+    - name: Reload systemd after removing Plex definitions
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: __media_server_plex_quadlets_removed.changed
+
+- name: Undeploy disabled Jellyfin component
+  when: not (deploy_media_server_jellyfin | default(false) | bool)
+  block:
+    - name: Stop existing Jellyfin units
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: stopped
+      when: item in ansible_facts.services
+      loop:
+        - jellyfin.service
+        - jellyfin-network.service
+
+    - name: Remove disabled Jellyfin Quadlet definitions
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/containers/systemd/jellyfin.container
+        - /etc/containers/systemd/jellyfin.network
+      register: __media_server_jellyfin_quadlets_removed
+
+    - name: Reload systemd after removing Jellyfin definitions
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: __media_server_jellyfin_quadlets_removed.changed

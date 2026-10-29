@@ -383,13 +383,12 @@
       - coder
       - k8s-coder
 
-    - when: deploy_mediastack
+    - name: Manage media server lifecycle
       ansible.builtin.import_role:
         name: homelab.apps.media_server
       vars:
         media_server_media_dir: "{{ media_data_dir }}"
       become: true
-      ignore_errors: yes
       tags: media-server
 
     - when: deploy_mediastack

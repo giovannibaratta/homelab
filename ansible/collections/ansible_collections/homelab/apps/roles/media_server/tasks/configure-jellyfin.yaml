@@ -1,0 +1,136 @@
+---
+- name: Inspect Jellyfin's actual Podman network
+  ansible.builtin.command:
+    argv: [podman, network, inspect, jellyfin]
+  register: __media_server_jellyfin_network_probe
+  changed_when: false
+  check_mode: false
+
+- name: Resolve Jellyfin network gateway and local subnets
+  ansible.builtin.set_fact:
+    __media_server_jellyfin_network: "{{ (__media_server_jellyfin_network_probe.stdout | from_json) | first }}"
+
+- name: Build managed Jellyfin network settings
+  ansible.builtin.set_fact:
+    __media_server_jellyfin_network_values: >-
+      {{ {
+        'BaseUrl': '',
+        'EnableHttps': false,
+        'RequireHttps': false,
+        'EnableIPv4': true,
+        'LocalNetworkAddresses': [],
+        'InternalHttpPort': 8096,
+        'PublicHttpsPort': 443,
+        'AutoDiscovery': false,
+        'EnableRemoteAccess': media_server_jellyfin_allow_remote_access | bool,
+        'KnownProxies': ((__media_server_jellyfin_network.subnets | map(attribute='gateway') | list)
+                         + media_server_jellyfin_extra_known_proxies) | unique | list,
+        'LocalNetworkSubnets': (media_server_jellyfin_local_networks
+                               + (__media_server_jellyfin_network.subnets | map(attribute='subnet') | list)) | unique | list
+      } | combine(media_server_jellyfin_network_settings) }}
+    __media_server_jellyfin_managed_files: []
+
+- name: Add managed Jellyfin network configuration
+  ansible.builtin.set_fact:
+    __media_server_jellyfin_managed_files: >-
+      {{ __media_server_jellyfin_managed_files + [{
+        'path': media_server_jellyfin_conf_dir ~ '/config/network.xml',
+        'root': 'NetworkConfiguration',
+        'values': __media_server_jellyfin_network_values
+      }] }}
+  when: media_server_jellyfin_manage_network | bool
+
+- name: Add managed Jellyfin general settings
+  ansible.builtin.set_fact:
+    __media_server_jellyfin_managed_files: >-
+      {{ __media_server_jellyfin_managed_files + [{
+        'path': media_server_jellyfin_conf_dir ~ '/config/system.xml',
+        'root': 'ServerConfiguration',
+        'values': media_server_jellyfin_system_settings
+      }] }}
+  when: media_server_jellyfin_system_settings | length > 0
+
+- name: Build managed Jellyfin encoding values
+  ansible.builtin.set_fact:
+    __media_server_jellyfin_encoding_values: >-
+      {{ {
+        'HardwareAccelerationType': __media_server_jellyfin_gpu.backend,
+        'EnableHardwareEncoding': __media_server_jellyfin_gpu.backend != 'none',
+        'AllowHevcEncoding': false,
+        'AllowAv1Encoding': false,
+        'EnableTonemapping': false,
+        'EnableVppTonemapping': false
+      } | combine(({
+        'VaapiDevice': __media_server_jellyfin_gpu.container_device,
+        'QsvDevice': __media_server_jellyfin_gpu.container_device,
+        'HardwareDecodingCodecs': media_server_jellyfin_hardware_decoding_codecs,
+        'EnableDecodingColorDepth10Hevc': true,
+        'EnableDecodingColorDepth10Vp9': false
+      }) if __media_server_jellyfin_gpu.backend != 'none' else {})
+        | combine(media_server_jellyfin_encoding_settings) }}
+
+- name: Add managed Jellyfin encoding configuration
+  ansible.builtin.set_fact:
+    __media_server_jellyfin_managed_files: >-
+      {{ __media_server_jellyfin_managed_files + [{
+        'path': media_server_jellyfin_conf_dir ~ '/config/encoding.xml',
+        'root': 'EncodingOptions',
+        'values': __media_server_jellyfin_encoding_values
+      }] }}
+  when: media_server_jellyfin_manage_encoding | bool
+
+- name: Create root-owned Jellyfin management directory
+  ansible.builtin.file:
+    path: "{{ media_server_jellyfin_managed_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create application-owned Jellyfin settings directory
+  ansible.builtin.file:
+    path: "{{ media_server_jellyfin_conf_dir }}/config"
+    state: directory
+    owner: "{{ media_server_jellyfin_container_user }}"
+    group: "{{ media_shared_group }}"
+    mode: "0770"
+
+- name: Create colon-free alias for Podman's GPU device mapping
+  ansible.builtin.file:
+    src: "{{ __media_server_jellyfin_gpu.host_device }}"
+    dest: "{{ media_server_jellyfin_managed_dir }}/render-device"
+    state: link
+    owner: root
+    group: root
+    follow: false
+  when: __media_server_jellyfin_gpu.backend != 'none'
+  notify: Restart jellyfin service
+
+- name: Install Jellyfin configuration reconciler
+  ansible.builtin.copy:
+    src: manage_jellyfin_config.py
+    dest: "{{ media_server_jellyfin_managed_dir }}/manage_config.py"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart jellyfin service
+
+- name: Write Jellyfin desired settings manifest
+  ansible.builtin.copy:
+    content: "{{ {'files': __media_server_jellyfin_managed_files} | to_nice_json }}\n"
+    dest: "{{ media_server_jellyfin_managed_dir }}/settings.json"
+    owner: root
+    group: "{{ media_shared_group }}"
+    mode: "0640"
+
+- name: Check managed Jellyfin values without changing live files
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ media_server_jellyfin_managed_dir }}/manage_config.py"
+      - --manifest
+      - "{{ media_server_jellyfin_managed_dir }}/settings.json"
+      - --check
+  register: __media_server_jellyfin_configuration_check
+  changed_when: (__media_server_jellyfin_configuration_check.stdout | from_json).changed | bool
+  notify: Restart jellyfin service

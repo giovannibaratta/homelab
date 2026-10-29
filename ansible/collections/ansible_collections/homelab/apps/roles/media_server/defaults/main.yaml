@@ -1,6 +1,46 @@
 ---
+# deploy_mediastack is the per-host master switch (false when absent).
+# Single-service modes select that service; multi requires explicit opt-ins.
+media_server_deployment_type: plex
+media_server_multi_deploy_plex: false
+media_server_multi_deploy_jellyfin: false
+
 # Available versions https://hub.docker.com/r/linuxserver/plex/tags
 media_server_plex_version: 1.43.4.10903-e5521bd8c-ls327
 media_server_plex_conf_dir: /app/plex/conf
 media_server_plex_database_dir: /app/plex/database
 media_server_plex_container_user: plex
+
+# Official image, pinned to the stable release rather than latest.
+media_server_jellyfin_version: "12.0"
+media_server_jellyfin_conf_dir: /app/jellyfin/config
+media_server_jellyfin_cache_dir: /app/jellyfin/cache
+media_server_jellyfin_container_user: jellyfin
+media_server_jellyfin_domain: "tv.{{ internal_domain }}"
+
+# Per-host GPU selection: auto, none, vaapi (AMD/Intel), or qsv (modern Intel).
+# Auto detects a single supported AMD/Intel GPU and selects conservative VA-API.
+media_server_jellyfin_hardware_acceleration: none
+media_server_jellyfin_render_device: auto
+# Managed fields are reconciled offline at startup; other fields stay app-owned.
+media_server_jellyfin_manage_encoding: true
+media_server_jellyfin_hardware_decoding_codecs:
+  - h264
+  - hevc
+# Optional additional device mappings and numeric host supplementary group IDs.
+media_server_jellyfin_devices: []
+media_server_jellyfin_supplementary_groups: []
+
+# Root-owned helper/manifest; contains no passwords or API keys.
+media_server_jellyfin_managed_dir: /etc/jellyfin-managed
+media_server_jellyfin_manage_network: true
+media_server_jellyfin_local_networks:
+  - "{{ internal_network }}/{{ internal_network_netmask_length }}"
+# Add only actual additional proxies or exact VPN CIDRs when needed.
+media_server_jellyfin_extra_known_proxies: []
+media_server_jellyfin_allow_remote_access: false
+media_server_jellyfin_network_settings: {}
+media_server_jellyfin_system_settings:
+  ServerName: Home TV
+  QuickConnectAvailable: true
+media_server_jellyfin_encoding_settings: {}

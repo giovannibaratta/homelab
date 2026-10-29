@@ -1,13 +1,31 @@
 ---
-- name: Ensure group exists with name {{ media_shared_group }}
-  ansible.builtin.group:
-    name: "{{ media_shared_group }}"
-    state: present
-  register: media_group_result
+- name: Validate media server deployment type
+  ansible.builtin.assert:
+    that:
+      - media_server_deployment_type in ['plex', 'jellyfin', 'multi']
+    fail_msg: "media_server_deployment_type must be plex, jellyfin, or multi"
 
-- name: Set media_gid
+- name: Determine enabled media servers for this host
   ansible.builtin.set_fact:
-    media_gid: "{{ media_group_result.gid }}"
+    deploy_media_server_plex: >-
+      {{ (deploy_mediastack | default(false) | bool) and
+         ((media_server_deployment_type == 'plex') or
+          ((media_server_deployment_type == 'multi') and
+           (media_server_multi_deploy_plex | bool))) }}
+    deploy_media_server_jellyfin: >-
+      {{ (deploy_mediastack | default(false) | bool) and
+         ((media_server_deployment_type == 'jellyfin') or
+          ((media_server_deployment_type == 'multi') and
+           (media_server_multi_deploy_jellyfin | bool))) }}
 
-- name: Deploy Plex
-  ansible.builtin.import_tasks: deploy-plex.yaml
+- name: Determine if any media server is enabled
+  ansible.builtin.set_fact:
+    __media_server_any_enabled: >-
+      {{ (deploy_media_server_plex | bool) or
+         (deploy_media_server_jellyfin | bool) }}
+
+- name: Deploy media servers
+  ansible.builtin.import_tasks: deploy_media_server.yaml
+
+- name: Undeploy disabled media servers
+  ansible.builtin.import_tasks: undeploy_media_server.yaml

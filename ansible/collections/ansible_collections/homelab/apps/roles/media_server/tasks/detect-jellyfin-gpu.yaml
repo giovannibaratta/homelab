@@ -1,0 +1,45 @@
+---
+- name: Validate Jellyfin hardware acceleration selection
+  ansible.builtin.assert:
+    that:
+      - media_server_jellyfin_hardware_acceleration in ['auto', 'none', 'vaapi', 'qsv']
+      - "':' not in media_server_jellyfin_managed_dir"
+    fail_msg: "Jellyfin hardware acceleration must be auto, none, vaapi, or qsv; its managed directory must not contain ':'"
+
+- name: Discover Jellyfin GPU through DRM sysfs
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - "{{ lookup('ansible.builtin.file', role_path ~ '/files/detect_jellyfin_gpu.py') }}"
+      - --backend
+      - "{{ media_server_jellyfin_hardware_acceleration }}"
+      - --device
+      - "{{ media_server_jellyfin_render_device }}"
+  register: __media_server_jellyfin_gpu_probe
+  changed_when: false
+  # The probe is read-only; check mode also needs the real device/GID facts.
+  check_mode: false
+
+- name: Store resolved Jellyfin GPU configuration
+  ansible.builtin.set_fact:
+    __media_server_jellyfin_gpu: "{{ __media_server_jellyfin_gpu_probe.stdout | from_json }}"
+
+- name: Initialize Jellyfin device and group mappings
+  ansible.builtin.set_fact:
+    __media_server_jellyfin_devices: "{{ media_server_jellyfin_devices }}"
+    __media_server_jellyfin_groups: "{{ media_server_jellyfin_supplementary_groups | map('string') | list }}"
+
+- name: Add selected GPU and its host group to Jellyfin
+  ansible.builtin.set_fact:
+    __media_server_jellyfin_devices: >-
+      {{ (media_server_jellyfin_devices +
+          [media_server_jellyfin_managed_dir ~ '/render-device:' ~ __media_server_jellyfin_gpu.container_device]) | unique | list }}
+    __media_server_jellyfin_groups: >-
+      {{ ((media_server_jellyfin_supplementary_groups | map('string') | list) +
+          [__media_server_jellyfin_gpu.gid | string]) | unique | list }}
+  when: __media_server_jellyfin_gpu.backend != 'none'
+
+- name: Report selected Jellyfin GPU configuration
+  ansible.builtin.debug:
+    var: __media_server_jellyfin_gpu

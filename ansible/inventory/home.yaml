@@ -156,6 +156,11 @@ home:
       deploy_prometheus: true
       deploy_alertmanager: true
       deploy_mediastack: true
+      media_server_deployment_type: multi
+      media_server_multi_deploy_plex: true
+      media_server_multi_deploy_jellyfin: true
+      # Detect the Radeon GPU, stable render path, backend, and device GID.
+      media_server_jellyfin_hardware_acceleration: auto
       deploy_logging: true
       deploy_home_assistant: true
       # The configured REST sensors need this HTTPS route ready before setup.
