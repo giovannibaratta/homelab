@@ -22,17 +22,22 @@
 
     # A successful listing without this exact key is bootstrap. Permission,
     # missing-bucket and connectivity errors fail normally, never as bootstrap.
-    - name: Check whether the output artifact has been published
-      amazon.aws.s3_object_info:
-        endpoint_url: "{{ s3_read_config_endpoint }}"
-        bucket_name: "{{ s3_read_config_bucket }}"
-        prefix: "{{ s3_read_config_object_key }}"
-        max_keys: 1
-        access_key: "{{ s3_read_config_access_key }}"
-        secret_key: "{{ s3_read_config_secret_key }}"
-        region: "{{ s3_read_config_region }}"
-      register: __s3_read_config_artifact_keys
-      no_log: true
+    - name: Check publication with safe failure reporting
+      block:
+        - name: Check whether the output artifact has been published
+          amazon.aws.s3_object_info:
+            endpoint_url: "{{ s3_read_config_endpoint }}"
+            bucket_name: "{{ s3_read_config_bucket }}"
+            prefix: "{{ s3_read_config_object_key }}"
+            max_keys: 1
+            access_key: "{{ s3_read_config_access_key }}"
+            secret_key: "{{ s3_read_config_secret_key }}"
+            region: "{{ s3_read_config_region }}"
+          register: __s3_read_config_artifact_keys
+          no_log: true
+      rescue:
+        - name: Report a sanitized S3 listing failure
+          ansible.builtin.import_tasks: report_failure.yaml
 
     - name: Read and validate published outputs
       when: s3_read_config_object_key in __s3_read_config_artifact_keys.s3_keys
@@ -69,6 +74,10 @@
             s3_read_config_available: true
             s3_read_config_outputs: "{{ __s3_read_config_artifact.outputs }}"
           no_log: true
+
+      rescue:
+        - name: Report a sanitized artifact read or validation failure
+          ansible.builtin.import_tasks: report_failure.yaml
 
       always:
         - name: Discard raw artifact results
