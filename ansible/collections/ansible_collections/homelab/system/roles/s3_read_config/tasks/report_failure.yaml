@@ -1,0 +1,40 @@
+---
+# Never print the original result/message: even failed module arguments may
+# contain credentials. Publish only fixed categories and allowlisted statuses.
+- name: Classify the private failure result
+  ansible.builtin.set_fact:
+    __s3_read_config_failure_category: >-
+      {% set detail = ansible_failed_result | to_json %}
+      {% if 'Failed to import' in detail or 'ModuleNotFoundError' in detail %}
+      Python dependency unavailable; check boto3 and botocore in the executing interpreter
+      {% elif 'Unsupported parameters' in detail %}
+      Installed AWS collection does not support the requested parameters
+      {% elif 'AccessDenied' in detail or 'Forbidden' in detail %}
+      S3 access denied; check ListBucket and GetObject permissions
+      {% elif 'InvalidAccessKeyId' in detail %}
+      S3 rejected the access key ID
+      {% elif 'SignatureDoesNotMatch' in detail %}
+      S3 signature mismatch; check credentials, endpoint, region and clock
+      {% elif 'NoSuchBucket' in detail %}
+      S3 bucket does not exist
+      {% elif 'EndpointConnectionError' in detail or 'Could not connect to the endpoint' in detail %}
+      S3 endpoint connection failed; check DNS and network access
+      {% elif 'Timeout' in detail or 'timed out' in detail %}
+      S3 request timed out
+      {% elif 'SSLError' in detail or 'SSL validation failed' in detail %}
+      S3 TLS validation failed
+      {% else %}
+      Unclassified S3 request or artifact validation failure; private details suppressed
+      {% endif %}
+    __s3_read_config_failure_status: >-
+      {% set status = (ansible_failed_result.response_metadata | default({})).get('http_status_code', '') | string %}
+      {{ status if status in ['400', '401', '403', '404', '408', '429', '500', '502', '503', '504'] else 'unavailable' }}
+  no_log: true
+
+- name: Fail without exposing credentials or artifact contents
+  ansible.builtin.fail:
+    msg: >-
+      S3 configuration artifact operation failed.
+      Category: {{ __s3_read_config_failure_category | trim }}.
+      HTTP status: {{ __s3_read_config_failure_status | trim }}.
+      The original error, module arguments and artifact contents remain private.
