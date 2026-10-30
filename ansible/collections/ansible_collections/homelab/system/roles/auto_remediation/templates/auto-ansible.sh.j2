@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-# Temporary fix to restore access via VPN
-systemctl enable --now netbird-exit-node netbird-jump-node || true
-
+# Interactive account whose presence delays scheduled execution.
 TARGET_USER="ansible"
-# Window in which the user must not be detected
+# Required continuous absence window, in seconds.
 USER_DETECTION_WINDOW_IN_SECONDS=10
-# How frequently to check for the user
+# Seconds between session checks within the absence window.
 USER_DETECTION_INTERVAL_IN_SECONDS=1
+# Seconds to wait before retrying after detecting an interactive session.
 DETECTED_USER_SLEEP_IN_SECONDS=300
+# Maximum total logout-wait time, in seconds; execution proceeds after this.
 MAX_SLEEP_TIME_IN_SECONDS=$((2 * 60 * 60)) # 2 hours
 
 log() {
@@ -21,6 +22,8 @@ log() {
 #   0 if the user IS FOUND during the check period.
 #   1 if the user IS NOT FOUND
 detect_user() {
+    # Positional inputs: account name, observation window, and polling interval.
+    # Both durations and the loop's elapsed observation time are in seconds.
     local target_user="$1"
     local check_duration="$2"
     local check_interval="$3"
@@ -42,6 +45,7 @@ detect_user() {
 }
 
 wait_for_user_logout() {
+    # Account to monitor; timestamps are Unix seconds, elapsed_time is a duration.
     local target_user="$1"
 
     log "Starting wait loop for user '$target_user' absence (max ${MAX_SLEEP_TIME_IN_SECONDS}s)."
@@ -87,10 +91,66 @@ check_for_running_playbook() {
 }
 
 
+require_option_value() {
+    # Inputs: option name and its candidate value (empty when absent).
+    local option="$1"
+    local value="${2-}"
+    if [[ -z "$value" || "$value" == -* ]]; then
+        log "Error: $option requires a value."
+        exit 2
+    fi
+}
+
+# --debug marker: permits tag/branch overrides and bypasses session detection.
+# Skips metric export; verbosity and no_log handling are unchanged.
+DEBUG=false
+# --tags selection forwarded as one argument; empty means the full playbook.
+ANSIBLE_TAGS=""
+# Debug branch cloned from origin; empty defaults to main.
+GIT_BRANCH=""
+# Enabled by --debug or the independent --skip-user-logout-check flag.
 SKIP_USER_LOGOUT_CHECK=false
-if [[ "$1" == "--skip-user-logout-check" ]]; then
-    log "Flag --skip-user-logout-check detected. Skipping user logout wait."
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --debug)
+            DEBUG=true
+            shift
+            ;;
+        --tags)
+            require_option_value "$1" "${2-}"
+            ANSIBLE_TAGS="$2"
+            shift 2
+            ;;
+        --branch)
+            require_option_value "$1" "${2-}"
+            GIT_BRANCH="$2"
+            shift 2
+            ;;
+        --skip-user-logout-check)
+            SKIP_USER_LOGOUT_CHECK=true
+            shift
+            ;;
+        *)
+            log "Error: Unknown argument: $1"
+            exit 2
+            ;;
+    esac
+done
+
+if [[ "$DEBUG" != true && ( -n "$ANSIBLE_TAGS" || -n "$GIT_BRANCH" ) ]]; then
+    log "Error: --tags and --branch require --debug."
+    exit 2
+fi
+
+if [[ -n "$GIT_BRANCH" ]] && ! git check-ref-format --branch "$GIT_BRANCH" >/dev/null 2>&1; then
+    log "Error: Invalid branch name."
+    exit 2
+fi
+
+if [[ "$DEBUG" == true ]]; then
     SKIP_USER_LOGOUT_CHECK=true
+    log "Debug mode: skipping user login/logout detection."
 fi
 
 if [ "$SKIP_USER_LOGOUT_CHECK" = false ]; then
@@ -99,26 +159,98 @@ fi
 
 check_for_running_playbook
 
+# Installed runner directory containing repo/, python-env/, and config/.
 ROOT_DIR="/app/auto-ansible"
 
 source "${ROOT_DIR}/python-env/bin/activate"
 
-log "Pulling latest changes from git"
-git -C "${ROOT_DIR}/repo" pull
+# Playbook source; debug mode replaces this with an isolated temporary clone.
+RUN_REPO_DIR="${ROOT_DIR}/repo"
+# Allocated only in debug mode; the EXIT trap removes it on success or failure.
+DEBUG_DIR=""
+
+cleanup_debug_checkout() {
+    # Preserve the failing command/Ansible status even if cleanup fails.
+    local exit_code=$?
+    trap - EXIT
+    if [[ -n "$DEBUG_DIR" ]]; then
+        rm -rf -- "$DEBUG_DIR" || log "Could not remove debug checkout: ${DEBUG_DIR}"
+    fi
+    exit "$exit_code"
+}
+
+if [[ "$DEBUG" == true ]]; then
+    # Read origin without fetching, switching, or modifying the scheduled repo.
+    # Remote URL used only for the fresh clone, never printed by the script.
+    REPO_URL=$(git -C "$RUN_REPO_DIR" remote get-url origin)
+    DEBUG_DIR=$(mktemp -d "${TMPDIR:-/tmp}/auto-ansible-debug.XXXXXXXX")
+    trap cleanup_debug_checkout EXIT
+    GIT_BRANCH="${GIT_BRANCH:-main}"
+    RUN_REPO_DIR="${DEBUG_DIR}/repo"
+    log "Cloning debug branch ${GIT_BRANCH} into ${RUN_REPO_DIR}"
+    git clone --depth 1 --single-branch --branch "$GIT_BRANCH" -- "$REPO_URL" "$RUN_REPO_DIR"
+    git -C "$RUN_REPO_DIR" checkout --detach HEAD
+else
+    # Refuse local changes, a different branch, or local-only/divergent commits.
+    # Porcelain status includes staged, unstaged, and untracked files.
+    CHECKOUT_STATUS=$(git -C "$RUN_REPO_DIR" status --porcelain)
+    if [[ -n "$CHECKOUT_STATUS" ]]; then
+        log "Error: Scheduled checkout has local changes; leaving it untouched."
+        exit 1
+    fi
+    # Empty for detached HEAD, which is also rejected for scheduled runs.
+    CURRENT_BRANCH=$(git -C "$RUN_REPO_DIR" branch --show-current)
+    if [[ "$CURRENT_BRANCH" != main ]]; then
+        log "Error: Scheduled checkout must be on main."
+        exit 1
+    fi
+    log "Fetching main for the scheduled checkout"
+    git -C "$RUN_REPO_DIR" fetch origin refs/heads/main:refs/remotes/origin/main
+    if ! git -C "$RUN_REPO_DIR" merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+        log "Error: Scheduled checkout has local-only commits or diverges from origin/main."
+        exit 1
+    fi
+    git -C "$RUN_REPO_DIR" merge --ff-only refs/remotes/origin/main
+fi
+
+# Private Bitwarden token; passed only via the playbook process environment.
 BWS_TOKEN=$(cat "${ROOT_DIR}/config/bws_access_token")
 
+# Bash array preserves argument boundaries, including comma-separated tag lists.
+# inventory_hostname is rendered by Ansible when installing this script.
+ANSIBLE_ARGS=(--connection=local --limit "{{ inventory_hostname }}" "${RUN_REPO_DIR}/ansible/setup_homelab.yaml" -i "${RUN_REPO_DIR}/ansible/inventory/home.yaml" -v)
+
+if [[ -n "$ANSIBLE_TAGS" ]]; then
+    ANSIBLE_ARGS+=(--tags "$ANSIBLE_TAGS")
+fi
+
 log "Running ansible playbook"
-BWS_ACCESS_TOKEN="${BWS_TOKEN}" ansible-playbook --connection=local --limit "{{ inventory_hostname }}" "${ROOT_DIR}/repo/ansible/setup_homelab.yaml" -i "${ROOT_DIR}/repo/ansible/inventory/home.yaml" -v
-EXIT_CODE=$?
+# Resolve ansible.cfg, fact cache and project collections from this checkout.
+cd "${RUN_REPO_DIR}/ansible"
+# A playbook failure must still reach the metrics export under errexit.
+# EXIT_CODE retains Ansible's process status and becomes this script's exit code.
+if BWS_ACCESS_TOKEN="${BWS_TOKEN}" ansible-playbook "${ANSIBLE_ARGS[@]}"; then
+    EXIT_CODE=0
+else
+    EXIT_CODE=$?
+fi
+
+if [[ "$DEBUG" == true ]]; then
+    log "Debug run finished with exit code ${EXIT_CODE}; skipping metrics export."
+    exit "$EXIT_CODE"
+fi
 
 # Prometheus metrics export
+# node_exporter's textfile collector directory and the persisted runner metrics.
 METRICS_DIR="/var/lib/node_exporter/textfile_collector"
 METRICS_FILE="${METRICS_DIR}/auto_ansible.prom"
 
 log "Exporting metrics to ${METRICS_FILE}"
 mkdir -p "${METRICS_DIR}"
 
-# Initialize counters if they don't exist
+# Persistent counts, including the current run after the increments below.
+# RUNS counts completed playbook invocations; FAILURES counts unsuccessful ones.
+# CONSECUTIVE_FAILURES resets on success; "missing" marks an older metrics file.
 RUNS=0
 FAILURES=0
 CONSECUTIVE_FAILURES=0
@@ -129,6 +261,7 @@ if [ -f "$METRICS_FILE" ]; then
     CONSECUTIVE_FAILURES=$(awk '$1 == "auto_ansible_consecutive_failures" { print $2; found=1; exit } END { if (!found) print "missing" }' "$METRICS_FILE")
     if [ "$CONSECUTIVE_FAILURES" = "missing" ]; then
         # Seed the new streak metric from the last known run during migration.
+        # Previous exported status: 1=success, 0=failure, empty=unknown.
         PREVIOUS_STATUS=$(awk '$1 == "auto_ansible_last_run_status" { print $2; found=1; exit } END { if (!found) print "" }' "$METRICS_FILE")
         if [ "$PREVIOUS_STATUS" = "0" ]; then
             CONSECUTIVE_FAILURES=1
@@ -139,6 +272,7 @@ if [ -f "$METRICS_FILE" ]; then
 fi
 
 RUNS=$((RUNS + 1))
+# Prometheus success gauge (1=success, 0=failure), unlike the process EXIT_CODE.
 STATUS=1
 if [ $EXIT_CODE -ne 0 ]; then
     FAILURES=$((FAILURES + 1))
@@ -150,7 +284,8 @@ else
     log "Ansible playbook completed successfully"
 fi
 
-# Use a temporary file to avoid partial reads by node_exporter
+# Staging path in the same directory; renamed atomically to METRICS_FILE so
+# node_exporter never reads a partially written metrics snapshot.
 TEMP_METRICS_FILE="${METRICS_FILE}.tmp"
 cat <<EOF > "${TEMP_METRICS_FILE}"
 # HELP auto_ansible_last_run_timestamp_seconds Timestamp of the last auto-ansible run.
