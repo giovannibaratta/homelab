@@ -1,6 +1,6 @@
 ---
 # Available versions https://github.com/home-assistant/core/releases
-home_assistant_version: "2026.8.3"
+home_assistant_version: "2026.10.4"
 home_assistant_conf_dir: /app/home-assistant/conf
 home_assistant_data_dir: /app/home-assistant/data
 home_assistant_container_user: home-assistant
