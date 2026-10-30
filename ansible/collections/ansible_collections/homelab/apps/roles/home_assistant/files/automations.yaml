@@ -192,13 +192,24 @@
   mode: single
 - id: '1768822000001'
   alias: UPS On Battery
-  description: 'Notify when the UPS switches to battery power'
+  description: 'Remember battery operation and notify once per observed outage'
   triggers:
     - trigger: state
       entity_id: sensor.tecnoware_status_data
       to: 'OB'
-  conditions: []
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: state
+      entity_id: sensor.tecnoware_status_data
+      state: 'OB'
+    - condition: state
+      entity_id: input_boolean.ups_on_battery_observed
+      state: 'off'
   actions:
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.ups_on_battery_observed
     - action: telegram_bot.send_message
       metadata: {}
       data:
@@ -224,13 +235,24 @@
   mode: single
 - id: '1768822000003'
   alias: UPS Back Online
-  description: 'Notify when the UPS switches back to online power'
+  description: 'Notify on return to mains only after observed battery operation, including across connection loss'
   triggers:
     - trigger: state
       entity_id: sensor.tecnoware_status_data
       to: 'OL'
-  conditions: []
+    - trigger: homeassistant
+      event: start
+  conditions:
+    - condition: state
+      entity_id: sensor.tecnoware_status_data
+      state: 'OL'
+    - condition: state
+      entity_id: input_boolean.ups_on_battery_observed
+      state: 'on'
   actions:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.ups_on_battery_observed
     - action: telegram_bot.send_message
       metadata: {}
       data:

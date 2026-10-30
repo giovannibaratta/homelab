@@ -4,6 +4,13 @@ default_config:
 automation: !include automations.yaml
 script: !include scripts.yaml
 
+# Remember observed battery operation across NUT disconnects and HA restarts.
+# No initial value: restore the previous state, or start off on first creation.
+input_boolean:
+  ups_on_battery_observed:
+    name: UPS battery operation observed
+    icon: mdi:battery-alert
+
 # Database configuration
 recorder:
   db_url: {{ home_assistant_recorder_db_url }}
