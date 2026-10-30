@@ -9,6 +9,16 @@ groups:
     annotations:
       summary: Host high CPU load (instance {{ '{{' }} $labels.job {{ '}}' }})
       description: "CPU load is > 80%\n  VALUE = {{ '{{' }}  $value {{ '}}' }}\n  LABELS = {{ '{{' }}  $labels {{ '}}' }}"
+  - alert: HostCpuCoreHighUsage
+    # Keep the cpu label: host-wide averages hide a single saturated core.
+    expr: 100 * (1 - rate(node_cpu_seconds_total{mode="idle"}[5m])) > 90
+    for: 4h
+    labels:
+      severity: warning
+      component: cpu
+    annotations:
+      summary: "Sustained high usage on CPU {{ '{{' }} $labels.cpu {{ '}}' }} of {{ '{{' }} $labels.instance {{ '}}' }}"
+      description: "Logical CPU {{ '{{' }} $labels.cpu {{ '}}' }} on {{ '{{' }} $labels.instance {{ '}}' }} (job {{ '{{' }} $labels.job {{ '}}' }}) has remained above 90% non-idle usage (5-minute average) for 4 hours. Current usage: {{ '{{' }} $value {{ '}}' }}%."
   - alert: HostNoWeeklyReboot
     # 619200 = 7 days and 4 hours (randomization of reboot time)
     expr: (node_time_seconds - node_boot_time_seconds{reboot_enabled="true"}) > 619200
