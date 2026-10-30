@@ -12,6 +12,7 @@ __base_packages_to_install:
   - python3-requests # Required by nftables-geoip
   - python3-kubernetes # Required by Ansible Kubernetes modules
   - python3-boto3 # Required to read/publish the private S3 IDP output artifact
+  - python3-botocore # Low-level AWS SDK used by the same S3 modules
 validate_health_before_update: []
 
 install_terraform: true
