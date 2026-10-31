@@ -1,0 +1,52 @@
+---
+- name: Require Grafana administrator credentials
+  ansible.builtin.assert:
+    that:
+      - grafana_password is defined
+      - grafana_password is string
+      - grafana_password | length > 0
+    fail_msg: Provide grafana_password from the secret bundle.
+  no_log: true
+
+- name: Prepare shared Grafana settings
+  ansible.builtin.set_fact:
+    __grafana_ini:
+      server:
+        root_url: "https://{{ grafana_hostname }}"
+      security:
+        admin_user: "{{ grafana_admin_user }}"
+        disable_initial_admin_creation: false
+      log:
+        mode: console
+
+- name: Render the common configuration and dashboard definitions
+  ansible.builtin.set_fact:
+    __grafana_config_files:
+      grafana.ini: "{{ lookup('ansible.builtin.template', 'grafana.ini.j2') }}"
+      datasources.yaml: "{{ lookup('ansible.builtin.template', 'datasources.yaml.j2') }}"
+      node_exporter.yaml: "{{ lookup('ansible.builtin.template', 'dashboard-provider.yaml.j2', template_vars={'grafana_provider_name': 'node_exporter_dashboard', 'grafana_dashboard_filename': 'node_exporter_full.json'}) }}"
+      process_exporter.yaml: "{{ lookup('ansible.builtin.template', 'dashboard-provider.yaml.j2', template_vars={'grafana_provider_name': 'process_exporter_dashboard', 'grafana_dashboard_filename': 'process_exporter.json'}) }}"
+      ping_exporter.yaml: "{{ lookup('ansible.builtin.template', 'dashboard-provider.yaml.j2', template_vars={'grafana_provider_name': 'ping_exporter_dashboard', 'grafana_dashboard_filename': 'ping_exporter.json'}) }}"
+    __grafana_dashboard_files:
+      node_exporter_full.json: "{{ lookup('ansible.builtin.file', 'dashboards/node_exporter_full_1860_rev37.json') | from_json | to_json }}"
+      # File provisioning does not resolve interactive dashboard import inputs.
+      # Supply the datasource and a stable UID for fresh ephemeral databases.
+      process_exporter.json: >-
+        {{ lookup('ansible.builtin.file', 'dashboards/process_exporter_4202_rev1.json')
+           | replace('${DS_PROMETHEUS}', 'Prometheus') | from_json
+           | combine({'uid': 'process-exporter'}) | to_json }}
+      ping_exporter.json: "{{ lookup('ansible.builtin.template', 'network.json.j2', convert_data=False) | from_json | to_json }}"
+  no_log: true
+
+- name: Calculate the Grafana configuration revision
+  ansible.builtin.set_fact:
+    __grafana_config_checksum: "{{ [__grafana_config_files, __grafana_dashboard_files, grafana_password] | to_json | hash('sha256') }}"
+  no_log: true
+
+- name: Check Grafana ConfigMap payload sizes
+  ansible.builtin.assert:
+    that:
+      - __grafana_config_files | to_json | length < 1048576
+      - __grafana_dashboard_files | to_json | length < 1048576
+    fail_msg: Split Grafana provisioning into smaller ConfigMaps before exceeding the Kubernetes size limit.
+  when: grafana_deployment_type == 'k8s'

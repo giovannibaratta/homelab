@@ -1,0 +1,10 @@
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    uid: prometheus_ds
+    url: {{ grafana_prometheus_url | to_json }}
+    isDefault: true
+    version: 1
+    editable: false

@@ -1,185 +1,28 @@
 ---
-- name: Create Grafana configuration directories
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0755"
-    owner: root
-    group: root
-  with_items:
-    - /app/grafana/conf
-    - /app/grafana/conf/provisioning
-    - /app/grafana/conf/provisioning/datasources
-    - /app/grafana/conf/provisioning/dashboards
-    - /app/grafana/conf/provisioning/alerting
-    - /app/grafana/conf/provisioning/plugins
-    - /app/grafana/conf/provisioning/dashboards/system
+- name: Validate Grafana backend selection
+  ansible.builtin.assert:
+    that:
+      - grafana_deployment_type is defined
+      - grafana_deployment_type in ['podman', 'k8s']
+    fail_msg: Explicitly set grafana_deployment_type to podman or k8s in the calling playbook.
 
-- name: Copy datasource file
-  ansible.builtin.copy:
-    content: |
-      apiVersion: 1
+- name: Determine Grafana lifecycle targets
+  ansible.builtin.set_fact:
+    __grafana_podman_enabled: "{{ (deploy_grafana | default(false) | bool) and grafana_deployment_type == 'podman' }}"
+    # Cluster desired state is shared: a disabled host must not remove Grafana
+    # while another inventory host still enables the Kubernetes backend.
+    __grafana_k8s_hosts: >-
+      {%- set ns = namespace(hosts=[]) -%}
+      {%- for host in groups['all'] -%}
+      {%- if (hostvars[host].deploy_grafana | default(false) | bool)
+            and grafana_deployment_type == 'k8s' -%}
+      {%- set ns.hosts = ns.hosts + [host] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ ns.hosts }}
 
-      datasources:
-        - name: Prometheus
-          type: prometheus
-          access: proxy
-          uid: prometheus_ds
-          url: https://prometheus.{{ internal_domain }}
-          isDefault: true
-          # Used to compare versions when updating.
-          version: 1
-          editable: false
+- name: Deploy Grafana
+  ansible.builtin.import_tasks: deploy_grafana.yaml
 
-    dest: /app/grafana/conf/provisioning/datasources/prometheus.yaml
-    mode: "0644"
-    owner: root
-    group: root
-
-- name: Copy node_exporter dashboard config
-  ansible.builtin.copy:
-    content: |
-      apiVersion: 1
-
-      providers:
-        - name: node_exporter_dashboard
-          folder: 'system'
-          type: file
-          disableDeletion: true
-          # how often Grafana will scan for changed dashboards
-          updateIntervalSeconds: 300
-          allowUiUpdates: false
-          options:
-            path: /opt/grafana/conf/provisioning/dashboards/system/node_exporter_full.json
-            foldersFromFilesStructure: true
-
-    dest: /app/grafana/conf/provisioning/dashboards/node_exporter.yaml
-    mode: "0644"
-    owner: root
-    group: root
-
-- name: Copy process_exporter dashboard config
-  ansible.builtin.copy:
-    content: |
-      apiVersion: 1
-
-      providers:
-        - name: process_exporter_dashboard
-          folder: 'system'
-          type: file
-          disableDeletion: true
-          # how often Grafana will scan for changed dashboards
-          updateIntervalSeconds: 300
-          allowUiUpdates: false
-          options:
-            path: /opt/grafana/conf/provisioning/dashboards/system/process_exporter.json
-            foldersFromFilesStructure: true
-
-    dest: /app/grafana/conf/provisioning/dashboards/process_exporter.yaml
-    mode: "0644"
-    owner: root
-    group: root
-
-- name: Copy ping_exporter dashboard config
-  ansible.builtin.copy:
-    content: |
-      apiVersion: 1
-
-      providers:
-        - name: ping_exporter_dashboard
-          folder: 'system'
-          type: file
-          disableDeletion: true
-          # how often Grafana will scan for changed dashboards
-          updateIntervalSeconds: 300
-          allowUiUpdates: false
-          options:
-            path: /opt/grafana/conf/provisioning/dashboards/system/ping_exporter.json
-            foldersFromFilesStructure: true
-
-    dest: /app/grafana/conf/provisioning/dashboards/ping_exporter.yaml
-    mode: "0644"
-    owner: root
-    group: root
-
-- name: Copy node_exporter full dashboard
-  ansible.builtin.copy:
-    # https://grafana.com/grafana/dashboards/1860-node-exporter-full/
-    src: dashboards/node_exporter_full_1860_rev37.json
-    dest: /app/grafana/conf/provisioning/dashboards/system/node_exporter_full.json
-    mode: "0644"
-    owner: root
-    group: root
-
-- name: Copy process_exporter dashboard
-  ansible.builtin.copy:
-    # https://grafana.com/grafana/dashboards/4202-named-processes-by-interval-processes-host/
-    src: dashboards/process_exporter_4202_rev1.json
-    dest: /app/grafana/conf/provisioning/dashboards/system/process_exporter.json
-    mode: "0644"
-    owner: root
-    group: root
-
-- name: Copy ping exporter dashboard
-  ansible.builtin.template:
-    src: network.json.j2
-    dest: /app/grafana/conf/provisioning/dashboards/system/ping_exporter.json
-    mode: "0644"
-    owner: root
-    group: root
-
-- name: Copy grafana.ini configuration
-  ansible.builtin.copy:
-    content: |
-      [security]
-      admin_user = admin
-      admin_password = {{ grafana_password | default(admin) }}
-      disable_initial_admin_creation = false
-
-    dest: /app/grafana/conf/grafana.ini
-    mode: "0644"
-    owner: root
-    group: root
-  notify: Restart Grafana service
-
-- name: Create Grafana Quadlet
-  containers.podman.podman_container:
-    name: grafana
-    state: quadlet
-    image: "docker.io/grafana/grafana-oss:{{ grafana_version }}"
-    recreate: true
-    rm: true
-    restart_policy: "on-failure"
-    dns: "{{ podman_dns }}"
-
-    volumes:
-      - "/app/grafana/conf:/opt/grafana/conf"
-
-    env:
-      GF_PATHS_CONFIG: "/opt/grafana/conf/grafana.ini"
-      GF_PATHS_PROVISIONING: "/opt/grafana/conf/provisioning"
-
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.grafana.rule: "Host(`grafana.{{ internal_domain }}`)"
-      traefik.http.routers.grafana.entrypoints: "websecure"
-      traefik.http.routers.grafana.tls.certresolver: "letsencrypt"
-      traefik.http.routers.grafana.tls.domains[0].main: "grafana.{{ internal_domain }}"
-      traefik.http.services.grafana.loadbalancer.server.port: "3000"
-
-    quadlet_options:
-      - |
-        [Install]
-        WantedBy=default.target
-  notify:
-    - Reload systemd daemons
-    - Restart Grafana service
-
-- name: Flush handlers for Grafana
-  ansible.builtin.meta: flush_handlers
-
-- name: Enable and start grafana service
-  ansible.builtin.systemd_service:
-    name: grafana.service
-    enabled: true
-    state: started
+- name: Undeploy unwanted Grafana backends
+  ansible.builtin.import_tasks: undeploy_grafana.yaml

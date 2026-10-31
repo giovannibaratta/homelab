@@ -1,0 +1,67 @@
+---
+- name: Remove Podman Grafana when disabled or managed by Kubernetes
+  when: not (__grafana_podman_enabled | bool)
+  block:
+    - name: Gather services for Grafana cleanup
+      ansible.builtin.service_facts:
+
+    - name: Stop the existing Grafana service
+      ansible.builtin.systemd_service:
+        name: grafana.service
+        state: stopped
+      when: "'grafana.service' in ansible_facts.services"
+
+    # Quadlet services are generated. Removing the definition disables startup.
+    # Preserve /app/grafana/conf; the operator may need it for rollback.
+    - name: Remove Grafana Quadlet definition
+      ansible.builtin.file:
+        path: /etc/containers/systemd/grafana.container
+        state: absent
+      register: __grafana_quadlet_removed
+
+    - name: Reload systemd after Grafana Quadlet removal
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: __grafana_quadlet_removed.changed
+
+- name: Remove Kubernetes Grafana only when no inventory host wants it
+  run_once: true
+  when: __grafana_k8s_hosts | length == 0
+  block:
+    - name: Check for Kubernetes management credentials
+      ansible.builtin.stat:
+        path: "{{ grafana_k8s_kubeconfig }}"
+      register: __grafana_kubeconfig
+
+    - name: Find the Grafana namespace
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ grafana_k8s_kubeconfig }}"
+        api_version: v1
+        kind: Namespace
+        name: "{{ grafana_k8s_namespace }}"
+      register: __grafana_namespace
+      when: __grafana_kubeconfig.stat.exists
+
+    - name: Remove the Grafana Helm release and its external Secret
+      when:
+        - __grafana_kubeconfig.stat.exists
+        - (__grafana_namespace.resources | default([])) | length > 0
+        - (__grafana_namespace.resources[0].metadata.labels | default({})).get('app.kubernetes.io/part-of', '') == 'grafana'
+      block:
+        - name: Uninstall the Grafana Helm release
+          kubernetes.core.helm:
+            kubeconfig: "{{ grafana_k8s_kubeconfig }}"
+            name: grafana
+            release_namespace: "{{ grafana_k8s_namespace }}"
+            state: absent
+            wait: true
+            wait_timeout: "{{ grafana_k8s_wait_timeout }}s"
+
+        - name: Remove the Grafana administrator Secret
+          kubernetes.core.k8s:
+            kubeconfig: "{{ grafana_k8s_kubeconfig }}"
+            state: absent
+            api_version: v1
+            kind: Secret
+            name: grafana-admin
+            namespace: "{{ grafana_k8s_namespace }}"

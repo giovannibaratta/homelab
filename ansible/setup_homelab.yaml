@@ -17,6 +17,8 @@
     vpn_service_provider: nordvpn
     ingress_traefik_metrics_enabled: true
     ingress_traefik_metrics_port: 8082
+    # Explicit Grafana backend; override with -e grafana_deployment_type=podman.
+    grafana_deployment_type: k8s
 
   pre_tasks:
     - name: Verify Ansible version
@@ -327,11 +329,9 @@
       ignore_errors: yes
       tags: prometheus
 
-    - when: deploy_grafana
-      ansible.builtin.import_role:
+    - ansible.builtin.import_role:
         name: homelab.apps.grafana
       become: true
-      ignore_errors: yes
       tags: grafana
 
     - when: deploy_mqtt

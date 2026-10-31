@@ -1,0 +1,49 @@
+---
+- name: Create the Grafana namespace
+  kubernetes.core.k8s:
+    kubeconfig: "{{ grafana_k8s_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ grafana_k8s_namespace }}"
+        labels:
+          app.kubernetes.io/part-of: grafana
+          pod-security.kubernetes.io/enforce: restricted
+          pod-security.kubernetes.io/audit: restricted
+          pod-security.kubernetes.io/warn: restricted
+
+- name: Apply Grafana administrator Secret
+  kubernetes.core.k8s:
+    kubeconfig: "{{ grafana_k8s_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: grafana-admin
+        namespace: "{{ grafana_k8s_namespace }}"
+        labels:
+          app.kubernetes.io/name: grafana
+          app.kubernetes.io/managed-by: ansible
+      type: Opaque
+      data:
+        admin-user: "{{ grafana_admin_user | b64encode }}"
+        admin-password: "{{ grafana_password | b64encode }}"
+  no_log: true
+
+- name: Deploy Grafana Helm release and wait for readiness
+  kubernetes.core.helm:
+    kubeconfig: "{{ grafana_k8s_kubeconfig }}"
+    name: grafana
+    release_namespace: "{{ grafana_k8s_namespace }}"
+    chart_ref: grafana
+    chart_repo_url: "{{ grafana_helm_repository_url }}"
+    chart_version: "{{ grafana_helm_chart_version }}"
+    state: present
+    reset_values: true
+    atomic: true
+    wait: true
+    wait_timeout: "{{ grafana_k8s_wait_timeout }}s"
+    values: "{{ lookup('ansible.builtin.template', 'helm-values.yaml.j2') | from_yaml }}"

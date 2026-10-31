@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: {{ grafana_provider_name }}
+    folder: system
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 300
+    allowUiUpdates: false
+    options:
+      path: /opt/grafana/conf/provisioning/dashboards/system/{{ grafana_dashboard_filename }}

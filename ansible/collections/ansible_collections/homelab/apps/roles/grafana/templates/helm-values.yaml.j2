@@ -1,0 +1,80 @@
+fullnameOverride: grafana
+replicas: 1
+image:
+  registry: docker.io
+  repository: {{ grafana_image_repository | to_json }}
+  tag: {{ grafana_version | string | to_json }}
+deploymentStrategy:
+  type: Recreate
+persistence:
+  enabled: false
+initChownData:
+  enabled: false
+admin:
+  existingSecret: grafana-admin
+  userKey: admin-user
+  passwordKey: admin-password
+podAnnotations:
+  checksum/provisioning: {{ __grafana_config_checksum | to_json }}
+rbac:
+  create: false
+serviceAccount:
+  create: false
+automountServiceAccountToken: false
+testFramework:
+  enabled: false
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
+  seccompProfile:
+    type: RuntimeDefault
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+startupProbe:
+  httpGet:
+    path: /api/health
+    port: grafana
+  periodSeconds: 5
+  failureThreshold: 36
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+    ephemeral-storage: 64Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+    ephemeral-storage: {{ grafana_k8s_ephemeral_storage_limit }}
+service:
+  type: ClusterIP
+  port: 3000
+ingress:
+  enabled: true
+  ingressClassName: {{ grafana_k8s_ingress_class }}
+  hosts:
+    - {{ grafana_hostname | to_json }}
+  path: /
+  pathType: Prefix
+grafana.ini:
+{{ __grafana_ini | to_nice_yaml(indent=2) | indent(2, true) }}
+datasources:
+  prometheus.yaml:
+{{ __grafana_config_files['datasources.yaml'] | from_yaml | to_nice_yaml(indent=2) | indent(4, true) }}
+dashboardProviders:
+  system.yaml:
+    apiVersion: 1
+    # The chart's init container creates this path as a directory. It must
+    # never include a JSON filename, which would block the file's subPath mount.
+    providers:
+{{ [((__grafana_config_files['node_exporter.yaml'] | from_yaml).providers[0] | combine({'name': 'system', 'options': {'path': '/var/lib/grafana/dashboards/system'}}))] | to_nice_yaml(indent=2) | indent(6, true) }}
+dashboards:
+  system:
+{% for filename, content in __grafana_dashboard_files.items() %}
+    {{ filename[:-5] }}:
+      json: {{ content | to_json }}
+{% endfor %}

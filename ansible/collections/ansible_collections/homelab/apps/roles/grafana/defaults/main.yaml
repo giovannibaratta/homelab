@@ -1,1 +1,16 @@
-grafana_version: 12.0.4
+# Available versions: https://github.com/grafana/grafana/releases
+grafana_version: "13.3.0"
+grafana_image_repository: grafana/grafana
+grafana_admin_user: admin
+grafana_hostname: "grafana.{{ internal_domain }}"
+grafana_prometheus_url: "https://prometheus.{{ internal_domain }}"
+grafana_podman_conf_dir: /app/grafana/conf
+
+grafana_k8s_namespace: grafana
+grafana_k8s_kubeconfig: /etc/kubernetes/admin.conf
+grafana_k8s_ingress_class: traefik
+grafana_k8s_wait_timeout: 180
+grafana_k8s_ephemeral_storage_limit: 1Gi
+# Chart and application versions are pinned independently.
+grafana_helm_chart_version: "14.2.0"
+grafana_helm_repository_url: https://grafana-community.github.io/helm-charts

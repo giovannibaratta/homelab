@@ -1,0 +1,23 @@
+---
+- name: Deploy Podman Grafana on enabled hosts
+  when:
+    - deploy_grafana | default(false) | bool
+    - grafana_deployment_type == 'podman'
+  block:
+    - name: Prepare shared Grafana provisioning for Podman
+      ansible.builtin.import_tasks: configure.yaml
+
+    - name: Deploy Grafana with Podman
+      ansible.builtin.import_tasks: deploy_podman.yaml
+
+- name: Deploy Kubernetes Grafana once for the play
+  # Evaluate cluster intent, not the first host's per-host deployment flag.
+  # Ansible automatically uses the first active host in the play.
+  run_once: true
+  when: __grafana_k8s_hosts | length > 0
+  block:
+    - name: Prepare shared Grafana provisioning for Kubernetes
+      ansible.builtin.import_tasks: configure.yaml
+
+    - name: Deploy Grafana with Kubernetes
+      ansible.builtin.import_tasks: deploy_k8s.yaml

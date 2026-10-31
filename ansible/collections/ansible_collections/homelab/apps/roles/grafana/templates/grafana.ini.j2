@@ -1,0 +1,7 @@
+{% for section, settings in __grafana_ini.items() %}
+[{{ section }}]
+{% for key, value in settings.items() %}
+{{ key }} = {{ (value | string | lower) if value is boolean else value }}
+{% endfor %}
+
+{% endfor %}

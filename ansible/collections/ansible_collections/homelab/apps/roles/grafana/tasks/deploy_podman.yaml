@@ -1,0 +1,81 @@
+---
+- name: Create Grafana configuration directories
+  ansible.builtin.file:
+    path: "{{ grafana_podman_conf_dir }}/{{ item }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+  loop:
+    - ""
+    - provisioning/datasources
+    - provisioning/dashboards/system
+    - provisioning/alerting
+    - provisioning/plugins
+
+- name: Copy common Grafana configuration
+  ansible.builtin.copy:
+    content: "{{ __grafana_config_files[item.key] }}"
+    dest: "{{ grafana_podman_conf_dir }}/{{ item.path }}"
+    mode: "0644"
+    owner: root
+    group: root
+  loop:
+    - {key: grafana.ini, path: grafana.ini}
+    - {key: datasources.yaml, path: provisioning/datasources/prometheus.yaml}
+    - {key: node_exporter.yaml, path: provisioning/dashboards/node_exporter.yaml}
+    - {key: process_exporter.yaml, path: provisioning/dashboards/process_exporter.yaml}
+    - {key: ping_exporter.yaml, path: provisioning/dashboards/ping_exporter.yaml}
+  notify: Restart Grafana service
+
+- name: Copy common Grafana dashboards
+  ansible.builtin.copy:
+    content: "{{ item.value }}"
+    dest: "{{ grafana_podman_conf_dir }}/provisioning/dashboards/system/{{ item.key }}"
+    mode: "0644"
+    owner: root
+    group: root
+  loop: "{{ __grafana_dashboard_files | dict2items }}"
+  no_log: true
+  notify: Restart Grafana service
+
+- name: Create Grafana Quadlet
+  containers.podman.podman_container:
+    name: grafana
+    state: quadlet
+    image: "docker.io/{{ grafana_image_repository }}:{{ grafana_version }}"
+    recreate: true
+    rm: true
+    restart_policy: on-failure
+    dns: "{{ podman_dns }}"
+    volumes:
+      - "{{ grafana_podman_conf_dir }}:/opt/grafana/conf:ro"
+    env:
+      GF_PATHS_CONFIG: /opt/grafana/conf/grafana.ini
+      GF_PATHS_PROVISIONING: /opt/grafana/conf/provisioning
+      GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_password }}"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.grafana.rule: "Host(`{{ grafana_hostname }}`)"
+      traefik.http.routers.grafana.entrypoints: websecure
+      traefik.http.routers.grafana.middlewares: default-chain@file
+      traefik.http.routers.grafana.tls.certresolver: letsencrypt
+      traefik.http.routers.grafana.tls.domains[0].main: "{{ grafana_hostname }}"
+      traefik.http.services.grafana.loadbalancer.server.port: "3000"
+    quadlet_options:
+      - |
+        [Install]
+        WantedBy=default.target
+  no_log: true
+  notify:
+    - Reload Grafana systemd units
+    - Restart Grafana service
+
+- name: Flush Grafana handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start Grafana
+  ansible.builtin.systemd_service:
+    name: grafana.service
+    enabled: true
+    state: started
