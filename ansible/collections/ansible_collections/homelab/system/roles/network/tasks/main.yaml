@@ -284,8 +284,20 @@
     state: present
 
 - name: Generate list of allowed IPs
-  ansible.builtin.shell: |
-    /app/nftables-geoip/repo/nft_geoip.py --download -c es,fr,pt,it,de,ie,gb,ch,se,no,us --output-dir /app/nftables-geoip/ip-lists --file-location /app/nftables-geoip/repo/location.csv
+  ansible.builtin.command:
+    # Upstream --download runs during argument parsing. Set --output-dir first
+    # or it writes dbip.csv into the current working directory instead.
+    argv:
+      - /usr/bin/python3
+      - /app/nftables-geoip/repo/nft_geoip.py
+      - --output-dir
+      - /app/nftables-geoip/ip-lists
+      - --file-location
+      - /app/nftables-geoip/repo/location.csv
+      - --download
+      - -c
+      - es,fr,pt,it,de,ie,gb,ch,se,no,us
+    chdir: /app/nftables-geoip
 
 - name: Create override directory for nftables service
   ansible.builtin.file:
