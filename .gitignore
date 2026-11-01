@@ -1,3 +1,6 @@
 .vscode
 archived_plans
 ansible/.ansible
+.venv-lab/
+.DS_Store
+__pycache__

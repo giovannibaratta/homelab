@@ -1,0 +1,44 @@
+---
+- name: Create fresh lab disks and start VMs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Reset the lab
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/../../scripts/lab.py"
+          - reset
+      changed_when: true
+
+- name: Wait for gateway bootstrap
+  hosts: gateway
+  gather_facts: false
+  tasks:
+    - name: Wait for SSH
+      ansible.builtin.wait_for_connection:
+        timeout: 600
+    - name: Wait for DNS and routing setup
+      become: true
+      ansible.builtin.command: timeout 300 cloud-init status --wait --long
+      async: 330
+      poll: 5
+      changed_when: false
+
+- name: Wait for target bootstrap
+  hosts: target
+  gather_facts: false
+  tasks:
+    - name: Wait for SSH through the gateway
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+    - name: Wait for cloud-init
+      become: true
+      ansible.builtin.command: timeout 120 cloud-init status --wait --long
+      async: 150
+      poll: 5
+      changed_when: false
+
+- name: Verify shared lab infrastructure before deploying roles
+  ansible.builtin.import_playbook: ../../verify_infrastructure.yml

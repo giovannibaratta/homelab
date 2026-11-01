@@ -1,0 +1,32 @@
+---
+- name: Verify network configuration survives reboot
+  hosts: target
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Reboot through the configured bridge
+      ansible.builtin.reboot:
+        reboot_timeout: 180
+
+    - name: Gather current interface facts
+      ansible.builtin.setup:
+        gather_subset: [network]
+
+    - name: Check bridge and Kubernetes addresses
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.br0.ipv4.address == internal_ip
+          # Ansible normalizes hyphens to underscores in interface fact keys.
+          - ansible_facts.k8s_cp.ipv4.address == network_k8s_ip
+          - "'eth0' in ansible_facts.br0.interfaces"
+
+    - name: Check lab DNS
+      ansible.builtin.command: getent ahostsv4 gateway.lab.test
+      register: lab_dns
+      changed_when: false
+      failed_when: lab_dns.rc != 0 or '172.16.255.252' not in lab_dns.stdout
+
+    - name: Check public HTTPS access
+      ansible.builtin.uri:
+        url: https://archive.ubuntu.com/ubuntu/
+        return_content: false

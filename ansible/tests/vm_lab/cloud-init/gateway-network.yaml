@@ -1,0 +1,16 @@
+version: 2
+ethernets:
+  wan:
+    match: {macaddress: '52:54:00:00:00:01'}
+    set-name: wan0
+    dhcp4: true
+    dhcp6: false
+  lan:
+    match: {macaddress: '52:54:00:00:00:02'}
+    set-name: lan0
+    # Match production: .254 routes traffic; .252 and .253 serve DNS.
+    # All three addresses exist only inside the socket network.
+    addresses: [172.16.255.252/16, 172.16.255.253/16, 172.16.255.254/16]
+    routes:
+      - to: 172.20.0.0/16
+        scope: link

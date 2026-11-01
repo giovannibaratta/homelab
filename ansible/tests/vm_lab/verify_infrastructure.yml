@@ -1,0 +1,31 @@
+---
+- name: Verify lab gateway isolation
+  hosts: target
+  gather_facts: false
+  tasks:
+    - name: Check gateway blocks forwarding to its WAN host
+      # Use the bootstrap Python interpreter; curl is installed by the roles.
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/python3
+          - -c
+          - |
+            import socket
+            try:
+                connection = socket.create_connection(('10.0.2.2', 80), timeout=3)
+            except OSError:
+                pass
+            else:
+                connection.close()
+                raise SystemExit('The target unexpectedly reached the WAN host')
+      changed_when: false
+
+    - name: Confirm the rejection came from the gateway firewall
+      delegate_to: gateway
+      become: true
+      ansible.builtin.command: nft list chain ip lab forward
+      register: lab_firewall
+      changed_when: false
+      failed_when: >-
+        lab_firewall.rc != 0 or
+        (lab_firewall.stdout | regex_search('@private_destinations counter packets [1-9][0-9]* bytes [0-9]+ reject')) is none

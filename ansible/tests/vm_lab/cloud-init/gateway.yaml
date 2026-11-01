@@ -1,0 +1,58 @@
+groups: [wheel]
+users:
+  - name: ansible
+    groups: [wheel]
+    shell: /bin/bash
+    lock_passwd: true
+ssh_pwauth: false
+disable_root: true
+package_update: true
+packages: [dnsmasq, nftables]
+write_files:
+  - path: /etc/sudoers.d/wheel
+    permissions: '0440'
+    content: |
+      %wheel ALL=(ALL) NOPASSWD: ALL
+  - path: /etc/dnsmasq.d/lab.conf
+    content: |
+      interface=lan0
+      bind-dynamic
+      no-resolv
+      server=1.1.1.1
+      server=8.8.8.8
+      address=/gateway.lab.test/172.16.255.252
+      address=/target.lab.test/172.16.0.10
+  - path: /etc/sysctl.d/90-lab.conf
+    content: |
+      net.ipv4.ip_forward=1
+      net.ipv6.conf.all.disable_ipv6=1
+  - path: /etc/nftables.conf
+    content: |
+      flush ruleset
+      table ip lab {
+        set private_destinations {
+          type ipv4_addr
+          flags interval
+          elements = { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4 }
+        }
+        chain forward {
+          type filter hook forward priority filter; policy drop;
+          ct state established,related accept
+          iifname "lan0" oifname "wan0" ip daddr @private_destinations counter reject
+          iifname "lan0" oifname "wan0" accept
+        }
+        chain output {
+          type filter hook output priority filter; policy accept;
+          ct state established,related accept
+          oifname "wan0" udp sport 68 udp dport 67 accept
+          oifname "wan0" ip daddr @private_destinations reject
+        }
+        chain postrouting {
+          type nat hook postrouting priority srcnat; policy accept;
+          oifname "wan0" masquerade
+        }
+      }
+runcmd:
+  - [sysctl, --system]
+  - [systemctl, enable, --now, nftables]
+  - [systemctl, restart, dnsmasq]

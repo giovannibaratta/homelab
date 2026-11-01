@@ -1,0 +1,11 @@
+version: 2
+ethernets:
+  lan:
+    match: {macaddress: '52:54:00:00:00:03'}
+    set-name: eth0
+    addresses: [172.16.0.10/16]
+    routes:
+      - to: default
+        via: 172.16.255.254
+    nameservers:
+      addresses: [172.16.255.252, 172.16.255.253]

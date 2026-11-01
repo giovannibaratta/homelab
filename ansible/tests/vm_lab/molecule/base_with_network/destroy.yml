@@ -1,0 +1,13 @@
+---
+- name: Stop lab VMs, retaining disks and logs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Stop the lab
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/../../scripts/lab.py"
+          - down
+      changed_when: true

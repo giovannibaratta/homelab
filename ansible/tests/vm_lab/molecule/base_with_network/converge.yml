@@ -1,0 +1,12 @@
+---
+- name: Configure the fresh Ubuntu target
+  hosts: target
+  become: true
+  tasks:
+    - name: Apply base
+      ansible.builtin.import_role:
+        name: homelab.system.base
+
+    - name: Apply network
+      ansible.builtin.import_role:
+        name: homelab.system.network

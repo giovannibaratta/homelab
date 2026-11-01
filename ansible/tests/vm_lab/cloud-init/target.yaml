@@ -1,0 +1,14 @@
+# Minimal bootstrap: leave systemd-networkd in control for the handover test.
+groups: [wheel]
+users:
+  - name: ansible
+    groups: [wheel]
+    shell: /bin/bash
+    lock_passwd: true
+ssh_pwauth: false
+disable_root: true
+write_files:
+  - path: /etc/sudoers.d/wheel
+    permissions: '0440'
+    content: |
+      %wheel ALL=(ALL) NOPASSWD: ALL

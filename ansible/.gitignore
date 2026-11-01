@@ -1,2 +1,4 @@
 .venv
 .cache
+/dbip.csv
+/dbip.csv.gz
