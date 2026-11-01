@@ -1,4 +1,10 @@
 ---
+- name: Refresh bridge facts after the NetworkManager handover
+  # On a fresh host br0 did not exist when the play gathered facts.
+  ansible.builtin.setup:
+    gather_subset: [network]
+    filter: "ansible_{{ bridge_name }}"
+
 - name: Get internal interface IP address
   ansible.builtin.set_fact:
     internal_interface_ip: "{{ ansible_facts[bridge_name]['ipv4']['address'] }}"

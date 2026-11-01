@@ -1,8 +1,7 @@
 ---
 - name: Restart NetworkManager service
-  ansible.builtin.service:
-    name: NetworkManager
-    state: restarted
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/restart_network_manager.yaml"
 
 - name: Restart DHCP service
   ansible.builtin.service:

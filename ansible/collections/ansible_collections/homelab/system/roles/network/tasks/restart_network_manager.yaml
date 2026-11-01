@@ -1,0 +1,54 @@
+---
+- name: Network | Switch to NetworkManager independently of the SSH connection
+  # One background job must perform both halves of the initial handover.
+  # Stopping networkd as a separate synchronous task can strand the playbook.
+  ansible.builtin.shell: |
+    set -eu
+    systemctl disable --now systemd-networkd-wait-online.service systemd-networkd.service
+    systemctl mask systemd-networkd-wait-online.service systemd-networkd.service
+    systemctl enable NetworkManager.service
+    systemctl restart NetworkManager.service
+    nmcli --wait 30 connection up {{ internal_interface | quote }}
+  async: 120
+  poll: 0
+  register: __network_nm_restart_job
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Network | Reconnect after NetworkManager restart
+  ansible.builtin.wait_for_connection:
+    delay: 3
+    timeout: 90
+  become: false
+  when: not ansible_check_mode
+
+- name: Network | Check the background restart result
+  ansible.builtin.async_status:
+    jid: "{{ __network_nm_restart_job.ansible_job_id }}"
+  register: __network_nm_restart_result
+  until: __network_nm_restart_result.finished
+  retries: 20
+  delay: 2
+  when: not ansible_check_mode
+
+- name: Network | Verify the configured bridge address
+  ansible.builtin.command:
+    argv: [ip, -4, -o, address, show, dev, "{{ bridge_name }}"]
+  register: __network_bridge_address
+  changed_when: false
+  until: (internal_ip ~ '/' ~ (internal_network_netmask_length | string)) in __network_bridge_address.stdout
+  retries: 10
+  delay: 2
+  when: not ansible_check_mode
+
+- name: Network | Verify the physical port is forwarding through the bridge
+  ansible.builtin.command:
+    argv: [ip, -o, link, show, dev, "{{ internal_interface }}"]
+  register: __network_bridge_port
+  changed_when: false
+  until: >-
+    ('master ' ~ bridge_name ~ ' ') in __network_bridge_port.stdout
+    and 'LOWER_UP' in __network_bridge_port.stdout
+  retries: 10
+  delay: 2
+  when: not ansible_check_mode

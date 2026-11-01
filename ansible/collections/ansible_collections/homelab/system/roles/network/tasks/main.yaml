@@ -28,17 +28,13 @@
 #     internal_network_dhcp_start == '' or
 #     internal_network_dhcp_end == ''
 
-# Disable systemd-networkd to prevent conflicts with Network Manager
-- name: Network | Stop, disable, and mask systemd-networkd services
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    state: stopped
-    enabled: false
-    masked: true
-    daemon_reload: true
-  loop:
-    - systemd-networkd-wait-online.service
-    - systemd-networkd.service
+# Keep the current manager alive until its replacement and profiles are ready.
+- name: Network | Check whether systemd-networkd currently owns networking
+  ansible.builtin.command: systemctl is-active --quiet systemd-networkd.service
+  register: __networkd_active
+  changed_when: false
+  failed_when: __networkd_active.rc not in [0, 3, 4]
+  check_mode: false
 
 - name: Configure DNS
   ansible.builtin.import_tasks: configure-dns.yaml
@@ -111,7 +107,7 @@
 
     mode: "0644"
   notify:
-    - Reload systemd daemon
+    - Reload systemd daemons for network role
 
 - name: Network | Create internal interface
   ansible.builtin.copy:
@@ -144,6 +140,12 @@
       match-device=interface-name:veth*
       managed=0
 
+      # Netplan's networkd renderer can mark this NIC unmanaged via udev.
+      # Override that policy persistently, including after a reboot.
+      [device-managed-internal]
+      match-device=interface-name:{{ internal_interface }}
+      managed=1
+
       # 3. ...but EXPLICITLY manage custom veth interface
       [device-managed-custom]
       match-device=interface-name:veth-k8s-br;interface-name:k8s-cp;interface-name:k8s-bridge-plug
@@ -153,6 +155,14 @@
     backup: true
   notify:
     - Restart NetworkManager service
+
+- name: Network | Request handover after replacement profiles are staged
+  # Request the switch even if a previous attempt already staged these files.
+  ansible.builtin.debug:
+    msg: NetworkManager profiles are staged; scheduling the asynchronous manager switch.
+  changed_when: true
+  when: __networkd_active.rc == 0 and not ansible_check_mode
+  notify: Restart NetworkManager service
 
 - name: Flush handlers to restart NetworkManager
   ansible.builtin.meta: flush_handlers
@@ -426,7 +436,9 @@
         name: keepalived
         enabled: false
         state: stopped
-      when: "'keepalived.service' in services"
+      when: >-
+        'keepalived.service' in ansible_facts.services and
+        ansible_facts.services['keepalived.service'].get('status', '') != 'not-found'
 
 - name: Configure K8s network resources
   ansible.builtin.import_tasks: k8s.yaml
