@@ -109,7 +109,7 @@
             namespace: "{{ k8s_netbird_namespace }}"
           type: Opaque
           stringData:
-            management.json: "{{ lookup('template', 'netbird-mgmt.json.j2') | to_nice_json }}"
+            management.json: "{{ lookup('template', 'netbird-mgmt.json.j2') | from_json | to_nice_json }}"
 
     - name: K8s Netbird | Apply Management Manifests
       kubernetes.core.k8s:
