@@ -1,4 +1,12 @@
 ---
+- name: Refresh apt package indexes before installing base packages
+  # Fresh cloud images may contain only main/restricted indexes even though
+  # cloud-init enables universe, which contains several of these packages.
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_facts.pkg_mgr == 'apt'
+
 - name: Install packages
   ansible.builtin.package:
     name: "{{ item }}"

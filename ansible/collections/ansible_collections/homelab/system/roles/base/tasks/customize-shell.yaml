@@ -1,4 +1,18 @@
 ---
+- name: Look up existing user accounts
+  ansible.builtin.getent:
+    database: passwd
+
+- name: Validate users exist before shell customization
+  # Fail before become_user triggers a misleading temporary-file ACL error.
+  ansible.builtin.assert:
+    that:
+      - item in ansible_facts.getent_passwd
+    fail_msg: >-
+      Cannot customize the shell for '{{ item }}': the account does not exist.
+      Create it during node bootstrap or remove it from base_ohmyzsh_users.
+  loop: "{{ base_ohmyzsh_users }}"
+
 - name: Install zsh
   ansible.builtin.package:
     name: zsh
