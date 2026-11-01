@@ -8,25 +8,32 @@
       - network_ssh_allowed_sources | map('trim') | reject('equalto', '') | list | length == network_ssh_allowed_sources | length
     fail_msg: Set network_ssh_allowed_sources to a non-empty list of SSH source addresses or CIDRs before running the network role.
 
-# Disabled until Bitwarden Secret manager will fix the bug to access
-# multiple variables in the same block.
-# https://community.bitwarden.com/t/bitwarden-lookup-plugin-for-ansible-causes-panick-errors-and-a-worker-was-found-in-a-dead-state/64579/7
-# - name: Check required variables
-#   fail:
-#     msg: >
-#       The variables 'wan_interface', 'pppoe_username', 'pppoe_password', 'internal_interface',
-#       'internal_network_cidr', 'internal_gateway', 'internal_network_dhcp_start',
-#       'internal_network_dhcp_end' are required.
-#   when: >
-#     wan_interface == '' or
-#     internal_interface == '' or
-#     pppoe_username == '' or
-#     pppoe_password == '' or
-#     internal_network == '' or
-#     internal_network_netmask == '' or
-#     internal_gateway == '' or
-#     internal_network_dhcp_start == '' or
-#     internal_network_dhcp_end == ''
+- name: Network | Check required variables
+  ansible.builtin.assert:
+    that:
+      - vars[item] | default(none) is string
+      - vars[item] | default('') | trim | length > 0
+    fail_msg: "Set {{ item }} to a non-empty string before running the network role."
+    quiet: true
+  loop:
+    - internal_interface
+    - internal_network
+    - internal_network_netmask
+    - internal_gateway
+    - internal_network_dhcp_start
+    - internal_network_dhcp_end
+
+- name: Network | Check required PPPoE credentials on routers
+  ansible.builtin.assert:
+    that:
+      - vars[item] | default(none) is string
+      - vars[item] | default('') | trim | length > 0
+    fail_msg: "Set {{ item }} in the secret bundle before running the network role on a router."
+    quiet: true
+  loop:
+    - pppoe_username
+    - pppoe_password
+  when: network_is_router | bool
 
 # Keep the current manager alive until its replacement and profiles are ready.
 - name: Network | Check whether systemd-networkd currently owns networking
