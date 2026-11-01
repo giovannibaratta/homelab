@@ -1,6 +1,11 @@
 # Homelab Troubleshooting & Known Issues
 
-## 1. SSH `No route to host` from IDE Terminal on macOS Sequoia
+Operational notes for failures that can recur on the deployed homelab. This is
+not a deployment diary: inspect the current configuration and logs before assuming
+an earlier cause still applies. Paths below are relative to the repository unless
+shown as absolute host paths.
+
+## SSH `No route to host` from IDE Terminal on macOS Sequoia
 
 ### Symptom
 Running `ssh ansible@<node-ip>` from Antigravity IDE terminal fails with `ssh: connect to host <node-ip> port 22: No route to host`, while `ssh` from standalone iTerm2 succeeds. `ping <node-ip>` from CLI task runner fails with `ping: sendto: No route to host`.
@@ -17,7 +22,7 @@ macOS Sequoia (15.x+) introduced **Local Network Privacy**. If the parent IDE / 
    ```
 4. Restart the IDE.
 
-## 2. Rootless Podman Compose Bridge WAN Data Stall (Outdated Pasta)
+## Rootless Podman Compose Bridge WAN Data Stall (Outdated Pasta)
 
 ### Symptom
 When running `podman-compose` in a rootless development workspace, child containers on custom Netavark bridge networks (`driver: bridge`) can resolve DNS and establish TCP 3-way handshakes, but outbound WAN data transfer stalls (e.g. HTTPS requests hang indefinitely immediately after sending the TLS `ClientHello`). In contrast, containers on the default rootless network or running with `network_mode: host` work fine.
@@ -34,7 +39,7 @@ rm -rf /tmp/passt
 ```
 Restart rootless Podman processes to spawn the new `pasta` binary.
 
-## 3. UPS Monitor `Data stale` / USB `Overflow (-8)` on Cypress 0665:5161
+## UPS Monitor `Data stale` / USB `Overflow (-8)` on Cypress 0665:5161
 
 ### Symptom
 `upsc <ups-name>` fails with `Init SSL without certificate database: Error: Data stale`, `nut-monitor` logs `Poll UPS failed - Data stale`, and Prometheus `nut_ups_load` shows gaps/blanks. Manually testing `nutdrv_qx` reports `read: Overflow (-8)` and `Device not supported!`.
@@ -44,6 +49,9 @@ Tecnoware / Cypress `0665:5161` is a USB 1.1 Low-Speed (1.5 Mbps) controller. Wh
 
 ### Resolution
 1. **Remote USB Reset via Sysfs (without physical access)**:
+   Confirm the device identity and current USB bus path first (`lsusb` and
+   `lsusb -t`). The `1-5` below is an example from the original incident; use
+   the actual path for the UPS, not another attached device.
    ```bash
    echo 0 | sudo tee /sys/bus/usb/devices/1-5/authorized
    sleep 2
@@ -63,7 +71,7 @@ Tecnoware / Cypress `0665:5161` is a USB 1.1 Low-Speed (1.5 Mbps) controller. Wh
    cat /var/lib/node_exporter/textfile_collector/nut.prom
    ```
 
-## 4. Diagnosing commands blocked in a Coder/Codex sandbox
+## Diagnosing commands blocked in a Coder/Codex sandbox
 
 Use this process before changing AppArmor, seccomp, capabilities, mounts or the
 Pod security context. `EPERM` and `EACCES` only describe the result; several
@@ -192,3 +200,95 @@ After the positive reproducer succeeds, rerun a negative check proving that the
 boundary still blocks an adjacent forbidden operation. Record the exact error,
 audit evidence, minimal fix, security tradeoff and deployment requirement in this
 file. A successful application command alone does not validate the sandbox.
+
+## First checks after a reboot or failed deployment
+
+From `ansible/`, with the controller environment activated:
+
+```bash
+ansible-playbook -i inventory/home.yaml check_cluster_health.yaml
+```
+
+This checks host connectivity, external DNS/HTTPS, Kubernetes readiness,
+etcd endpoint status, and Piraeus replica state.
+
+A node being `Ready` does not mean all workloads have recovered. Inspect pending
+pods, their events, volume attachments, and database cluster readiness.
+
+## Cilium pod DNS and probe failures
+
+If several unrelated pods on one node have DNS timeouts or failed HTTP/TCP
+probes, inspect reverse-path filtering before treating this as an application
+or CoreDNS failure:
+
+```bash
+sysctl net.ipv4.conf.all.rp_filter net.ipv4.conf.default.rp_filter
+grep -R rp_filter /etc/sysctl.conf /etc/sysctl.d
+```
+
+Strict global filtering (`all.rp_filter=1`) previously broke node-to-pod traffic.
+An old `/etc/sysctl.d/99-kernel-hardening.conf` entry survived after its Ansible
+source was removed, so a later reload could reintroduce it. Current network
+configuration disables filtering on `all`/`default` and handles bridge interfaces
+separately. Check every contributing file and the effective interface values;
+removing a task from Ansible does not remove previously written configuration.
+Do not broadly reload conflicting sysctl files as an initial diagnostic step.
+
+## Piraeus volumes unavailable after boot
+
+For `could not determine device path`, Unknown replicas, or a missing
+`linstor_vg`, inspect the host backing filesystem before changing replication:
+
+```bash
+systemctl status linstor-loopback.service
+journalctl -u linstor-loopback.service -b --no-pager
+findmnt /app
+losetup -j /app/piraeus/linstor-backing.img
+pvs --readonly
+lvs --readonly -a -o lv_name,vg_name,lv_attr,data_percent,metadata_percent
+```
+
+Use the backing-file path configured for that node; not every node stores it
+under `/app`. A previously observed boot-order race attempted loop attachment
+before the backing filesystem mounted.
+
+Preserve the existing backing image, PV, VG, thin pool and PVCs. Restore access to
+the existing storage first. Starting an inactive loopback service differs from
+restarting a healthy one: its stop action detaches the device. If LINSTOR still
+reports Unknown after local storage recovers, inspect satellite errors before
+considering a targeted reconnect.
+
+Check LINSTOR node, storage-pool and resource listings. Diskful replicas should
+be UpToDate and connected; Diskless replicas can be intentional. Confirm syncing
+has finished before disrupting another node.
+
+## Auto-Ansible failures and stale monitoring results
+
+Scheduled runs log under the journal identifier `auto-ansible`, not a dedicated
+systemd service:
+
+```bash
+journalctl -t auto-ansible --since '1 day ago' --no-pager
+```
+
+The scheduled checkout must remain clean and fast-forwardable. Inspect it with
+`git status --short` and compare its branch with `origin/main`.
+
+## Firewall reloads and races
+
+A global `flush ruleset` in `/etc/nftables.conf` clears tables owned by other
+components as well as the homelab firewall. Inspect unmanaged content around the
+Ansible block if container networking breaks after a reload. Preserve unrelated
+rules and remove only the conflicting directive through managed configuration.
+
+## Home Assistant REST sensors fail during startup
+
+If REST sensors report certificate errors around boot, check the actual HTTPS
+endpoint, DNS and certificate readiness; an active Traefik service alone does not
+prove its certificate and route are loaded. The host-side
+`home_assistant_startup_urls` check waits for configured endpoints, but is
+best-effort and allows startup after its timeout. It does not test the container
+network path or rerun when ingress restarts later.
+
+Inspect the startup-check journal and the integration's logs separately. A timeout
+can leave sensors needing their own recovery even after the route becomes healthy.
