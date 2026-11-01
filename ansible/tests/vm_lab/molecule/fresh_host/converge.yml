@@ -1,0 +1,3 @@
+---
+- name: Run the existing host setup playbook
+  ansible.builtin.import_playbook: ../../../../setup_homelab.yaml

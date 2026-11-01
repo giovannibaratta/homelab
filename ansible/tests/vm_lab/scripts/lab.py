@@ -265,7 +265,7 @@ def prepare() -> Path:
     return firmware
 
 
-def gateway_network_arguments(vm: VirtualMachine, lan_socket: Path) -> list[str]:
+def gateway_network_arguments(vm: VirtualMachine, lan_socket: Path, ssh_port: int = SSH_PORT) -> list[str]:
     """Give the gateway a NAT uplink and the listening end of the lab LAN.
 
     A QEMU netdev is the host-side connection; a device is the emulated guest
@@ -275,7 +275,7 @@ def gateway_network_arguments(vm: VirtualMachine, lan_socket: Path) -> list[str]
     if vm.wan_mac is None:
         raise ValueError("The gateway requires a WAN MAC address")
     return [
-        "-netdev", f"user,id=wan,ipv6=off,hostfwd=tcp:127.0.0.1:{SSH_PORT}-:22",
+        "-netdev", f"user,id=wan,ipv6=off,hostfwd=tcp:127.0.0.1:{ssh_port}-:22",
         "-device", f"virtio-net-pci,netdev=wan,mac={vm.wan_mac}",
         "-netdev", f"stream,id=lan,server=on,addr.type=unix,addr.path={lan_socket}",
         "-device", f"virtio-net-pci,netdev=lan,mac={vm.lan_mac}",

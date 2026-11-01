@@ -1,0 +1,87 @@
+---
+- name: Create the isolated fresh_host guests
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Reset only the fresh_host guests
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/../../scripts/fresh_host.py"
+          - reset
+      changed_when: true
+
+- name: Wait for gateway DNS and routing
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Wait for forwarded gateway SSH
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 22221
+        search_regex: SSH
+        timeout: 300
+
+    - name: Wait for gateway cloud-init
+      ansible.builtin.command:
+        argv:
+          - ssh
+          - -o
+          - ConnectTimeout=10
+          - -o
+          - BatchMode=yes
+          - -F
+          - "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/../../.ansible/vm-lab/fresh_host/ssh_config"
+          - gateway
+          - sudo cloud-init status --format json
+      register: gateway_bootstrap
+      until: gateway_bootstrap.rc == 0 and (gateway_bootstrap.stdout | from_json).status == 'done'
+      retries: 60
+      delay: 5
+      changed_when: false
+
+- name: Wait for fresh-host bootstrap
+  hosts: fresh-host
+  gather_facts: false
+  tasks:
+    - name: Wait for SSH through the gateway
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+    - name: Wait for cloud-init
+      become: true
+      ansible.builtin.command: cloud-init status --format json
+      register: target_bootstrap
+      until: target_bootstrap.rc == 0 and (target_bootstrap.stdout | from_json).status == 'done'
+      retries: 60
+      delay: 2
+      changed_when: false
+
+    - name: Verify internet access through the gateway
+      ansible.builtin.uri:
+        url: https://ports.ubuntu.com/ubuntu-ports/dists/noble/InRelease
+        timeout: 15
+
+    - name: Verify the target cannot connect to the QEMU WAN host
+      ansible.builtin.wait_for:
+        host: 10.0.2.2
+        port: 80
+        state: stopped
+        connect_timeout: 2
+        timeout: 5
+
+    - name: Verify the gateway firewall rejected the private destination
+      delegate_to: localhost
+      ansible.builtin.command:
+        argv:
+          - ssh
+          - -F
+          - "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/../../.ansible/vm-lab/fresh_host/ssh_config"
+          - gateway
+          - sudo nft list chain ip lab forward
+      register: gateway_firewall
+      changed_when: false
+      failed_when: >-
+        gateway_firewall.rc != 0 or
+        (gateway_firewall.stdout | regex_search('@private_destinations counter packets [1-9][0-9]* bytes [0-9]+ reject')) is none

@@ -1,0 +1,13 @@
+---
+- name: Stop only the fresh_host scenario VM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Stop fresh-host
+      ansible.builtin.command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/../../scripts/fresh_host.py"
+          - down
+      changed_when: true

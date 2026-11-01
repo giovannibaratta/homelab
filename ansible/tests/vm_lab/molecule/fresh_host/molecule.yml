@@ -1,0 +1,40 @@
+---
+shared_state: false
+ansible:
+  executor:
+    backend: ansible-playbook
+    args:
+      ansible_playbook:
+        - --inventory=${MOLECULE_PROJECT_DIRECTORY}/../../inventory/home.yaml
+        - --inventory=${MOLECULE_SCENARIO_DIRECTORY}/inventory.yml
+        # Implicit localhost is used only by the VM lifecycle playbooks. It is
+        # not added to inventory's all group or targeted by setup_homelab.yaml.
+        - --limit=fresh-host,localhost
+        - --extra-vars=@${MOLECULE_SCENARIO_DIRECTORY}/variables.yml
+        # setup_homelab also imports Kubernetes app deployment/cleanup tasks.
+        # Grafana's role includes both backends, so this test excludes it too.
+        # Ingress certificate automation would use real DNS credentials.
+        - --skip-tags=k8s-coder,k8s-netbird,idp,grafana,sungrow-exporter,ingress
+
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ${MOLECULE_PROJECT_DIRECTORY}/../../collections:~/.ansible/collections:/usr/share/ansible/collections
+    ANSIBLE_LOCAL_TEMP: ${MOLECULE_PROJECT_DIRECTORY}/../../.ansible/vm-lab/fresh_host/tmp
+
+  cfg:
+    defaults:
+      fact_caching: memory
+
+  playbooks:
+    create: create.yml
+    converge: converge.yml
+    verify: verify.yml
+    destroy: destroy.yml
+
+scenario:
+  create_sequence: [create]
+  converge_sequence: [create, converge]
+  destroy_sequence: [destroy]
+  test_sequence: [destroy, create, converge, verify, destroy]
+
+verifier:
+  name: ansible

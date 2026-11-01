@@ -1,0 +1,8 @@
+---
+# Explicit test choices, passed as extra vars to override playbook role vars.
+base_ohmyzsh_users: [root, ansible]
+auto_ansible_enabled: false
+system_update_day: never
+k8s_node_bootstrapped: false
+# Host storage preparation is exercised, without exhausting the VM root disk.
+linstor_backing_file_size_mb: 10240

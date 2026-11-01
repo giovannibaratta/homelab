@@ -1,0 +1,32 @@
+---
+- name: Verify the host setup survives reboot
+  hosts: fresh-host
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Reboot fresh-host
+      ansible.builtin.reboot:
+        reboot_timeout: 180
+
+    - name: Gather interface facts
+      ansible.builtin.setup:
+        gather_subset: [network]
+
+    - name: Verify node addresses and bridge membership
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.br0.ipv4.address == internal_ip
+          - ansible_facts.k8s_cp.ipv4.address == network_k8s_ip
+          - internal_interface in ansible_facts.br0.interfaces
+
+    - name: Verify Podman is executable
+      ansible.builtin.command: podman info --format json
+      changed_when: false
+
+    - name: Verify Terraform is executable
+      ansible.builtin.command: terraform version -json
+      changed_when: false
+
+    - name: Verify gateway DNS and public HTTPS
+      ansible.builtin.uri:
+        url: https://ports.ubuntu.com/ubuntu-ports/dists/noble/InRelease
