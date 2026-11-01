@@ -26,6 +26,12 @@
         name: homelab.utils.version_checks
       run_once: true
 
+    - name: Validate Kubernetes node address uniqueness
+      ansible.builtin.import_role:
+        name: homelab.utils.validate_network_k8s_ips
+      run_once: true
+      tags: always
+
     - ansible.builtin.import_role:
         name: homelab.utils.render_variables
       tags:
@@ -38,25 +44,52 @@
       tags:
         - always
 
-    - name: Fetch hostvars
+    - name: Validate required network hostvars
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].ansible_host is defined
+          - hostvars[item].deploy_adguard is defined
+          - hostvars[item].network_is_router is defined
+        fail_msg: "{{ item }} must explicitly define ansible_host, deploy_adguard and network_is_router."
+      loop: "{{ groups['all'] }}"
+      run_once: true
+      tags: always
+
+    - name: Fetch network hostvars
+      # Copy only the fields needed below. Copying complete hostvars makes
+      # Ansible 2.19 resolve unrelated peer templates, whose secrets may not
+      # have been loaded during a --limit run.
+      # network_dhcp_role is optional: add it only when explicitly configured.
+      # combine() returns a new dictionary, so assigning it back to network_host
+      # adds that key without inventing a role for nodes that do not serve DHCP.
+      # The namespace accumulator keeps the collected list outside the Jinja loop.
       ansible.builtin.set_fact:
         all_groups_hostvars: >-
-          {{
-            groups['all']
-            | map('extract', hostvars)
-            | list
-          }}
+          {%- set ns = namespace(hosts=[]) -%}
+          {%- for host in groups['all'] -%}
+          {%- set peer = hostvars[host] -%}
+          {%- set network_host = {
+            'ansible_host': peer.ansible_host,
+            'deploy_adguard': peer.deploy_adguard | bool,
+            'network_is_router': peer.network_is_router | bool
+          } -%}
+          {%- if peer.network_dhcp_role is defined -%}
+          {%- set network_host = network_host | combine({'network_dhcp_role': peer.network_dhcp_role}) -%}
+          {%- endif -%}
+          {%- set ns.hosts = ns.hosts + [network_host] -%}
+          {%- endfor -%}
+          {{ ns.hosts }}
       no_log: true
       tags:
         - always
       run_once: true
 
-    - name: Gather network roles and set dynamic facts (run_once)
+    - name: Gather network roles and set dynamic facts
       ansible.builtin.set_fact:
         dhcp_primary: "{{ primary_host_obj.ansible_host }}"
         dhcp_failover: "{{ secondary_host_obj.ansible_host }}"
         podman_dns: "{{ adguard_host_objs | map(attribute='ansible_host') | list }}"
-        validate_health_before_update: "{{ other_routers if network_is_router is defined and network_is_router else [] }}"
+        validate_health_before_update: "{{ other_routers if (network_is_router | bool) else [] }}"
 
       vars:
         primary_host_obj: >-
@@ -93,7 +126,6 @@
             | list
           }}
 
-      run_once: true
       tags:
         - always
 

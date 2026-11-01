@@ -1,0 +1,28 @@
+---
+# Use all inventory hosts, not ansible_play_hosts: --limit must not hide a peer.
+- name: Initialize Kubernetes node address inventory
+  ansible.builtin.set_fact:
+    __network_k8s_addresses: []
+
+- name: Validate configured Kubernetes node addresses
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].network_k8s_ip is string
+      - (hostvars[item].network_k8s_ip | trim | ansible.utils.ipv4('address')) == (hostvars[item].network_k8s_ip | trim)
+    fail_msg: "{{ item }} must define network_k8s_ip as a single IPv4 address without a prefix."
+  loop: "{{ groups['all'] }}"
+  when: hostvars[item].network_k8s_ip is defined
+
+- name: Collect configured Kubernetes node addresses
+  ansible.builtin.set_fact:
+    __network_k8s_addresses: "{{ __network_k8s_addresses + [{'host': item, 'ip': hostvars[item].network_k8s_ip | trim}] }}"
+  loop: "{{ groups['all'] }}"
+  when: hostvars[item].network_k8s_ip is defined
+
+- name: Reject duplicate Kubernetes node addresses across the inventory
+  ansible.builtin.assert:
+    that:
+      - (__network_k8s_addresses | map(attribute='ip') | unique | list | length) == (__network_k8s_addresses | length)
+    fail_msg: >-
+      Duplicate network_k8s_ip values detected. Every node must have a unique
+      address, including nodes outside --limit. Inventory: {{ __network_k8s_addresses }}

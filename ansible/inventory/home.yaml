@@ -99,7 +99,6 @@ home:
       network_is_router: true
       #wan_interface: br0
       internal_interface: enp4s0
-      #physical_interface: enp4s0
       internal_ip: 172.16.255.251
       network_gateway_role: secondary
       network_k8s_ip: 172.20.0.1

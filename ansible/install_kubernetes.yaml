@@ -9,6 +9,12 @@
         tasks_from: ansible.yaml
       run_once: true
 
+    - name: Validate Kubernetes node address uniqueness
+      ansible.builtin.import_role:
+        name: homelab.utils.validate_network_k8s_ips
+      run_once: true
+      tags: always
+
     - ansible.builtin.import_role:
         name: homelab.utils.render_variables
       tags:
