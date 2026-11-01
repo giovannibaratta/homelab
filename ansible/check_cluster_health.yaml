@@ -1,0 +1,183 @@
+---
+# Run from ansible/: ansible-playbook -i inventory/home.yaml check_cluster_health.yaml
+# If using --limit, include a control-plane host to run the cluster-wide checks.
+- name: Check connectivity and node services
+  hosts: k8s_cluster
+  gather_facts: false
+  become: true
+  vars:
+    health_internet_url: https://www.cloudflare.com/
+
+  tasks:
+    - name: Check connectivity to other nodes on the Kubernetes network
+      ansible.builtin.command:
+        argv: [ping, -c, '1', -W, '2', "{{ hostvars[item].network_k8s_ip }}"]
+      loop: "{{ groups['k8s_cluster'] | difference([inventory_hostname]) }}"
+      loop_control:
+        label: "{{ item }} ({{ hostvars[item].network_k8s_ip }})"
+      changed_when: false
+
+    - name: Check external DNS resolution and HTTPS connectivity
+      ansible.builtin.uri:
+        url: "{{ health_internet_url }}"
+        timeout: 10
+
+    - name: Gather service status
+      ansible.builtin.service_facts:
+
+    - name: Check kubelet and containerd are active
+      ansible.builtin.assert:
+        that:
+          - item in ansible_facts.services
+          - ansible_facts.services[item].state == 'running'
+        fail_msg: "{{ item }} is missing or not running on {{ inventory_hostname }}."
+        quiet: true
+      loop: [kubelet.service, containerd.service]
+
+    - name: Check etcd service is active on etcd members
+      ansible.builtin.assert:
+        that:
+          - "'etcd.service' in ansible_facts.services"
+          - ansible_facts.services['etcd.service'].state == 'running'
+        fail_msg: "etcd.service is missing or not running on {{ inventory_hostname }}."
+        quiet: true
+      when: inventory_hostname in groups['etcd']
+
+- name: Check cluster health from a control-plane node
+  hosts: kube_control_plane
+  gather_facts: false
+  become: true
+  any_errors_fatal: true
+  vars:
+    kubectl: kubectl
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  tasks:
+    - name: Read Kubernetes nodes
+      ansible.builtin.command: "{{ kubectl }} get nodes -o json"
+      register: health_nodes
+      changed_when: false
+      run_once: true
+
+    - name: Verify expected Kubernetes nodes exist and are ready and schedulable
+      ansible.builtin.assert:
+        that:
+          - item in (health_nodes.stdout | from_json)['items'] | map(attribute='metadata.name') | list
+          - node.status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length == 1
+          - not (node.spec.unschedulable | default(false) | bool)
+        fail_msg: "{{ item }} is missing, not Ready, or cordoned."
+        quiet: true
+      vars:
+        node: "{{ ((health_nodes.stdout | from_json)['items'] | selectattr('metadata.name', 'equalto', item) | list | first) | default({}) }}"
+      loop: "{{ groups['k8s_cluster'] }}"
+      run_once: true
+
+    - name: Read Kubernetes pods
+      ansible.builtin.command: "{{ kubectl }} get pods -A -o json"
+      register: health_pods
+      changed_when: false
+      run_once: true
+
+    - name: Verify pods are ready or successfully completed
+      ansible.builtin.assert:
+        that:
+          - item.status.phase == 'Succeeded' or (item.status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length == 1)
+        fail_msg: "{{ item.metadata.namespace }}/{{ item.metadata.name }} is {{ item.status.phase | default('Unknown') }} and not ready."
+        quiet: true
+      loop: "{{ (health_pods.stdout | from_json)['items'] }}"
+      loop_control:
+        label: "{{ item.metadata.namespace }}/{{ item.metadata.name }}"
+      run_once: true
+
+    - name: Read etcd member status without writing to etcd
+      ansible.builtin.command: >-
+        etcdctl --endpoints=https://127.0.0.1:2379
+        --cacert=/etc/ssl/etcd/ssl/ca.pem
+        --cert=/etc/ssl/etcd/ssl/admin-{{ inventory_hostname }}.pem
+        --key=/etc/ssl/etcd/ssl/admin-{{ inventory_hostname }}-key.pem
+        endpoint status --cluster -w json
+      register: health_etcd
+      changed_when: false
+      run_once: true
+
+    - name: Verify all etcd endpoints respond and agree on a leader
+      ansible.builtin.assert:
+        that:
+          - (health_etcd.stdout | from_json | length) == (groups['etcd'] | length)
+          - (health_etcd.stdout | from_json | map(attribute='Status.leader') | unique | list | length) == 1
+          - (health_etcd.stdout | from_json | first).Status.leader | int != 0
+          - (health_etcd.stdout | from_json | selectattr('Status.errors', 'defined') | list | length) == 0
+        fail_msg: "etcd endpoints are missing, report errors, or disagree on the leader."
+        quiet: true
+      run_once: true
+
+    - name: Read Piraeus cluster status
+      ansible.builtin.command: "{{ kubectl }} get linstorcluster linstor -n piraeus-datastore -o json"
+      register: health_piraeus
+      changed_when: false
+      run_once: true
+
+    - name: Verify Piraeus is available and its satellites are running
+      ansible.builtin.assert:
+        that:
+          - piraeus.status.conditions | selectattr('type', 'equalto', 'Available') | selectattr('status', 'equalto', 'True') | list | length == 1
+          - piraeus.status.conditions | selectattr('type', 'equalto', 'Configured') | selectattr('status', 'equalto', 'True') | list | length == 1
+          - piraeus.status.runningSatellites | int == piraeus.status.scheduledSatellites | int
+          - piraeus.status.runningSatellites | int == (groups['k8s_cluster'] | map('extract', hostvars) | selectattr('linstor_node_enabled', 'defined') | selectattr('linstor_node_enabled') | list | length)
+        fail_msg: "Piraeus is unavailable, unconfigured, or missing a satellite."
+        quiet: true
+      vars:
+        piraeus: "{{ health_piraeus.stdout | from_json }}"
+      run_once: true
+
+    - name: Read LINSTOR satellite connections
+      ansible.builtin.command: >-
+        {{ kubectl }} exec -n piraeus-datastore deploy/linstor-controller
+        -c linstor-controller -- linstor --machine-readable node list
+      register: health_linstor_nodes
+      no_log: true
+      changed_when: false
+      run_once: true
+
+    - name: Verify LINSTOR satellites are online
+      ansible.builtin.assert:
+        that:
+          - satellite | length == 1
+          - satellite[0].connection_status == 'ONLINE'
+        fail_msg: "LINSTOR satellite {{ item }} is missing or offline."
+        quiet: true
+      vars:
+        satellite: "{{ (health_linstor_nodes.stdout | from_json | first) | selectattr('name', 'equalto', item) | list }}"
+      loop: "{{ groups['k8s_cluster'] | map('extract', hostvars) | selectattr('linstor_node_enabled', 'defined') | selectattr('linstor_node_enabled') | map(attribute='inventory_hostname') | list }}"
+      run_once: true
+
+    # Resource output contains DRBD secrets, so never display the raw response.
+    - name: Read LINSTOR resource states
+      ansible.builtin.command: >-
+        {{ kubectl }} exec -n piraeus-datastore deploy/linstor-controller
+        -c linstor-controller -- linstor --machine-readable resource list
+      register: health_resources
+      no_log: true
+      changed_when: false
+      run_once: true
+
+    - name: Keep only the LINSTOR fields needed for checks
+      ansible.builtin.set_fact:
+        health_resource_volumes: "{{ (health_resources.stdout | from_json | first) | community.general.json_query('[].{name: name, node_name: node_name, volumes: volumes}') }}"
+      no_log: true
+      run_once: true
+
+    - name: Verify LINSTOR volumes are synchronized
+      ansible.builtin.assert:
+        that:
+          - volume.state.disk_state in ['UpToDate', 'Diskless']
+          - volume.state.replication_states | default({}) | length > 0
+          - volume.state.replication_states | default({}) | dict2items | rejectattr('value.replication_state', 'equalto', 'Established') | list | length == 0
+        fail_msg: "LINSTOR resource {{ item.0.name }} on {{ item.0.node_name }} has disk state {{ volume.state.disk_state | default('unknown') }} or is not synchronized."
+        quiet: true
+      vars:
+        volume: "{{ item.1 }}"
+      loop: "{{ health_resource_volumes | subelements('volumes') }}"
+      loop_control:
+        label: "{{ item.0.name }} on {{ item.0.node_name }} volume {{ item.1.volume_number }}"
+      run_once: true
