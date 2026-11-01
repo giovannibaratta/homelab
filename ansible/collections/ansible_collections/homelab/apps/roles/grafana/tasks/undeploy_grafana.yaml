@@ -9,7 +9,11 @@
       ansible.builtin.systemd_service:
         name: grafana.service
         state: stopped
-      when: "'grafana.service' in ansible_facts.services"
+      # systemd can retain an inactive, not-found unit in service_facts after
+      # its Quadlet has been removed; it cannot be stopped as a loaded service.
+      when:
+        - "'grafana.service' in ansible_facts.services"
+        - ansible_facts.services['grafana.service'].status | default('') != 'not-found'
 
     # Quadlet services are generated. Removing the definition disables startup.
     # Preserve /app/grafana/conf; the operator may need it for rollback.

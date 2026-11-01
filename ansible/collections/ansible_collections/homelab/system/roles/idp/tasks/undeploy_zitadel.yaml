@@ -15,7 +15,7 @@
         - zitadel.service
         - zitadel-db.service
         - zitadel-network.service
-      when: item in ansible_facts.services
+      when: item in ansible_facts.services and ansible_facts.services[item].get('status', '') != 'not-found'
       register: __idp_stopped_units
 
     - name: Remove host Zitadel Quadlet definitions

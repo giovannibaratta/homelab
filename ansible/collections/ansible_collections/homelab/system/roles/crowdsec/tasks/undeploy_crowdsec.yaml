@@ -9,7 +9,9 @@
       ansible.builtin.systemd_service:
         name: crowdsec.service
         state: stopped
-      when: "'crowdsec.service' in ansible_facts.services"
+      when: >-
+        'crowdsec.service' in ansible_facts.services and
+        ansible_facts.services['crowdsec.service'].get('status', '') != 'not-found'
 
     - name: Remove CrowdSec Quadlet
       ansible.builtin.file:
@@ -38,7 +40,9 @@
       ansible.builtin.systemd_service:
         name: "{{ crowdsec_network_name }}-network"
         state: stopped
-      when: "'{{ crowdsec_network_name }}-network.service' in ansible_facts.services"
+      when: >-
+        (crowdsec_network_name ~ '-network.service') in ansible_facts.services and
+        ansible_facts.services[crowdsec_network_name ~ '-network.service'].get('status', '') != 'not-found'
 
     - name: Remove CrowdSec network Quadlet
       ansible.builtin.file:

@@ -16,7 +16,10 @@
         - named
         - bind9
         - named-chroot
-      when: "item in ansible_facts.services"
+      when: >-
+        (item in ansible_facts.services and ansible_facts.services[item].get('status', '') != 'not-found') or
+        ((item ~ '.service') in ansible_facts.services and
+         ansible_facts.services[item ~ '.service'].get('status', '') != 'not-found')
 
   rescue:
     - name: BIND service check resulted in an error (informational)

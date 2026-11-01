@@ -1,4 +1,7 @@
 ---
+- name: Discover services before Netbird cleanup
+  ansible.builtin.service_facts:
+
 - name: Ensure Netbird dashboard is stopped and disabled if not deployed
   when: not (vpn_deploy_dashboard | default(false) | bool)
   block:
@@ -7,7 +10,9 @@
         name: netbird-dashboard
         state: stopped
         enabled: false
-      ignore_errors: true
+      when: >-
+        'netbird-dashboard.service' in ansible_facts.services and
+        ansible_facts.services['netbird-dashboard.service'].get('status', '') != 'not-found'
 
     - name: Remove Netbird dashboard Quadlet
       ansible.builtin.file:
@@ -31,7 +36,7 @@
       loop:
         - netbird-signal
         - netbird-mgmt
-      ignore_errors: true
+      when: (item ~ '.service') in ansible_facts.services and ansible_facts.services[item ~ '.service'].get('status', '') != 'not-found'
 
     - name: Remove Netbird signal and mgmt Quadlets
       ansible.builtin.file:
@@ -55,7 +60,9 @@
         name: netbird-relay
         state: stopped
         enabled: false
-      ignore_errors: true
+      when: >-
+        'netbird-relay.service' in ansible_facts.services and
+        ansible_facts.services['netbird-relay.service'].get('status', '') != 'not-found'
 
     - name: Remove Netbird relay Quadlet
       ansible.builtin.file:
@@ -76,7 +83,9 @@
         name: netbird-coturn
         state: stopped
         enabled: false
-      ignore_errors: true
+      when: >-
+        'netbird-coturn.service' in ansible_facts.services and
+        ansible_facts.services['netbird-coturn.service'].get('status', '') != 'not-found'
 
     - name: Remove Netbird coturn Quadlet
       ansible.builtin.file:
@@ -97,7 +106,9 @@
         name: netbird-exit-node
         state: stopped
         enabled: false
-      ignore_errors: true
+      when: >-
+        'netbird-exit-node.service' in ansible_facts.services and
+        ansible_facts.services['netbird-exit-node.service'].get('status', '') != 'not-found'
 
     - name: Remove Netbird exit node Quadlet
       ansible.builtin.file:
@@ -118,7 +129,9 @@
         name: netbird-jump-node
         state: stopped
         enabled: false
-      ignore_errors: true
+      when: >-
+        'netbird-jump-node.service' in ansible_facts.services and
+        ansible_facts.services['netbird-jump-node.service'].get('status', '') != 'not-found'
 
     - name: Remove Netbird jump node Quadlet
       ansible.builtin.file:
@@ -132,14 +145,16 @@
         daemon_reload: true
 
 - name: Ensure Netbird network is stopped and disabled if no components enabled
-  when: not __vpn_any_netbird_enabled
+  when: not (__vpn_any_netbird_enabled | bool)
   block:
     - name: Stop and disable Netbird network
       ansible.builtin.systemd_service:
         name: netbird-network
         state: stopped
         enabled: false
-      ignore_errors: true
+      when: >-
+        'netbird-network.service' in ansible_facts.services and
+        ansible_facts.services['netbird-network.service'].get('status', '') != 'not-found'
 
     - name: Remove Netbird network Quadlet
       ansible.builtin.file:

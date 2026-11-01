@@ -13,7 +13,7 @@
       loop:
         - ingress-auth.service
         - ingress-auth-network.service
-      when: item in ansible_facts.services
+      when: item in ansible_facts.services and ansible_facts.services[item].get('status', '') != 'not-found'
 
     - name: Remove authentication container and network Quadlets
       ansible.builtin.file:
