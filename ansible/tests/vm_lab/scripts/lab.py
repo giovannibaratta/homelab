@@ -30,7 +30,7 @@ import socket
 import subprocess
 import time
 import urllib.request
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, NotRequired, TypeAlias, TypedDict, cast
 
 import yaml
 from qemu.qmp import ConnectError, QMPClient
@@ -65,6 +65,35 @@ TARGET = VirtualMachine("target", 2048, "52:54:00:00:00:03")
 VMS = (GATEWAY, TARGET)  # Start the socket server (gateway) before its client.
 
 
+# Network configuration is nested YAML; values remain flexible without using Any.
+YamlValue: TypeAlias = str | int | float | bool | None | list["YamlValue"] | dict[str, "YamlValue"]
+YamlMapping: TypeAlias = dict[str, YamlValue]
+
+
+class CloudInitUser(TypedDict):
+    """User fields consumed or emitted by the lab bootstrap."""
+
+    name: str
+    groups: NotRequired[list[str]]
+    shell: NotRequired[str]
+    lock_passwd: NotRequired[bool]
+    ssh_authorized_keys: NotRequired[list[str]]
+
+
+class CloudInitConfig(TypedDict):
+    """Cloud-init options used by the gateway and target seed files."""
+
+    users: list[CloudInitUser]
+    hostname: NotRequired[str]
+    groups: NotRequired[list[str]]
+    ssh_pwauth: NotRequired[bool]
+    disable_root: NotRequired[bool]
+    package_update: NotRequired[bool]
+    packages: NotRequired[list[str]]
+    write_files: NotRequired[list[YamlMapping]]
+    runcmd: NotRequired[list[YamlValue]]
+
+
 class VMStatus(TypedDict):
     """Fields consumed from QMP's query-status response (not guest health)."""
 
@@ -95,11 +124,11 @@ def run(*args: str | Path) -> None:
     subprocess.run([str(arg) for arg in args], check=True)
 
 
-async def qmp(name: VMName, command: str) -> Any:
+async def qmp(name: VMName, command: str, state: Path) -> Any:
     """Let the official client handle negotiation, replies and async events."""
     async with asyncio.timeout(5):
         client = QMPClient(name)
-        await client.connect(str(STATE / f"{name}.qmp"))
+        await client.connect(str(state / f"{name}.qmp"))
 
         try:
             return await client.execute(command)
@@ -107,30 +136,34 @@ async def qmp(name: VMName, command: str) -> Any:
             await client.disconnect()
 
 
-def vm_status(name: VMName) -> VMStatus | None:
+def vm_status(name: VMName, state: Path) -> VMStatus | None:
     """Only missing/refused sockets mean absent; other QMP failures propagate."""
     try:
-        return cast(VMStatus, asyncio.run(qmp(name, "query-status")))
+        return cast(VMStatus, asyncio.run(qmp(name, "query-status", state)))
     except ConnectError as error:
         if not isinstance(error.exc, (FileNotFoundError, ConnectionRefusedError)):
             raise
-        (STATE / f"{name}.qmp").unlink(missing_ok=True)
+        (state / f"{name}.qmp").unlink(missing_ok=True)
         return None
 
 
 def stop() -> None:
     """Quit guests before the gateway, retaining their disks and console logs."""
     for vm in reversed(VMS):
-        name = vm.name
-        monitor = STATE / f"{name}.qmp"
-        if vm_status(name) is not None:
-            asyncio.run(qmp(name, "quit"))
-            for _ in range(50):
-                if not monitor.exists():
-                    break
-                time.sleep(0.1)
-            else:
-                raise RuntimeError(f"{name} has not stopped; disks were preserved")
+        stop_vm(vm.name, STATE)
+
+
+def stop_vm(name: VMName, state: Path) -> None:
+    """Stop one QEMU instance before its caller replaces or deletes its disks."""
+    monitor = state / f"{name}.qmp"
+    if vm_status(name, state) is not None:
+        asyncio.run(qmp(name, "quit", state))
+        for _ in range(50):
+            if not monitor.exists():
+                break
+            time.sleep(0.1)
+        else:
+            raise RuntimeError(f"{name} has not stopped; disks were preserved")
 
 
 def download_ubuntu() -> Path:
@@ -161,6 +194,51 @@ def download_ubuntu() -> Path:
     return image
 
 
+def find_firmware() -> Path:
+    """Find Homebrew's firmware beside the resolved QEMU installation."""
+    executable = shutil.which("qemu-system-aarch64")
+    if executable is None:
+        raise RuntimeError("qemu-system-aarch64 is not installed or is not on PATH")
+    return Path(executable).resolve().parent.parent / "share/qemu"
+
+
+def prepare_vm(
+    vm: VirtualMachine,
+    image: Path,
+    firmware: Path,
+    config: CloudInitConfig,
+    network: YamlMapping,
+    state: Path,
+    disk_size: str = "20G",
+) -> None:
+    """Seed a missing VM disk; existing disks retain their guest configuration.
+
+    The caller supplies cloud-init data and a state directory, allowing isolated
+    and bridged scenarios to reuse the same image without sharing writable disks.
+    The SSH public key must already exist in that state directory.
+    """
+    name = vm.name
+    disk = state / f"{name}.qcow2"
+
+    if disk.exists():
+        return
+
+    seed = state / f"{name}-seed"
+    seed.mkdir(exist_ok=True)
+    config["users"][0]["ssh_authorized_keys"] = [(state / "id_ed25519.pub").read_text().strip()]
+    (seed / "user-data").write_text("#cloud-config\n" + yaml.safe_dump(config))
+    hostname = config.get("hostname", f"lab-{name}")
+    (seed / "meta-data").write_text(f"instance-id: lab-{name}\nlocal-hostname: {hostname}\n")
+    (seed / "network-config").write_text(yaml.safe_dump(network))
+    iso = state / f"{name}-seed.iso"
+    iso.unlink(missing_ok=True)
+    # cidata identifies this virtual CD as a cloud-init NoCloud datasource.
+    run("hdiutil", "makehybrid", "-iso", "-joliet", "-default-volume-name", "cidata", "-o", iso, seed)
+    # Per-VM writable UEFI settings; the firmware code remains read-only.
+    shutil.copyfile(firmware / "edk2-arm-vars.fd", state / f"{name}-vars.fd")
+    run("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", image, disk, disk_size)
+
+
 def prepare() -> Path:
     """Verify the base image, seed missing disks, and return the firmware folder.
 
@@ -173,39 +251,13 @@ def prepare() -> Path:
     if not (STATE / "id_ed25519").exists():
         run("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", STATE / "id_ed25519")
 
-    # Homebrew installs matching AArch64 firmware alongside qemu-system-aarch64.
-    executable = shutil.which("qemu-system-aarch64")
-    if executable is None:
-        raise RuntimeError("qemu-system-aarch64 is not installed or is not on PATH")
-
-    qemu = Path(executable).resolve()
-    firmware = qemu.parent.parent / "share/qemu"
+    firmware = find_firmware()
 
     for vm in VMS:
         name = vm.name
-        disk = STATE / f"{name}.qcow2"
-
-        if disk.exists():
-            continue
-
-        seed = STATE / f"{name}-seed"
-        seed.mkdir(exist_ok=True)
-        config = yaml.safe_load((LAB / f"cloud-init/{name}.yaml").read_text())
-        config["users"][0]["ssh_authorized_keys"] = [(STATE / "id_ed25519.pub").read_text().strip()]
-        (seed / "user-data").write_text("#cloud-config\n" + yaml.safe_dump(config))
-        (seed / "meta-data").write_text(f"instance-id: lab-{name}\nlocal-hostname: lab-{name}\n")
-        shutil.copyfile(LAB / f"cloud-init/{name}-network.yaml", seed / "network-config")
-
-        iso = STATE / f"{name}-seed.iso"
-        iso.unlink(missing_ok=True)
-
-        # Package user-data, meta-data and network-config as a virtual CD.
-        # The cidata volume label lets cloud-init discover its NoCloud seed.
-        run("hdiutil", "makehybrid", "-iso", "-joliet", "-default-volume-name", "cidata", "-o", iso, seed)
-        # Each VM needs a writable copy of UEFI's NVRAM variables (boot entries
-        # and settings); the firmware code itself remains shared read-only.
-        shutil.copyfile(firmware / "edk2-arm-vars.fd", STATE / f"{name}-vars.fd")
-        run("qemu-img", "create", "-f", "qcow2", "-F", "qcow2", "-b", image, disk, "20G")
+        config = cast(CloudInitConfig, yaml.safe_load((LAB / f"cloud-init/{name}.yaml").read_text()))
+        network = cast(YamlMapping, yaml.safe_load((LAB / f"cloud-init/{name}-network.yaml").read_text()))
+        prepare_vm(vm, image, firmware, config, network, STATE)
 
     (STATE / "ssh_config").write_text(SSH_CONFIG_TEMPLATE.format(
         state_dir=STATE, ssh_port=SSH_PORT, target_ip=TARGET_IP,
@@ -249,7 +301,7 @@ def network_arguments(vm: VirtualMachine, lan_socket: Path) -> list[str]:
     return target_network_arguments(vm, lan_socket)
 
 
-def qemu_command(vm: VirtualMachine, firmware: Path, lan_socket: Path) -> list[str]:
+def qemu_base_command(vm: VirtualMachine, firmware: Path, state: Path) -> list[str]:
     """Build the QEMU CLI in groups: hardware, firmware, storage and management.
 
     HVF runs ARM instructions using Apple's hypervisor. UEFI code is shared
@@ -268,27 +320,32 @@ def qemu_command(vm: VirtualMachine, firmware: Path, lan_socket: Path) -> list[s
         "-m", str(vm.memory_mib),
         # Read-only UEFI firmware and per-VM persistent boot variables.
         "-drive", f"if=pflash,format=raw,readonly=on,file={firmware}/edk2-aarch64-code.fd",
-        "-drive", f"if=pflash,format=raw,file={STATE}/{name}-vars.fd",
+        "-drive", f"if=pflash,format=raw,file={state}/{name}-vars.fd",
         # Writable OS overlay and read-only cloud-init CD.
-        "-drive", f"if=virtio,format=qcow2,file={STATE}/{name}.qcow2",
-        "-drive", f"if=none,id=seed,format=raw,readonly=on,file={STATE}/{name}-seed.iso",
+        "-drive", f"if=virtio,format=qcow2,file={state}/{name}.qcow2",
+        "-drive", f"if=none,id=seed,format=raw,readonly=on,file={state}/{name}-seed.iso",
         "-device", "virtio-scsi-pci",
         "-device", "scsi-cd,drive=seed",
         # Headless background process, separate console log and control socket.
         "-display", "none",
-        "-serial", f"file:{STATE}/{name}-console.log",
+        "-serial", f"file:{state}/{name}-console.log",
         "-monitor", "none",
-        "-qmp", f"unix:{STATE}/{name}.qmp,server=on,wait=off",
+        "-qmp", f"unix:{state}/{name}.qmp,server=on,wait=off",
         "-daemonize",
     ]
-    return args + network_arguments(vm, lan_socket)
+    return args
+
+
+def qemu_command(vm: VirtualMachine, firmware: Path, lan_socket: Path) -> list[str]:
+    """Attach the isolated lab topology to the common QEMU machine settings."""
+    return qemu_base_command(vm, firmware, STATE) + network_arguments(vm, lan_socket)
 
 
 def start() -> None:
     """Resume or create both VMs, refusing to start a second lab instance."""
     for vm in VMS:
         name = vm.name
-        status = vm_status(name)
+        status = vm_status(name, STATE)
         if status is not None:
             raise RuntimeError(f"{name} already exists (state: {status['status']}); run down first")
 
@@ -315,7 +372,7 @@ def main() -> None:
     if args.action == "status":
         for vm in VMS:
             name = vm.name
-            status = vm_status(name)
+            status = vm_status(name, STATE)
             print(f"{name}: {status['status'] if status is not None else 'absent'}")
 
     if args.action in ("down", "reset"):
