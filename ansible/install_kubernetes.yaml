@@ -267,5 +267,4 @@
   tasks:
     - ansible.builtin.import_role:
         name: homelab.apps.k8s_coder
-      when: (deploy_coder | default(false) | bool) and (coder_deployment_type | default('podman') == 'k8s')
   tags: k8s-coder

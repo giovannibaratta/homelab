@@ -2,6 +2,9 @@
 - name: Ensure Podman Coder is stopped and disabled if not deployed via Podman
   when: not (deploy_coder | default(false) | bool) or (coder_deployment_type | default('podman') != 'podman')
   block:
+    - name: Discover services before Coder cleanup
+      ansible.builtin.service_facts:
+
     - name: Stop and disable Coder Podman services
       ansible.builtin.systemd_service:
         name: "{{ item }}"
@@ -12,7 +15,7 @@
         - coder-db
         - coder-workspaces-network
         - coder-network
-      ignore_errors: true
+      when: (item ~ '.service') in ansible_facts.services and ansible_facts.services[item ~ '.service'].get('status', '') != 'not-found'
 
     - name: Remove Coder Quadlets
       ansible.builtin.file:

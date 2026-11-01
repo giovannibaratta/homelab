@@ -1,0 +1,75 @@
+---
+- name: Coder | Allocate TUN devices through kubelet
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'tun-device-plugin.yaml.j2') | from_yaml }}"
+  run_once: true
+  tags:
+    - k8s-coder-tun
+
+- name: Coder | Apply namespaces
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'namespaces.yaml.j2') | from_yaml_all }}"
+  run_once: true
+
+- name: Coder | Apply RBAC
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'rbac.yaml.j2') | from_yaml_all }}"
+  run_once: true
+
+- name: Coder | Set Zitadel client credentials facts if defined
+  ansible.builtin.set_fact:
+    __coder_zitadel_client_id: "{{ coder_idp_client_id }}"
+    __coder_zitadel_client_secret: "{{ coder_idp_client_secret }}"
+  when: coder_idp_client_id is defined and coder_idp_client_secret is defined
+  no_log: true
+  run_once: true
+
+- name: Coder | Resolve Zitadel client credentials from terraform if needed
+  when: coder_idp_client_id is not defined or coder_idp_client_secret is not defined
+  run_once: true
+  block:
+    - name: Coder | Find IDP host
+      ansible.builtin.set_fact:
+        coder_idp_host: "{{ item }}"
+      loop: "{{ groups['all'] }}"
+      when: hostvars[item].deploy_idp | default(false) | bool
+
+    - name: Coder | Require an IDP host for Terraform credential resolution
+      ansible.builtin.assert:
+        that: coder_idp_host is defined
+        fail_msg: Coder needs explicit IDP client credentials or an inventory host with deploy_idp enabled.
+
+    - name: Coder | Read credentials from the IDP host
+      # Delegation is resolved before a static task's when. Load it only after
+      # the host exists, so disabled Coder runs never template an undefined host.
+      ansible.builtin.include_tasks: read_idp_credentials.yaml
+      when: coder_idp_host is defined
+
+    - name: Coder | Set private Zitadel client credentials facts from terraform
+      ansible.builtin.set_fact:
+        __coder_zitadel_client_id: "{{ (zitadel_tf_output.stdout | from_json).coder_client_id.value }}"
+        __coder_zitadel_client_secret: "{{ (zitadel_tf_output.stdout | from_json).coder_client_secret.value }}"
+      no_log: true
+      when: zitadel_tf_output is defined and zitadel_tf_output.stdout is defined
+
+- name: Coder | Apply Secret
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'secret.yaml.j2') | from_yaml_all }}"
+  no_log: true
+  run_once: true
+
+- name: Coder | Apply Deployment and Service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'deployment.yaml.j2') | from_yaml_all }}"
+  run_once: true
+
+- name: Coder | Apply Traefik IngressRoute
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'traefik-routes.yaml.j2') | from_yaml_all }}"
+  run_once: true
