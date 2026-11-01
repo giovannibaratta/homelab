@@ -1,0 +1,20 @@
+---
+- name: Check controller version
+  ansible.builtin.import_tasks: ansible.yaml
+
+- name: Verify Prometheus collection version
+  ansible.builtin.assert:
+    that:
+      - __version_checks_prometheus_version is string
+      - __version_checks_prometheus_version is version('0.29.0', '>=')
+      - __version_checks_prometheus_version is version('0.30.0', '<')
+    fail_msg: >-
+      Prometheus collection {{ __version_checks_prometheus_version }} is incompatible
+      with this deployment. From the repository's ansible directory, in the active
+      controller environment, install the declared apps collection dependencies:
+      ansible-galaxy collection install collections/ansible_collections/homelab/apps --upgrade
+  vars:
+    __version_checks_prometheus_version: "{{ lookup('community.general.collection_version', 'prometheus.prometheus') }}"
+  # Match the exporter tasks: full/prometheus runs check; first-setup does not.
+  # Do not gate on deploy_prometheus: that controls the server, not exporters.
+  tags: prometheus

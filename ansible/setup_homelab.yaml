@@ -21,13 +21,10 @@
     grafana_deployment_type: k8s
 
   pre_tasks:
-    - name: Verify Ansible version
-      ansible.builtin.assert:
-        that:
-          - ansible_version.full is version('2.17', '>=')
-          - ansible_version.full is version('2.19', '<')
-        fail_msg: "This playbook requires ansible-core >=2.17 and <2.19. Found: {{ ansible_version.full }}"
-        success_msg: "Ansible version {{ ansible_version.full }} is supported."
+    - name: Check controller and deployment dependency versions
+      ansible.builtin.import_role:
+        name: homelab.utils.version_checks
+      run_once: true
 
     - ansible.builtin.import_role:
         name: homelab.utils.render_variables
@@ -101,7 +98,7 @@
         - always
 
     - name: Setup media group and dirs
-      when: deploy_mediastack
+      when: deploy_mediastack | bool
       block:
         - name: Ensure group exists with name {{ media_shared_group }}
           ansible.builtin.group:
@@ -169,7 +166,7 @@
       become: true
       tags: auto-remediation
 
-    - when: deploy_logging
+    - when: deploy_logging | bool
       ansible.builtin.import_role:
         name: homelab.system.logging
       become: true
@@ -232,7 +229,7 @@
             k8s_idp_enabled: "{{ idp_deployment_type == 'k8s' }}"
             k8s_idp_database_host: zitadeldb-rw.zitadel.svc.cluster.local
 
-        - when: deploy_idp
+        - when: deploy_idp | bool
           ansible.builtin.import_role:
             name: homelab.system.idp_config
           vars:
@@ -269,7 +266,7 @@
       tags: vpn
 
     - name: Deploy Netbird K8s
-      when: deploy_idp | default(false)
+      when: deploy_idp | default(false) | bool
       ansible.builtin.import_role:
         name: homelab.system.k8s_netbird
       become: true
@@ -283,7 +280,7 @@
       tags: monitoring
 
     - name: Deploy AdGuard Home
-      when: deploy_adguard
+      when: deploy_adguard | bool
       ansible.builtin.import_role:
         name: homelab.apps.adguard
       become: true
@@ -299,7 +296,7 @@
         - first-setup
         - adguard
 
-    - when: deploy_prometheus
+    - when: deploy_prometheus | bool
       ansible.builtin.import_role:
         name: homelab.apps.prometheus
       become: true
@@ -334,21 +331,21 @@
       become: true
       tags: grafana
 
-    - when: deploy_mqtt
+    - when: deploy_mqtt | bool
       ansible.builtin.import_role:
         name: homelab.apps.mqtt_broker
       become: true
       ignore_errors: yes
       tags: mqtt-broker
 
-    - when: deploy_nut | default(false)
+    - when: deploy_nut | default(false) | bool
       ansible.builtin.import_role:
         name: homelab.apps.nut
       become: true
       ignore_errors: yes
       tags: nut
 
-    - when: deploy_home_assistant
+    - when: deploy_home_assistant | bool
       ansible.builtin.import_role:
         name: homelab.apps.home_assistant
       become: true
@@ -391,7 +388,7 @@
       become: true
       tags: media-server
 
-    - when: deploy_mediastack
+    - when: deploy_mediastack | bool
       ansible.builtin.import_role:
         name: homelab.apps.p2p
       vars:
@@ -404,7 +401,7 @@
       tags: p2p
 
     - name: Deploy Pinchflat
-      when: deploy_pinchflat | default(false)
+      when: deploy_pinchflat | default(false) | bool
       ansible.builtin.import_role:
         name: homelab.apps.pinchflat
       become: true

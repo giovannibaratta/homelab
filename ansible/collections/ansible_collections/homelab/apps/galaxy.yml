@@ -7,7 +7,7 @@ authors:
   - Giovanni Baratta
 dependencies:
   containers.podman: ">=1.15.4"
-  prometheus.prometheus: ">=0.16.3"
+  prometheus.prometheus: ">=0.29.0,<0.30.0"
   devopsarr.radarr: ">=1.2.0"
   devopsarr.prowlarr: ">=1.0.0"
 license:

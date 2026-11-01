@@ -2,6 +2,9 @@
 
 ## Prerequisites
 
+- Use Python 3.11–3.13 for the controller. Kubespray v2.32 requires Ansible 12
+  (core >=2.19,<2.20). Ensure `python3` below selects a supported version, and
+  create a fresh virtual environment when changing Python versions.
 - Install Python packages
   ```bash
   python3 -m venv .venv
@@ -22,7 +25,7 @@
    ansible-galaxy collection install collections/ansible_collections/homelab/utils
    ansible-galaxy collection install collections/ansible_collections/homelab/system
    ansible-galaxy collection install -r collections/ansible_collections/homelab/system/requirements.yml
-   ansible-galaxy collection install collections/ansible_collections/homelab/apps
+   ansible-galaxy collection install collections/ansible_collections/homelab/apps --upgrade
    ```
 
 1. Run the playbook

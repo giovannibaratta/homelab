@@ -7,6 +7,14 @@
 kube_version: 1.35.4
 runc_version: 1.4.2
 
+containerd_version: 2.2.3
+etcd_version: 3.6.10
+cilium_version: 1.19.3
+cilium_envoy_image_tag: "v1.34.10-1762597008-ff7ae7d623be00078865cff1b0672cc5d9bfc6d5"
+cni_version: 1.9.1
+
+helm_version: 3.22.0
+
 # Prepare every Kubernetes node to run isolated Coder workspaces.
 coder_workspace_security_enabled: true
 kubelet_config_extra_args:
@@ -22,7 +30,7 @@ access_ip: "{{ network_k8s_ip }}"
 
 # As per documentation, when using Cilium the kube owner must be set to root to prevent
 # crash loopback errors.
-# https://github.com/kubernetes-sigs/kubespray/blob/release-2.31/docs/CNI/cilium.md
+# https://github.com/kubernetes-sigs/kubespray/blob/v2.32.0/docs/CNI/cilium.md
 kube_owner: root
 
 #[Network Subnets]

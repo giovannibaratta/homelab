@@ -3,6 +3,12 @@
   hosts: all
 
   pre_tasks:
+    - name: Check controller version
+      ansible.builtin.import_role:
+        name: homelab.utils.version_checks
+        tasks_from: ansible.yaml
+      run_once: true
+
     - ansible.builtin.import_role:
         name: homelab.utils.render_variables
       tags:
@@ -70,19 +76,17 @@
 
 
 - name: Install Kubernetes
-  when: k8s_node_bootstrapped is defined and not k8s_node_bootstrapped
+  when: k8s_node_bootstrapped is defined and not (k8s_node_bootstrapped | bool)
   ansible.builtin.import_playbook: kubernetes_sigs.kubespray.cluster
   vars:
-    maximal_ansible_version: 2.19.0 # Force check on ansible version to avoid downgrading
     ip: "{{ network_k8s_ip }}"
     access_ip: "{{ network_k8s_ip }}"
   tags: k8s
 
 - name: Update Kubernetes
-  when: k8s_node_bootstrapped is defined and k8s_node_bootstrapped
+  when: k8s_node_bootstrapped is defined and (k8s_node_bootstrapped | bool)
   ansible.builtin.import_playbook: kubernetes_sigs.kubespray.upgrade_cluster
   vars:
-    maximal_ansible_version: 2.19.0
     ip: "{{ network_k8s_ip }}"
     access_ip: "{{ network_k8s_ip }}"
   tags: k8s
@@ -211,7 +215,7 @@
   tasks:
     - ansible.builtin.import_role:
         name: homelab.apps.forgejo
-      when: deploy_forgejo | default(false)
+      when: deploy_forgejo | default(false) | bool
   tags: k8s-git
 
 - name: Deploy Headlamp
@@ -222,7 +226,7 @@
       ansible.builtin.set_fact:
         headlamp_idp_host: "{{ item }}"
       loop: "{{ groups['all'] }}"
-      when: hostvars[item].deploy_idp | default(false)
+      when: hostvars[item].deploy_idp | default(false) | bool
       run_once: true
 
     - name: Headlamp | Get Zitadel Terraform outputs
@@ -248,7 +252,7 @@
 
     - ansible.builtin.import_role:
         name: homelab.apps.headlamp
-      when: deploy_headlamp | default(false)
+      when: deploy_headlamp | default(false) | bool
   tags: k8s-headlamp
 
 - name: Deploy Coder
