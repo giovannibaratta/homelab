@@ -1,95 +1,76 @@
-# s3_read_config
+# Read published configuration from S3
 
-Reads a versioned JSON configuration artifact from an existing S3-compatible
-bucket and exposes its output dictionary as Ansible facts. The role reads the
-object into memory without saving an artifact file or modifying the bucket.
+This role loads a JSON configuration file from an existing S3-compatible bucket
+and makes its outputs available to subsequent Ansible tasks. It reads the object
+without changing the bucket or saving a local copy of the configuration file.
 
-## Requirements
+Use it to share published application settings or credentials between deployments.
+The role does not require access to Terraform or its working directory.
 
-- Controller: the `amazon.aws` collection, version `>=9.2,<10`.
-- Executing host: Python with boto3 and botocore compatible with that collection.
-- Network access from the executing host to the S3 endpoint.
-- Credentials permitting `ListBucket` for the object-key prefix and `GetObject`
-  for the exact object. No write permissions are required.
+## Configuration
 
-The role does not install dependencies. Its tasks use `run_once`, executing on
-one targeted host and sharing the resulting facts with the current play batch.
-Use Ansible's linear strategy. With `serial`, the read repeats for each batch.
+All connection settings must be supplied by the caller:
 
-## Required inputs
-
-All inputs must be provided explicitly; none have defaults.
-
-| Variable | Value |
+| Variable | Purpose |
 | --- | --- |
-| `s3_read_config_endpoint` | S3-compatible endpoint URL. Use HTTPS for credentials and sensitive configuration. |
-| `s3_read_config_bucket` | Existing bucket name. |
-| `s3_read_config_object_key` | Exact object key within the bucket. |
-| `s3_read_config_region` | S3 request-signing region. |
-| `s3_read_config_access_key` | Access key ID. |
-| `s3_read_config_secret_key` | Secret access key. |
+| `s3_read_config_endpoint` | S3 endpoint URL; use HTTPS for sensitive configuration |
+| `s3_read_config_bucket` | Existing bucket name |
+| `s3_read_config_object_key` | Configuration object's exact key |
+| `s3_read_config_region` | Request-signing region |
+| `s3_read_config_access_key` | Access key ID |
+| `s3_read_config_secret_key` | Secret access key |
+
+Provide credentials through your secret-management configuration. They need
+`ListBucket` permission for the object's key prefix and `GetObject` permission
+for the object; write permissions are unnecessary.
+
+The executing host must be able to reach the endpoint and have compatible
+`boto3` and `botocore` Python packages installed. The controller requires the
+`amazon.aws` collection (`>=9.2,<10`).
 
 ## Usage
 
 ```yaml
-- name: Read configuration
-  hosts: application_hosts
-  gather_facts: false
-  tasks:
-    - name: Load published configuration
-      ansible.builtin.import_role:
-        name: homelab.system.s3_read_config
-      vars:
-        s3_read_config_endpoint: "https://s3.example.org"
-        s3_read_config_bucket: "private-configuration"
-        s3_read_config_object_key: "identity/outputs.json"
-        s3_read_config_region: "us-east-1"
-        s3_read_config_access_key: "{{ vault_s3_access_key }}"
-        s3_read_config_secret_key: "{{ vault_s3_secret_key }}"
+- name: Load published settings
+  ansible.builtin.import_role:
+    name: homelab.system.s3_read_config
+  vars:
+    s3_read_config_endpoint: https://s3.example.org
+    s3_read_config_bucket: private-configuration
+    s3_read_config_object_key: application/outputs.json
+    s3_read_config_region: us-east-1
+    s3_read_config_access_key: "{{ vault_s3_access_key }}"
+    s3_read_config_secret_key: "{{ vault_s3_secret_key }}"
 ```
 
-Supply the credential variables using an appropriate secret source. No fixed
-host, Terraform executable or Terraform working directory is required.
-
-## Artifact format
-
-The object must contain a JSON document with this envelope:
+The object must contain a JSON envelope with schema version `1` and an `outputs`
+object:
 
 ```json
 {
   "schema_version": 1,
   "outputs": {
-    "application_client_id": "example-client",
-    "application_client_secret": "example-secret"
+    "application_client_id": "example-client"
   }
 }
 ```
 
-Only schema version `1` is supported. `outputs` must be a JSON object; an empty
-object is valid. Output names and values are application-defined. The role does
-not require particular keys or validate individual values. Code using the
-returned dictionary must validate the fields it needs.
+Output names and values are application-defined. Consumers must check that the
+fields they need are present. Empty outputs are valid.
 
-## Returned facts
+## Results and failures
 
-| Fact | Meaning |
+| Returned fact | Meaning |
 | --- | --- |
-| `s3_read_config_available` | `true` when an existing artifact was read and validated, including one with empty outputs; otherwise `false`. |
-| `s3_read_config_outputs` | The artifact's `outputs` dictionary, or `{}` when the object is absent. |
+| `s3_read_config_available` | Whether the object was found and successfully validated |
+| `s3_read_config_outputs` | Published outputs, or an empty dictionary if the object is absent |
 
-Both facts are reset before each read. They are not marked cacheable. Sensitive
-tasks use `no_log: true`, and intermediate artifact content is discarded after
-the read/validation block. Treat returned values as sensitive and avoid printing
-them in subsequent tasks.
+A missing object is allowed, so deployments can handle configuration that has
+not yet been published. Missing buckets, permission or connection errors, and
+invalid configuration fail the run instead of being treated as an absent object.
 
-## Missing objects and failures
+The read runs once per play batch. Use Ansible's linear strategy; serial batches
+perform a separate read for each batch.
 
-The role lists the configured key prefix and checks for the exact object key.
-If the bucket exists but that object is absent, it completes successfully with
-`available: false` and an empty output dictionary. It does not create the object
-or wait for it to appear.
-
-Invalid inputs, missing buckets, denied access, network errors, malformed JSON,
-unsupported schema versions and a non-object `outputs` value fail the run.
-These failures are not treated as missing configuration. Read failures also
-remain failures if an object disappears between listing and retrieval.
+The role protects sensitive task output. Treat returned values as sensitive too,
+and avoid printing them in subsequent tasks.
