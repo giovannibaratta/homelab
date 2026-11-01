@@ -1,4 +1,14 @@
 ---
+- name: Validate the auto-Ansible binary architecture
+  ansible.builtin.assert:
+    that: ansible_facts.architecture in ['x86_64', 'aarch64']
+    fail_msg: "Unsupported auto-Ansible architecture: {{ ansible_facts.architecture }}"
+
+- name: Set auto-Ansible binary archive names
+  ansible.builtin.set_fact:
+    __auto_ansible_bws_archive: "bws-{{ ansible_facts.architecture }}-unknown-linux-gnu-1.0.0.zip"
+    __auto_ansible_terraform_archive: "terraform_1.10.3_linux_{{ 'arm64' if ansible_facts.architecture == 'aarch64' else 'amd64' }}.zip"
+
 - name: Create /app/auto-ansible
   ansible.builtin.file:
     path: /app/auto-ansible
@@ -25,14 +35,14 @@
     version: main
     force: true
 
-- name: Download bws-x86_64-unknown-linux-gnu-1.0.0.zip
+- name: Download Bitwarden CLI
   ansible.builtin.get_url:
-    url: https://github.com/bitwarden/sdk-sm/releases/download/bws-v1.0.0/bws-x86_64-unknown-linux-gnu-1.0.0.zip
-    dest: /app/auto-ansible/artifacts/bws-x86_64-unknown-linux-gnu-1.0.0.zip
+    url: "https://github.com/bitwarden/sdk-sm/releases/download/bws-v1.0.0/{{ __auto_ansible_bws_archive }}"
+    dest: "/app/auto-ansible/artifacts/{{ __auto_ansible_bws_archive }}"
 
-- name: Extract bws-x86_64-unknown-linux-gnu-1.0.0.zip
+- name: Extract Bitwarden CLI
   unarchive:
-    src: /app/auto-ansible/artifacts/bws-x86_64-unknown-linux-gnu-1.0.0.zip
+    src: "/app/auto-ansible/artifacts/{{ __auto_ansible_bws_archive }}"
     dest: /app/auto-ansible/artifacts
     remote_src: yes
 
@@ -43,14 +53,14 @@
     mode: 0755
     remote_src: yes
 
-- name: Download terraform_1.10.3_linux_amd64.zip
+- name: Download Terraform
   ansible.builtin.get_url:
-    url: https://releases.hashicorp.com/terraform/1.10.3/terraform_1.10.3_linux_amd64.zip
-    dest: /app/auto-ansible/artifacts/terraform_1.10.3_linux_amd64.zip
+    url: "https://releases.hashicorp.com/terraform/1.10.3/{{ __auto_ansible_terraform_archive }}"
+    dest: "/app/auto-ansible/artifacts/{{ __auto_ansible_terraform_archive }}"
 
-- name: Extract terraform_1.10.3_linux_amd64.zip
+- name: Extract Terraform
   unarchive:
-    src: /app/auto-ansible/artifacts/terraform_1.10.3_linux_amd64.zip
+    src: "/app/auto-ansible/artifacts/{{ __auto_ansible_terraform_archive }}"
     dest: /app/auto-ansible/artifacts
     remote_src: yes
 
@@ -99,5 +109,6 @@
     job: /app/auto-ansible/artifacts/auto-ansible.sh | /usr/bin/logger -t 'auto-ansible'
     hour: "{{ auto_ansible_hour_schedule }}"
     minute: "30"
+    disabled: "{{ not (auto_ansible_enabled | bool) }}"
     state: present
     user: root
