@@ -26,7 +26,7 @@
     force: true
     recreate: true
     internal: false
-    interface_name: podman-pingexporter
+    interface_name: podman-pingexp
     opt:
       isolate: true
   notify:
@@ -70,7 +70,7 @@
   containers.podman.podman_container:
     name: pingexporter
     state: quadlet
-    image: czerwonk/ping_exporter:{{ pingexporter_version }}
+    image: docker.io/czerwonk/ping_exporter:{{ pingexporter_version }}
     command: ./ping_exporter --config.path /config/ping_exporter.yaml
 
     recreate: true
