@@ -26,6 +26,10 @@
 - name: Piraeus Node | Check existing backing file stats
   ansible.builtin.stat:
     path: "{{ linstor_backing_file_path }}"
+    # Only existence and size are needed below; do not read/hash the disk image.
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
   register: backing_file_stat
   when: linstor_use_loopback
 
