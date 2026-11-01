@@ -114,18 +114,6 @@
         group: root
         mode: "0644"
 
-    - name: Write CrowdSec managed configuration
-      ansible.builtin.template:
-        src: "{{ item }}.j2"
-        dest: "{{ crowdsec_config_dir }}/{{ item }}"
-        owner: "{{ crowdsec_user_result.uid }}"
-        group: "{{ crowdsec_log_group }}"
-        mode: "0600"
-      loop:
-        - config.yaml.local
-        - acquis.yaml
-      notify: Restart CrowdSec service
-
     - name: Create CrowdSec network Quadlet
       containers.podman.podman_network:
         name: "{{ crowdsec_network_name }}"
@@ -151,6 +139,18 @@
         name: "{{ crowdsec_network_name }}-network"
         state: started
         enabled: true
+
+    - name: Write CrowdSec managed configuration
+      ansible.builtin.template:
+        src: "{{ item }}.j2"
+        dest: "{{ crowdsec_config_dir }}/{{ item }}"
+        owner: "{{ crowdsec_user_result.uid }}"
+        group: "{{ crowdsec_log_group }}"
+        mode: "0600"
+      loop:
+        - config.yaml.local
+        - acquis.yaml
+      notify: Restart CrowdSec service
 
     - name: Create CrowdSec Quadlet
       containers.podman.podman_container:
