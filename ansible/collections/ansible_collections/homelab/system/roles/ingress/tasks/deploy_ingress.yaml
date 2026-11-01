@@ -111,7 +111,7 @@
       isolate: true
   notify:
     - Reload systemd daemons for ingress role
-    - Restart waf network
+    - Restart Traefik network
 
 - name: Create WAF network
   containers.podman.podman_network:
