@@ -1,0 +1,39 @@
+---
+# Ubuntu 24's own ARM packages provide Podman 4.9. This community repository
+# provides a matched Podman 5 / Netavark 1.17 stack for ARM64.
+- name: Validate the ARM64 repository supports this Ubuntu release
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Ubuntu'
+      - ansible_facts.distribution_version in ['24.04', '26.04']
+    fail_msg: The ARM64 Podman repository is configured only for Ubuntu 24.04 and 26.04.
+
+- name: Remove the AMD64-oriented repository on ARM
+  ansible.builtin.apt_repository:
+    repo: deb http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /
+    filename: home:alvistack
+    state: absent
+    update_cache: false
+
+- name: Install community Podman signing key
+  ansible.builtin.get_url:
+    url: https://slazarov.github.io/podman-ubuntu/podman-ubuntu.gpg
+    dest: /usr/share/keyrings/podman-ubuntu.gpg
+    mode: '0644'
+
+- name: Configure the Ubuntu Podman v5 repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch=arm64 signed-by=/usr/share/keyrings/podman-ubuntu.gpg] https://slazarov.github.io/podman-ubuntu v5-{{ ansible_facts.distribution_version | replace('.', '') }} main"
+    filename: podman-ubuntu
+    state: present
+    update_cache: true
+
+- name: Install the ARM64 container runtime and supporting tools
+  ansible.builtin.apt:
+    name: [podman-suite, podman-docker, uidmap, slirp4netns]
+    state: present
+
+- name: Verify the ARM64 Podman and Netavark binaries execute
+  ansible.builtin.command: "{{ item }} --version"
+  changed_when: false
+  loop: [/usr/bin/podman, /usr/libexec/podman/netavark]

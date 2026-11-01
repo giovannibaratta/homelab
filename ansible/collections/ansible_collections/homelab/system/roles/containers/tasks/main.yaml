@@ -1,93 +1,16 @@
 ---
-- name: Install apt key
-  ansible.builtin.apt_key:
-    keyring: /etc/apt/trusted.gpg.d/home_alvistack.gpg
-    url: http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key
-    id: 789CFFDE0295B8A1F4E5690C4BECC97550D0B1FD
-    state: present
+- name: Install the AMD64 container runtime
+  ansible.builtin.import_tasks: install_amd64.yaml
+  when: ansible_facts.architecture == 'x86_64'
 
-- name: Add apt repository
-  ansible.builtin.apt_repository:
-    filename: home:alvistack
-    repo: deb http://downloadcontent.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /
-    state: present
+- name: Install the ARM64 container runtime
+  ansible.builtin.import_tasks: install_arm64.yaml
+  when: ansible_facts.architecture == 'aarch64'
 
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: true
-
-- name: Create /usr/libexec/podman directory
-  ansible.builtin.file:
-    path: /usr/libexec/podman
-    state: directory
-    mode: "0755"
-
-- name: Download netavark archive
-  ansible.builtin.get_url:
-    url: https://github.com/containers/netavark/releases/download/{{ containers_netavark_version }}/netavark.gz
-    dest: /tmp/netavark_{{ containers_netavark_version }}.gz
-    mode: "0644"
-
-- name: Uncompress netavark
-  ansible.builtin.command:
-    cmd: gunzip -d -k -f /tmp/netavark_{{ containers_netavark_version }}.gz
-    creates: /tmp/netavark_{{ containers_netavark_version }}
-
-- name: Copy netavark executable
-  ansible.builtin.copy:
-    src: /tmp/netavark_{{ containers_netavark_version }}
-    dest: /usr/libexec/podman/netavark
-    remote_src: true
-    mode: "0755"
-
-- name: Make netavark executable
-  ansible.builtin.file:
-    path: /usr/libexec/podman/netavark
-    mode: "0755"
-
-# uidmap is required by podman for non root user
-- name: Install uidmap
-  ansible.builtin.package:
-    name: uidmap
-    state: present
-
-# passt is required to install Pasta used by podman for non root user
-- name: Install Pasta
-  ansible.builtin.package:
-    name: passt
-    state: present
-
-# Alternative option to Pasta. It seems that there are a few issues with some release of pasta
-# when working with rootless containers
-- name: Install slirp4netns
-  ansible.builtin.package:
-    name: slirp4netns
-    state: present
-
-- name: Pin podman version to 5.x releases
-  ansible.builtin.copy:
-    dest: /etc/apt/preferences.d/podman-pin
-    content: |
-      Package: podman
-      Pin: version 5.*
-      Pin-Priority: 1001 # Forced Installation
-    mode: "0644"
-  notify: Update apt cache
-
-- name: Install podman
-  ansible.builtin.package:
-    name: podman
-    state: present
-
-- name: Install podman-docker
-  ansible.builtin.package:
-    name: podman-docker
-    state: present
-
-- name: Install aardvark-dns
-  ansible.builtin.package:
-    name: aardvark-dns
-    state: present
+- name: Reject unsupported container architectures
+  ansible.builtin.assert:
+    that: ansible_facts.architecture in ['x86_64', 'aarch64']
+    fail_msg: "Unsupported container architecture: {{ ansible_facts.architecture }}"
 
 - name: Create /etc/containers/nodocker
   ansible.builtin.file:
