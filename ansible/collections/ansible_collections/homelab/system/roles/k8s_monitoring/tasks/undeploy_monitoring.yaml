@@ -1,0 +1,67 @@
+---
+- name: Monitoring | Remove kube-state-metrics resources when disabled
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
+    state: absent
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    name: homelab-kube-state-metrics
+    namespace: "{{ item.namespace | default(omit) }}"
+  loop:
+    - {api: apps/v1, kind: Deployment, namespace: kube-system}
+    - {api: v1, kind: Service, namespace: kube-system}
+    - {api: v1, kind: ConfigMap, namespace: kube-system}
+    - {api: rbac.authorization.k8s.io/v1, kind: ClusterRoleBinding}
+    - {api: rbac.authorization.k8s.io/v1, kind: ClusterRole}
+    - {api: v1, kind: ServiceAccount, namespace: kube-system}
+  run_once: true
+  when: not (__kube_state_metrics_enabled | bool)
+
+- name: Monitoring | Find discovery namespace grants managed by this role
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
+    api_version: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    label_selectors:
+      - app.kubernetes.io/part-of=homelab-monitoring
+      - app.kubernetes.io/component=prometheus-discovery
+  register: __monitoring_discovery_bindings
+  run_once: true
+
+- name: Monitoring | Revoke disabled or obsolete discovery namespace grants
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
+    state: absent
+    api_version: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace }}"
+  loop: "{{ __monitoring_discovery_bindings.resources }}"
+  run_once: true
+  when:
+    - item.metadata.name == k8s_monitoring_discovery_account_name
+    - not (__prometheus_discovery_enabled | bool) or item.metadata.namespace not in k8s_monitoring_discovery_namespaces
+
+- name: Monitoring | Remove disabled external discovery credentials and account
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
+    state: absent
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.name }}"
+    namespace: "{{ item.namespace | default(omit) }}"
+  loop:
+    - api: v1
+      kind: Secret
+      name: "{{ k8s_monitoring_discovery_secret_name }}"
+      namespace: "{{ k8s_monitoring_discovery_namespace }}"
+    - api: v1
+      kind: ServiceAccount
+      name: "{{ k8s_monitoring_discovery_account_name }}"
+      namespace: "{{ k8s_monitoring_discovery_namespace }}"
+    - api: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      name: "{{ k8s_monitoring_discovery_account_name }}"
+  run_once: true
+  when: not (__prometheus_discovery_enabled | bool)
+

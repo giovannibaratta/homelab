@@ -1,0 +1,11 @@
+---
+deploy_kube_state_metrics: true
+kube_state_metrics_version: "2.19.1"
+kube_state_metrics_kubeconfig: /etc/kubernetes/admin.conf
+
+deploy_prometheus_discovery: true
+k8s_monitoring_discovery_account_name: homelab-prometheus-discovery
+k8s_monitoring_discovery_secret_name: homelab-prometheus-discovery
+k8s_monitoring_discovery_namespace: kube-system
+k8s_monitoring_discovery_namespaces: [kube-system, cnpg-clusters, zitadel, piraeus-datastore]
+

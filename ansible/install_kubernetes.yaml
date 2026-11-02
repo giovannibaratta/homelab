@@ -198,6 +198,14 @@
                 cpu: "1000m"
                 memory: "1Gi"
 
+- name: Deploy Kubernetes monitoring exporters
+  hosts: kube_control_plane
+  become: true
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.system.k8s_monitoring
+  tags: k8s-monitoring
+
 - name: Deploy Redis Operator
   hosts: kube_control_plane
   become: yes

@@ -1,0 +1,12 @@
+---
+- name: Monitoring | Determine exporter lifecycle
+  ansible.builtin.set_fact:
+    __kube_state_metrics_enabled: "{{ deploy_kube_state_metrics | default(false) | bool }}"
+    __prometheus_discovery_enabled: "{{ deploy_prometheus_discovery | default(false) | bool }}"
+
+- name: Monitoring | Deploy exporters
+  ansible.builtin.import_tasks: deploy_monitoring.yaml
+
+- name: Monitoring | Remove disabled exporters
+  ansible.builtin.import_tasks: undeploy_monitoring.yaml
+

@@ -1,0 +1,35 @@
+---
+- name: Monitoring | Install kube-state-metrics and CloudNativePG state collectors
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'kube-state-metrics.yaml.j2') | from_yaml_all | list }}"
+  run_once: true
+  when: __kube_state_metrics_enabled | bool
+
+- name: Monitoring | Provision external Prometheus discovery
+  run_once: true
+  when: __prometheus_discovery_enabled | bool
+  block:
+    - name: Monitoring | Create discovery service account, credential and RBAC
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
+        state: present
+        definition: "{{ lookup('ansible.builtin.template', 'discovery-rbac.yaml.j2') | from_yaml_all | list }}"
+
+    - name: Monitoring | Wait for the discovery service account credential
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
+        api_version: v1
+        kind: Secret
+        namespace: "{{ k8s_monitoring_discovery_namespace }}"
+        name: "{{ k8s_monitoring_discovery_secret_name }}"
+      register: __monitoring_discovery_secret
+      until:
+        - __monitoring_discovery_secret.resources | length > 0
+        - __monitoring_discovery_secret.resources[0].data.token is defined
+        - __monitoring_discovery_secret.resources[0].data['ca.crt'] is defined
+      retries: 12
+      delay: 5
+      no_log: true
+
