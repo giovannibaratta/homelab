@@ -185,6 +185,7 @@
         k8s_db_cluster_namespace: zitadel
         k8s_db_clusters:
           - name: zitadeldb
+            database: zitadeldata
             storage_size: "10Gi"
             username: "zitadeladmin"
             password: "{{ idp_zitadel_db_admin_password }}"

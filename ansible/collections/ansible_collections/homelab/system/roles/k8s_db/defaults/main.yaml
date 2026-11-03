@@ -1,4 +1,7 @@
 ---
+# Install the complete versioned upstream bundle: CRDs, RBAC, webhooks and operator.
+k8s_db_operator_version: "1.30.1"
+
 k8s_db_clusters: []
 k8s_db_cluster_namespace: cnpg-clusters
 

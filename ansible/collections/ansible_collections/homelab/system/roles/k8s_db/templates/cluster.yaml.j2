@@ -8,7 +8,7 @@ spec:
 
   bootstrap:
     initdb:
-      database: {{ __k8s_db_cluster_name }}
+      database: {{ __k8s_db_database_name | to_json }}
       owner: {{ __k8s_db_db_user }}
       secret:
         name: {{ __k8s_db_secret_name }}

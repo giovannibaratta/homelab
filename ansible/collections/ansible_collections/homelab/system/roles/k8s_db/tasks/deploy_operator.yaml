@@ -1,16 +1,36 @@
 ---
-# Download and apply manifest
-- name: CloudNativePG | Download metrics-server manifest to the cluster.
+# Updating only the Deployment image would omit the release's CRDs and RBAC.
+# In 1.30, primary election requires coordination.k8s.io Lease permissions.
+# Pin both the Git tag and filename so main-branch changes cannot alter a release.
+- name: CloudNativePG | Download complete operator release manifest
   ansible.builtin.get_url:
-    url: https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/releases/cnpg-1.29.0-rc1.yaml
-    dest: ~/cloud-native-pg.yaml
+    url: "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v{{ k8s_db_operator_version }}/releases/cnpg-{{ k8s_db_operator_version }}.yaml"
+    dest: "~/cloud-native-pg-{{ k8s_db_operator_version }}.yaml"
     mode: "0600"
 
 - name: CloudNativePG | Apply operator manifest to the cluster.
   kubernetes.core.k8s:
     state: present
-    src: ~/cloud-native-pg.yaml
+    src: "~/cloud-native-pg-{{ k8s_db_operator_version }}.yaml"
     apply: true
     force: true
     server_side_apply:
       field_manager: ansible-cloudnativepg
+
+# Do not submit Cluster resources while the old operator/webhook is rolling out.
+# Available alone is insufficient: an old replica can still satisfy it.
+- name: CloudNativePG | Wait for operator rollout to finish
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: cnpg-system
+    name: cnpg-controller-manager
+  register: __k8s_db_operator_deployment
+  until:
+    - (__k8s_db_operator_deployment.resources | length) == 1
+    - (__k8s_db_operator_deployment.resources[0].status.observedGeneration | default(0) | int) >= (__k8s_db_operator_deployment.resources[0].metadata.generation | int)
+    - (__k8s_db_operator_deployment.resources[0].status.updatedReplicas | default(0) | int) == (__k8s_db_operator_deployment.resources[0].spec.replicas | default(1) | int)
+    - (__k8s_db_operator_deployment.resources[0].status.readyReplicas | default(0) | int) == (__k8s_db_operator_deployment.resources[0].spec.replicas | default(1) | int)
+    - (__k8s_db_operator_deployment.resources[0].status.replicas | default(0) | int) == (__k8s_db_operator_deployment.resources[0].spec.replicas | default(1) | int)
+  retries: 60
+  delay: 5

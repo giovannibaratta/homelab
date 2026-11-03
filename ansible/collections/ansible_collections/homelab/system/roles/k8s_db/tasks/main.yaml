@@ -140,6 +140,7 @@
     label: "{{ item.name }}"
   vars:
     __k8s_db_cluster_name: "{{ item.name }}"
+    __k8s_db_database_name: "{{ item.database | default(item.name) }}"
     __k8s_db_storage_size: "{{ item.storage_size }}"
     __k8s_db_db_user: "{{ item.username }}"
     __k8s_db_secret_name: "{{ __k8s_db_cluster_name }}-credentials"
