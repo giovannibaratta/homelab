@@ -27,6 +27,7 @@
       node_exporter.yaml: "{{ lookup('ansible.builtin.template', 'dashboard-provider.yaml.j2', template_vars={'grafana_provider_name': 'node_exporter_dashboard', 'grafana_dashboard_filename': 'node_exporter_full.json'}) }}"
       process_exporter.yaml: "{{ lookup('ansible.builtin.template', 'dashboard-provider.yaml.j2', template_vars={'grafana_provider_name': 'process_exporter_dashboard', 'grafana_dashboard_filename': 'process_exporter.json'}) }}"
       ping_exporter.yaml: "{{ lookup('ansible.builtin.template', 'dashboard-provider.yaml.j2', template_vars={'grafana_provider_name': 'ping_exporter_dashboard', 'grafana_dashboard_filename': 'ping_exporter.json'}) }}"
+      cluster_health.yaml: "{{ lookup('ansible.builtin.template', 'dashboard-provider.yaml.j2', template_vars={'grafana_provider_name': 'cluster_health_dashboard', 'grafana_dashboard_filename': 'cluster_health.json'}) }}"
     __grafana_dashboard_files:
       node_exporter_full.json: "{{ lookup('ansible.builtin.file', 'dashboards/node_exporter_full_1860_rev37.json') | from_json | to_json }}"
       # File provisioning does not resolve interactive dashboard import inputs.
@@ -36,6 +37,7 @@
            | replace('${DS_PROMETHEUS}', 'Prometheus') | from_json
            | combine({'uid': 'process-exporter'}) | to_json }}
       ping_exporter.json: "{{ lookup('ansible.builtin.template', 'network.json.j2', convert_data=False) | from_json | to_json }}"
+      cluster_health.json: "{{ lookup('ansible.builtin.file', 'dashboards/cluster_health.json') | from_json | to_json }}"
   no_log: true
 
 - name: Calculate the Grafana configuration revision

@@ -26,6 +26,7 @@
     - {key: node_exporter.yaml, path: provisioning/dashboards/node_exporter.yaml}
     - {key: process_exporter.yaml, path: provisioning/dashboards/process_exporter.yaml}
     - {key: ping_exporter.yaml, path: provisioning/dashboards/ping_exporter.yaml}
+    - {key: cluster_health.yaml, path: provisioning/dashboards/cluster_health.yaml}
   notify: Restart Grafana service
 
 - name: Copy common Grafana dashboards

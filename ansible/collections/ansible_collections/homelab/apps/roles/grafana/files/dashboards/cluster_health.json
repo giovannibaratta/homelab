@@ -1,0 +1,1765 @@
+{
+  "uid": "homelab-cluster-health",
+  "title": "Homelab \u2014 Kubernetes, PostgreSQL and storage health",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "homelab",
+    "kubernetes",
+    "postgresql",
+    "linstor",
+    "drbd"
+  ],
+  "timezone": "browser",
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus_ds"
+        },
+        "query": "label_values(kube_pod_info, namespace)",
+        "definition": "label_values(kube_pod_info, namespace)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "cluster",
+        "label": "PostgreSQL cluster",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus_ds"
+        },
+        "query": "label_values(cnpg_cluster_instances{namespace=~\"$namespace\"}, cnpg_cluster)",
+        "definition": "label_values(cnpg_cluster_instances{namespace=~\"$namespace\"}, cnpg_cluster)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "node",
+        "label": "Storage node",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus_ds"
+        },
+        "query": "label_values(up{job=\"drbd\"}, node)",
+        "definition": "label_values(up{job=\"drbd\"}, node)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "resource",
+        "label": "DRBD resource",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus_ds"
+        },
+        "query": "label_values(drbd_peerdevice_outofsync_bytes{node=~\"$node\"}, name)",
+        "definition": "label_values(drbd_peerdevice_outofsync_bytes{node=~\"$node\"}, name)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Live overview \u2014 15 second refresh; alerts have a recovery grace period",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "title": "Exporter scrape health (1 = reachable)",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=~\"kube-state-metrics|kube-state-metrics-internal|cloudnativepg|linstor|linstor-policy|drbd\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "Check this first. Missing data does not mean healthy.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Alerts pending or firing",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ALERTS{alertstate=~\"pending|firing\",component=~\"kubernetes|postgresql|storage|monitoring\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "row",
+      "title": "Kubernetes rollouts and pod readiness",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 5,
+      "title": "Pods not ready now",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(kube_pod_status_ready{namespace=~\"$namespace\",condition!=\"true\"} == 1) and on (namespace,pod,uid) (kube_pod_status_phase{phase=~\"Pending|Running|Unknown\"} == 1)",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Containers waiting (includes init containers)",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kube_pod_container_status_waiting_reason{namespace=~\"$namespace\"} == 1 or kube_pod_init_container_status_waiting_reason{namespace=~\"$namespace\"} == 1",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Deployment replicas missing",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kube_deployment_spec_replicas{namespace=~\"$namespace\"} - kube_deployment_status_replicas_available",
+          "legendFormat": "{{namespace}} / {{deployment}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "StatefulSet / DaemonSet replicas missing",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kube_statefulset_replicas{namespace=~\"$namespace\"} - kube_statefulset_status_replicas_ready",
+          "legendFormat": "{{namespace}} {{statefulset}} {{daemonset}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        },
+        {
+          "refId": "B",
+          "expr": "kube_daemonset_status_desired_number_scheduled{namespace=~\"$namespace\"} - kube_daemonset_status_number_ready",
+          "legendFormat": "{{namespace}} {{statefulset}} {{daemonset}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Container restarts in 15 minutes",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (namespace,pod,container) (increase(kube_pod_container_status_restarts_total{namespace=~\"$namespace\"}[15m]))",
+          "legendFormat": "{{namespace}} / {{pod}} / {{container}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Pod to volume mapping",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 26,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "kube_persistentvolumeclaim_info{namespace=~\"$namespace\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "volumename maps a LINSTOR pvc-UUID resource to its namespace and PVC name.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "PostgreSQL \u2014 CloudNativePG",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 12,
+      "title": "Ready and desired database instances",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "cnpg_cluster_ready_instances{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\"}",
+          "legendFormat": "{{__name__}} {{namespace}} / {{cnpg_cluster}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        },
+        {
+          "refId": "B",
+          "expr": "cnpg_cluster_instances{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\"}",
+          "legendFormat": "{{__name__}} {{namespace}} / {{cnpg_cluster}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Declared primary is reachable (1 = yes)",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 35,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(cnpg_cluster_primary_info{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\"} and on (namespace,cnpg_cluster,pod) (cnpg_collector_up == 1)) unless on (namespace,cnpg_cluster,pod) (cnpg_pg_replication_in_recovery != 0)",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "Operator-declared primary checked against PostgreSQL availability; known standby roles are excluded. Missing SQL role metrics have a separate monitoring alert.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Replication lag",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "cnpg_pg_replication_lag{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Connection utilization",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 43,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum by (namespace,cnpg_cluster,pod,instance) (cnpg_backends_total{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\"}) / on (namespace,cnpg_cluster,pod,instance) cnpg_pg_settings_setting{name=\"max_connections\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "Longest transaction",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (namespace,cnpg_cluster,pod) (cnpg_backends_max_tx_duration_seconds{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\"})",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "title": "Deadlocks in 15 minutes",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 51,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(cnpg_pg_stat_database_deadlocks{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\"}[15m])",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 18,
+      "title": "Age of last successful backup",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - cnpg_cluster_last_successful_backup_timestamp{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\",backup_destination!=\"\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "Only clusters configured for Barman object-store backups are shown. A zero timestamp means no successful backup yet.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "WAL segments waiting for archival",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 59,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "cnpg_collector_pg_wal_archive_status{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\",value=\"ready\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "LINSTOR and DRBD replication",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 67,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 21,
+      "title": "Out-of-sync bytes by peer",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 68,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "drbd_peerdevice_outofsync_bytes{node=~\"$node\",name=~\"$resource\"}",
+          "legendFormat": "{{node}} / {{name}} \u2192 {{conn_name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "title": "Disconnected peers (1 = disconnected)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 68,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - drbd_connection_state{node=~\"$node\",name=~\"$resource\",drbd_connection_state=\"Connected\"}",
+          "legendFormat": "{{node}} / {{name}} \u2192 {{conn_name}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 23,
+      "title": "Quorum (1 = present)",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 76,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "drbd_device_quorum{node=~\"$node\",name=~\"$resource\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "Suspended I/O or unexpected diskless devices",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 76,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "drbd_resource_suspended{node=~\"$node\",name=~\"$resource\"} == 1",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "drbd_device_unintentionaldiskless{node=~\"$node\",name=~\"$resource\"} == 1",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "title": "LINSTOR satellite state (2 = ONLINE)",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 84,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "linstor_node_state{node=~\"$node\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "title": "LINSTOR volume state (1 = UpToDate; 4 = Diskless)",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 84,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "linstor_volume_state{node=~\"$node\",resource=~\"$resource\"}",
+          "legendFormat": "{{namespace}} {{pod}} {{node}} {{name}}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "An intentional diskless client is valid; unexpected disk loss is checked separately by DRBD.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "backup_destination": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "title": "Storage-pool free capacity",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 92,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * linstor_storage_pool_capacity_free_bytes{node=~\"$node\"} / linstor_storage_pool_capacity_total_bytes",
+          "legendFormat": "{{node}} / {{storage_pool}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 28,
+      "title": "Storage-pool errors",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 92,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "linstor_storage_pool_error_count{node=~\"$node\"}",
+          "legendFormat": "{{node}} / {{storage_pool}}",
+          "instant": false,
+          "range": true,
+          "format": "time_series"
+        }
+      ],
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 29,
+      "title": "Healthy and desired disk replicas per volume",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 100,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "homelab:linstor_healthy_disk_replicas{name=~\"$resource\"}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "expr": "homelab:linstor_expected_disk_replicas{name=~\"$resource\"}",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ],
+      "description": "Desired copies come from the live LINSTOR resource-group placement policy. Intentional diskless clients are excluded."
+    },
+    {
+      "id": 30,
+      "title": "Database size",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 108,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "cnpg_pg_database_size_bytes{namespace=~\"$namespace\",cnpg_cluster=~\"$cluster\"}",
+          "instant": false,
+          "range": true,
+          "format": "time_series",
+          "legendFormat": "{{namespace}} {{pod}} {{datname}} {{name}}"
+        }
+      ]
+    }
+  ]
+}
