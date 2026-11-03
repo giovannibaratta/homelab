@@ -1,0 +1,55 @@
+---
+- name: Secret reader | Try reading the optional Secret
+  when: not (k8s_secret_reader_result.available | bool)
+  block:
+    - name: Secret reader | Allow an asynchronously populated Secret to settle
+      ansible.builtin.wait_for:
+        timeout: 1
+      when: __k8s_secret_reader_attempt | int > 0
+
+    - name: Secret reader | Fetch the optional Secret through the Kubernetes module
+      block:
+        - name: Secret reader | Read Secret data
+          kubernetes.core.k8s_info:
+            kubeconfig: "{{ k8s_secret_reader_kubeconfig }}"
+            api_version: v1
+            kind: Secret
+            namespace: "{{ k8s_secret_reader_namespace }}"
+            name: "{{ k8s_secret_reader_name }}"
+            persist_config: false
+          delegate_to: "{{ k8s_secret_reader_host }}"
+          timeout: "{{ k8s_secret_reader_timeout }}"
+          register: __k8s_secret_reader_query
+          changed_when: false
+          failed_when: false
+          ignore_unreachable: true
+          no_log: true
+      rescue:
+        # Task timeouts can bypass failed_when. Never reuse the previous
+        # attempt's response after a timeout or action/plugin exception.
+        - name: Secret reader | Treat timed-out or unavailable reads as optional
+          ansible.builtin.set_fact:
+            __k8s_secret_reader_query:
+              resources: []
+          no_log: true
+
+    - name: Secret reader | Normalize this attempt's response
+      ansible.builtin.set_fact:
+        __k8s_secret_reader_data: >-
+          {{ ((__k8s_secret_reader_query.resources | default([], true) | first | default({})).data
+              | default({}, true)) }}
+      no_log: true
+
+    - name: Secret reader | Publish only a complete Secret snapshot
+      ansible.builtin.set_fact:
+        k8s_secret_reader_result:
+          available: true
+          data: "{{ __k8s_secret_reader_data }}"
+      when:
+        - k8s_secret_reader_required_keys | difference(__k8s_secret_reader_data.keys() | list) | length == 0
+        - >-
+          __k8s_secret_reader_data | dict2items
+          | selectattr('key', 'in', k8s_secret_reader_required_keys)
+          | map(attribute='value') | select('string') | reject('equalto', '') | list | length
+          == k8s_secret_reader_required_keys | length
+      no_log: true

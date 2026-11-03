@@ -1,0 +1,33 @@
+---
+# Results belong to each consumer host, never to a delegated host or a run_once
+# host. Reset them on every invocation; do not reuse cached credentials/readiness.
+- name: Secret reader | Reset this host's result
+  ansible.builtin.set_fact:
+    k8s_secret_reader_result:
+      available: false
+      data: {}
+  no_log: true
+
+- name: Secret reader | Read optional Kubernetes credentials
+  when: k8s_secret_reader_enabled | bool
+  block:
+    - name: Secret reader | Check for a Kubernetes client configuration
+      ansible.builtin.stat:
+        path: "{{ k8s_secret_reader_kubeconfig }}"
+      delegate_to: "{{ k8s_secret_reader_host }}"
+      register: __k8s_secret_reader_config
+      failed_when: false
+      ignore_unreachable: true
+
+    - name: Secret reader | Read a complete credential snapshot
+      ansible.builtin.include_tasks: read_attempt.yaml
+      loop: [0, 1, 2]
+      loop_control:
+        loop_var: __k8s_secret_reader_attempt
+      when: __k8s_secret_reader_config.stat.exists | default(false) | bool
+
+    - name: Secret reader | Report optional credentials unavailable
+      ansible.builtin.debug:
+        msg: Kubernetes discovery credentials are unavailable; continuing without a fresh credential snapshot.
+      when: not (k8s_secret_reader_result.available | bool)
+

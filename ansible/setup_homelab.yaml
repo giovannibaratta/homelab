@@ -328,15 +328,29 @@
         - first-setup
         - adguard
 
-    - when: deploy_prometheus | bool
+    - name: Read optional Kubernetes monitoring credentials for each Prometheus host
       ansible.builtin.import_role:
+        name: homelab.utils.read_k8s_secret
+      become: true
+      vars:
+        k8s_secret_reader_enabled: "{{ deploy_prometheus | default(false) | bool }}"
+        k8s_secret_reader_host: "{{ inventory_hostname }}"
+        k8s_secret_reader_kubeconfig: /etc/kubernetes/admin.conf
+        k8s_secret_reader_name: homelab-prometheus-discovery
+        k8s_secret_reader_namespace: kube-system
+      tags: prometheus
+
+    - ansible.builtin.import_role:
         name: homelab.apps.prometheus
       become: true
       vars:
         prometheus_targets: "{{ groups['all'] }}"
         prometheus_traefik_targets: "{{ groups['all'] if (ingress_traefik_metrics_enabled | bool) else [] }}"
         prometheus_traefik_metrics_port: "{{ ingress_traefik_metrics_port }}"
-      ignore_errors: yes
+        prometheus_kubernetes_monitoring_enabled: true
+        prometheus_kubernetes_credentials:
+          token: "{{ k8s_secret_reader_result.data.token | default('') | b64decode }}"
+          ca_cert: "{{ k8s_secret_reader_result.data['ca.crt'] | default('') | b64decode }}"
       tags: prometheus
 
     - ansible.builtin.import_role:

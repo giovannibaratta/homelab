@@ -2,6 +2,9 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
+{% if __prometheus_kubernetes_enabled | default(prometheus_kubernetes_monitoring_enabled) | bool %}
+{% filter indent(2, true) %}{% include 'kubernetes-scrapes.yaml.j2' %}{% endfilter %}{{ '\n' }}
+{% endif %}
 {% if prometheus_traefik_targets | default([]) | length > 0 %}
   - job_name: 'traefik-host'
     scrape_interval: 15s

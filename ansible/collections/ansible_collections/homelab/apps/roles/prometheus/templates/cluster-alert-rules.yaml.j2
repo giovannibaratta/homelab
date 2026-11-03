@@ -1,0 +1,753 @@
+{% if __prometheus_kubernetes_enabled | default(prometheus_kubernetes_monitoring_enabled) | bool %}
+# Cluster monitoring coverage: Kubernetes workload/node state, CNPG availability,
+# SQL/backup health, LINSTOR placement/capacity, DRBD replication and telemetry gaps.
+# Sources: kube-state-metrics (including custom CNPG/Piraeus CR collectors),
+# CNPG SQL exporter, LINSTOR controller, DRBD exporter and LINSTOR policy exporter.
+#
+# Timing: `for` requires the expression to remain true for each alert label set
+# across evaluations. It is separate from any [5m]/[15m] query lookback window.
+#
+# Coverage limits: these rules observe reported state, not end-to-end application
+# correctness. Comparisons generally do not alert on absent series; the monitoring
+# rules cover specific missing inputs, not every possible discovery/API outage.
+# All rules below are omitted when Kubernetes monitoring is disabled.
+groups:
+- name: ClusterHealth
+  rules:
+
+  # Desired disk-copy count per volume, joined from its resource-group placement
+  # policy. The size metric supplies volume identity only; capacity does not
+  # determine the replica count. Missing policy is alerted separately.
+  - record: homelab:linstor_expected_disk_replicas
+    expr: (0 * max by (namespace, name, volume_number, resource_group) (linstor_volume_definition_size_bytes) + 1) * on (namespace, resource_group)
+      group_left max by (namespace, resource_group) (linstor_policy_resource_group_desired_disk_replicas)
+
+  # Count distinct nodes reporting UpToDate (state=1), normalizing LINSTOR
+  # resource/volume labels to name/volume_number. Deduplicate controller reports
+  # and emit zero for expected volumes with no healthy disk copy; Diskless is excluded.
+  - record: homelab:linstor_healthy_disk_replicas
+    expr: count by (namespace, name, volume_number) (max by (namespace, node, name, volume_number) (label_replace(label_replace(linstor_volume_state
+      == 1, "name", "$1", "resource", "(.+)"), "volume_number", "$1", "volume", "(.+)"))) or on (namespace, name, volume_number) (0 * homelab:linstor_expected_disk_replicas)
+
+  # A Pending, Running or Unknown pod has Ready=False/Unknown. Pods being deleted
+  # are excluded; completed/failed pods are handled separately. Warning after 15m,
+  # critical after 30m, allowing normal startup and rollout recovery.
+  - alert: KubePodNotReady
+    expr: max by (namespace, pod) ((kube_pod_status_ready{condition!="true"} == 1) and on (namespace, pod, uid) (kube_pod_status_phase{phase=~"Pending|Running|Unknown"}
+      == 1)) unless on (namespace, pod) (kube_pod_deletion_timestamp > 0)
+    for: 15m
+    labels:
+      severity: warning
+      component: kubernetes
+    annotations:
+      summary: Pod {{ '{{' }} $labels.namespace }}/{{ '{{' }} $labels.pod }} is not ready
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Escalation rule for KubePodNotReady; same coverage as documented above.
+  # See this rule's threshold and persistence window below.
+  - alert: KubePodNotReady
+    expr: max by (namespace, pod) ((kube_pod_status_ready{condition!="true"} == 1) and on (namespace, pod, uid) (kube_pod_status_phase{phase=~"Pending|Running|Unknown"}
+      == 1)) unless on (namespace, pod) (kube_pod_deletion_timestamp > 0)
+    for: 30m
+    labels:
+      severity: critical
+      component: kubernetes
+    annotations:
+      summary: Pod {{ '{{' }} $labels.namespace }}/{{ '{{' }} $labels.pod }} is not ready
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # An application or init container has reported CrashLoopBackOff within the
+  # last 5m throughout the pending period. Warning after 15m, critical after 30m.
+  # The rolling window bridges restart backoff gaps and can delay clearing by 5m.
+  - alert: KubePodCrashLooping
+    expr: max by (namespace, pod, container) (max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]) or max_over_time(kube_pod_init_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]))
+      >= 1
+    for: 15m
+    labels:
+      severity: warning
+      component: kubernetes
+    annotations:
+      summary: Container {{ '{{' }} $labels.container }} in {{ '{{' }} $labels.namespace }}/{{ '{{' }} $labels.pod }} is crash looping
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Escalation rule for KubePodCrashLooping; same coverage as documented above.
+  # See this rule's threshold and persistence window below.
+  - alert: KubePodCrashLooping
+    expr: max by (namespace, pod, container) (max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]) or max_over_time(kube_pod_init_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]))
+      >= 1
+    for: 30m
+    labels:
+      severity: critical
+      component: kubernetes
+    annotations:
+      summary: Container {{ '{{' }} $labels.container }} in {{ '{{' }} $labels.namespace }}/{{ '{{' }} $labels.pod }} is crash looping
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A pod remains in phase Failed for 30m (critical). Job-owned pods are excluded
+  # because Job failure is checked below; successful completed pods do not alert.
+  - alert: KubePodFailed
+    expr: (kube_pod_status_phase{phase="Failed"} == 1) unless on (namespace, pod, uid) (kube_pod_owner{owner_kind="Job"} == 1)
+    for: 30m
+    labels:
+      severity: critical
+      component: kubernetes
+    annotations:
+      summary: Pod has remained failed
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Deployment available replicas remain below spec.replicas for 30m (critical).
+  # This checks sustained loss of requested capacity, including stalled rollouts;
+  # it does not check application correctness once replicas are available.
+  - alert: KubeDeploymentReplicasUnavailable
+    expr: kube_deployment_spec_replicas - kube_deployment_status_replicas_available > 0
+    for: 30m
+    labels:
+      severity: critical
+      component: kubernetes
+    annotations:
+      summary: Workload has fewer ready replicas than desired
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # StatefulSet ready replicas remain below desired replicas for 30m (critical).
+  # The expected count comes from the workload specification, not a fixed default.
+  - alert: KubeStatefulSetReplicasUnavailable
+    expr: kube_statefulset_replicas - kube_statefulset_status_replicas_ready > 0
+    for: 30m
+    labels:
+      severity: critical
+      component: kubernetes
+    annotations:
+      summary: Workload has fewer ready replicas than desired
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # DaemonSet ready pods remain below the desired scheduled count for 30m
+  # (critical). The desired count accounts for nodes eligible for that DaemonSet.
+  - alert: KubeDaemonSetReplicasUnavailable
+    expr: kube_daemonset_status_desired_number_scheduled - kube_daemonset_status_number_ready > 0
+    for: 30m
+    labels:
+      severity: critical
+      component: kubernetes
+    annotations:
+      summary: Workload has fewer ready replicas than desired
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A node stops reporting Ready=True for 15m (critical), including Ready=Unknown.
+  # A node removed from Kubernetes no longer has a series and is not covered here.
+  - alert: KubeNodeNotReady
+    expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+    for: 15m
+    labels:
+      severity: critical
+      component: kubernetes
+    annotations:
+      summary: Kubernetes node {{ '{{' }} $labels.node }} is not ready
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A Job has its terminal Failed condition set for 30m (warning). Individual
+  # failed attempts that Kubernetes retries successfully do not trigger this rule.
+  # It clears when the failed Job is removed; a later successful Job is separate.
+  - alert: KubeJobFailed
+    expr: kube_job_failed{condition="true"} == 1
+    for: 30m
+    labels:
+      severity: warning
+      component: kubernetes
+    annotations:
+      summary: Job {{ '{{' }} $labels.namespace }}/{{ '{{' }} $labels.job_name }} failed
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # CNPG reports fewer ready instances than the desired count in its Cluster CR.
+  # Warning after 15m, critical after 30m. Detects reduced availability/redundancy
+  # without assuming every cluster should have the same number of replicas.
+  - alert: CNPGInstancesNotReady
+    expr: cnpg_cluster_ready_instances < cnpg_cluster_instances
+    for: 15m
+    labels:
+      severity: warning
+      component: postgresql
+    annotations:
+      summary: PostgreSQL {{ '{{' }} $labels.namespace }}/{{ '{{' }} $labels.cnpg_cluster }} has missing instances
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Escalation rule for CNPGInstancesNotReady; same coverage as documented above.
+  # See this rule's threshold and persistence window below.
+  - alert: CNPGInstancesNotReady
+    expr: cnpg_cluster_ready_instances < cnpg_cluster_instances
+    for: 30m
+    labels:
+      severity: critical
+      component: postgresql
+    annotations:
+      summary: PostgreSQL {{ '{{' }} $labels.namespace }}/{{ '{{' }} $labels.cnpg_cluster }} has missing instances
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # For 5m (critical), no declared primary can be matched to a DB collector
+  # reporting up=1, or that declared primary reports itself as a standby.
+  # Missing SQL role metrics alone do not prove primary loss; see
+  # CNPGReplicationMetricsMissing. This is not an application write test.
+  - alert: CNPGNoPrimary
+    # Use declared primary identity and DB availability; reject a known standby.
+    # Absent SQL role metrics are reported separately, not treated as proof of no primary.
+    expr: cnpg_cluster_instances > 0 unless on (namespace, cnpg_cluster) ((cnpg_cluster_primary_info and on (namespace, cnpg_cluster, pod) (cnpg_collector_up == 1)) unless on (namespace, cnpg_cluster, pod) (cnpg_pg_replication_in_recovery != 0))
+    for: 5m
+    labels:
+      severity: critical
+      component: postgresql
+    annotations:
+      summary: PostgreSQL cluster has no available declared primary
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # The exporter responds but reports PostgreSQL unavailable for 5m (critical).
+  # An unreachable or undiscovered exporter is covered by the monitoring alerts,
+  # since a missing metric is not the same as a collector_up value of zero.
+  - alert: CNPGInstanceDown
+    expr: cnpg_collector_up == 0
+    for: 5m
+    labels:
+      severity: critical
+      component: postgresql
+    annotations:
+      summary: PostgreSQL instance is down
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Native collector or custom SQL query collection reports errors for 15m
+  # (warning). This means monitoring is incomplete, not necessarily that the
+  # database is down. Check exporter logs, target database and query privileges.
+  - alert: CNPGCollectorError
+    expr: (cnpg_collector_last_collection_error > 0) or (cnpg_last_error > 0)
+    for: 15m
+    labels:
+      severity: warning
+      component: postgresql
+    annotations:
+      summary: PostgreSQL metric collection is failing
+      description: The PostgreSQL native or custom-query metrics collector reports an error on {{ '{{' }} $labels.namespace }}/{{ '{{' }} $labels.pod }}. Check
+        exporter logs; PostgreSQL itself may still be serving requests.
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Reported replication lag stays above 60 seconds for 15m (warning), or above
+  # 300 seconds for 30m (critical). These are lag thresholds plus a separate
+  # persistence period; missing lag series cannot trigger this comparison.
+  - alert: CNPGReplicationLag
+    expr: cnpg_pg_replication_lag > 60
+    for: 15m
+    labels:
+      severity: warning
+      component: postgresql
+    annotations:
+      summary: PostgreSQL replication lag exceeds 60 seconds
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Escalation rule for CNPGReplicationLag; same coverage as documented above.
+  # See this rule's threshold and persistence window below.
+  - alert: CNPGReplicationLag
+    expr: cnpg_pg_replication_lag > 300
+    for: 30m
+    labels:
+      severity: critical
+      component: postgresql
+    annotations:
+      summary: PostgreSQL replication lag exceeds 5 minutes
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Total reported backends exceed 80% of max_connections on an instance for
+  # 15m (warning). Indicates connection pressure; does not establish which
+  # application is responsible or whether connections are actively executing.
+  - alert: CNPGConnectionsHigh
+    expr: sum by (namespace, cnpg_cluster, pod, instance) (cnpg_backends_total) / on (namespace, cnpg_cluster, pod, instance) cnpg_pg_settings_setting{name="max_connections"}
+      > 0.8
+    for: 15m
+    labels:
+      severity: warning
+      component: postgresql
+    annotations:
+      summary: PostgreSQL connections exceed 80% of max_connections
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # The reported oldest transaction age exceeds 300 seconds throughout a 15m
+  # period (warning). Detects sustained long-transaction pressure; the oldest
+  # transaction may change during that period. This is not a slow-query alert.
+  - alert: CNPGLongTransaction
+    expr: cnpg_backends_max_tx_duration_seconds > 300
+    for: 15m
+    labels:
+      severity: warning
+      component: postgresql
+    annotations:
+      summary: PostgreSQL transaction remains open for over 5 minutes
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # The estimated counter increase exceeds five deadlocks in the trailing 15m
+  # window, and that condition persists for 5m (warning). This is a rolling count,
+  # not a lifetime total; one burst can remain in the window after it stops.
+  - alert: CNPGDeadlocks
+    expr: increase(cnpg_pg_stat_database_deadlocks[15m]) > 5
+    for: 5m
+    labels:
+      severity: warning
+      component: postgresql
+    annotations:
+      summary: PostgreSQL has repeated deadlocks
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # For a cluster with a nonempty object-store backup destination, the last
+  # successful backup is older than 30h and the cluster itself is older than 30h.
+  # After another 15m this is critical. Requires timestamp metrics to exist;
+  # backup-disabled clusters are excluded. A timestamp does not verify restoreability.
+  - alert: CNPGBackupOverdue
+    expr: (time() - cnpg_cluster_last_successful_backup_timestamp > 108000) and on (namespace, cnpg_cluster) (time() - cnpg_cluster_created_timestamp
+      > 108000) and on (namespace, cnpg_cluster) cnpg_cluster_instances{backup_destination!=""}
+    for: 15m
+    labels:
+      severity: critical
+      component: postgresql
+    annotations:
+      summary: No successful PostgreSQL backup within 30 hours
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # The last failed backup timestamp is newer than the last successful one
+  # for 15m (warning). Requires both timestamp series; a newer successful backup
+  # clears the condition. This does not test whether a backup can be restored.
+  - alert: CNPGBackupFailed
+    expr: cnpg_cluster_last_failed_backup_timestamp > cnpg_cluster_last_successful_backup_timestamp
+    for: 15m
+    labels:
+      severity: warning
+      component: postgresql
+    annotations:
+      summary: Latest PostgreSQL backup attempt failed
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # More than 20 WAL segments remain marked ready for archival for 15m
+  # (warning). Detects a growing/unprocessed archive queue, not WAL disk capacity
+  # or replication lag. Segment count is not a fixed number of bytes.
+  - alert: CNPGWALArchiveBacklog
+    expr: cnpg_collector_pg_wal_archive_status{value="ready"} > 20
+    for: 15m
+    labels:
+      severity: warning
+      component: postgresql
+    annotations:
+      summary: PostgreSQL has over 20 WAL segments waiting to archive
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # The LINSTOR controller reports a node state other than ONLINE (2) for
+  # 15m (critical). Missing node-state series are handled separately; this
+  # comparison needs the controller to report a state.
+  - alert: LinstorSatelliteOffline
+    expr: linstor_node_state != 2
+    for: 15m
+    labels:
+      severity: critical
+      component: storage
+    annotations:
+      summary: LINSTOR satellite {{ '{{' }} $labels.node }} is not online
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A LINSTOR volume state is neither UpToDate (1) nor Diskless (4). Warning
+  # after 15m, critical after 30m. Intentional diskless clients are allowed here;
+  # DRBDUnexpectedDiskless separately detects unexpected backing-disk loss.
+  - alert: LinstorVolumeUnhealthy
+    expr: label_replace((linstor_volume_state != 1 and linstor_volume_state != 4), "name", "$1", "resource", "(.+)")
+    for: 15m
+    labels:
+      severity: warning
+      component: storage
+    annotations: &id001
+      summary: LINSTOR volume is neither UpToDate nor intentionally Diskless
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A reported storage pool has less than 15% free capacity for 30m (warning).
+  # Evaluated per pool/node series, not as total capacity across the cluster.
+  - alert: LinstorStoragePoolLow
+    expr: linstor_storage_pool_capacity_free_bytes / linstor_storage_pool_capacity_total_bytes < 0.15
+    for: 30m
+    labels:
+      severity: warning
+      component: storage
+    annotations:
+      summary: LINSTOR pool has less than 15% free capacity
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A reported storage pool has less than 5% free capacity for 5m (critical).
+  # Uses a shorter window because exhaustion can prevent writes and provisioning.
+  # This has a different alert name from LinstorStoragePoolLow.
+  - alert: LinstorStoragePoolCritical
+    expr: linstor_storage_pool_capacity_free_bytes / linstor_storage_pool_capacity_total_bytes < 0.05
+    for: 5m
+    labels:
+      severity: critical
+      component: storage
+    annotations:
+      summary: LINSTOR pool has less than 5% free capacity
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A peer device reports nonzero out-of-sync bytes continuously for 15m
+  # (warning) or 30m (critical). Allows transient resynchronization; a slow but
+  # progressing resync still alerts if it never reaches zero within that time.
+  - alert: DRBDOutOfSync
+    expr: drbd_peerdevice_outofsync_bytes > 0
+    for: 15m
+    labels:
+      severity: warning
+      component: storage
+    annotations:
+      summary: DRBD resource {{ '{{' }} $labels.name }} has out-of-sync bytes
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Escalation rule for DRBDOutOfSync; same coverage as documented above.
+  # See this rule's threshold and persistence window below.
+  - alert: DRBDOutOfSync
+    expr: drbd_peerdevice_outofsync_bytes > 0
+    for: 30m
+    labels:
+      severity: critical
+      component: storage
+    annotations:
+      summary: DRBD resource {{ '{{' }} $labels.name }} has out-of-sync bytes
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # The Connected state indicator for a resource peer remains zero for 15m
+  # (warning) or 30m (critical). Detects an existing reported disconnected link;
+  # an entirely missing peer series cannot satisfy this expression.
+  - alert: DRBDPeerDisconnected
+    expr: drbd_connection_state{drbd_connection_state="Connected"} == 0
+    for: 15m
+    labels:
+      severity: warning
+      component: storage
+    annotations:
+      summary: DRBD resource {{ '{{' }} $labels.name }} has a disconnected peer
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Escalation rule for DRBDPeerDisconnected; same coverage as documented above.
+  # See this rule's threshold and persistence window below.
+  - alert: DRBDPeerDisconnected
+    expr: drbd_connection_state{drbd_connection_state="Connected"} == 0
+    for: 30m
+    labels:
+      severity: critical
+      component: storage
+    annotations:
+      summary: DRBD resource {{ '{{' }} $labels.name }} has a disconnected peer
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A local DRBD device reports quorum=0 for 2m (critical). This threatens
+  # write availability, so the recovery allowance is shorter than for resync.
+  - alert: DRBDNoQuorum
+    expr: drbd_device_quorum == 0
+    for: 2m
+    labels:
+      severity: critical
+      component: storage
+    annotations:
+      summary: DRBD resource {{ '{{' }} $labels.name }} has lost quorum
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A DRBD resource reports suspended I/O for 2m (critical). Detects blocked
+  # I/O state, not ordinary high disk latency or application-level timeouts.
+  - alert: DRBDIOSuspended
+    expr: drbd_resource_suspended == 1
+    for: 2m
+    labels:
+      severity: critical
+      component: storage
+    annotations:
+      summary: DRBD resource {{ '{{' }} $labels.name }} has suspended I/O
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # DRBD reports unintentional diskless state for 5m (critical): a device
+  # expected to have a backing disk has lost it. Intentional diskless clients
+  # are not reported by this metric.
+  - alert: DRBDUnexpectedDiskless
+    expr: drbd_device_unintentionaldiskless == 1
+    for: 5m
+    labels:
+      severity: critical
+      component: storage
+    annotations:
+      summary: DRBD resource {{ '{{' }} $labels.name }} lost its backing disk
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # A discovered target in one of the six cluster scrape jobs has up=0 for
+  # 5m (critical): Prometheus cannot successfully scrape it. A target removed
+  # from discovery disappears instead; see the missing-target coverage below.
+  - alert: ClusterExporterDown
+    expr: up{job=~"kube-state-metrics|kube-state-metrics-internal|cloudnativepg|linstor|linstor-policy|drbd"} == 0
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: Cluster metrics endpoint is unreachable
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # For 5m (critical), a known CNPG Cluster lacks its desired instance metric,
+  # or a CNPG-labelled pod identifies a cluster absent from the Cluster info
+  # metrics. Cross-checks two Kubernetes state views; cannot detect a cluster
+  # if both views disappear together.
+  - alert: CNPGStateMetricsMissing
+    expr: (cnpg_cluster_info unless on (namespace, cnpg_cluster) cnpg_cluster_instances) or (label_replace(max by (namespace, label_cnpg_io_cluster)
+      (kube_pod_labels{label_cnpg_io_cluster!=""}), "cnpg_cluster", "$1", "label_cnpg_io_cluster", "(.+)") unless on (namespace, cnpg_cluster)
+      cnpg_cluster_info)
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: CloudNativePG desired-state metrics are missing
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+  # LinstorSatellite resources are cluster-scoped. Join by node, never namespace.
+
+  # A satellite declared by Piraeus lacks a successfully scraped DRBD target
+  # on the same node for 5m (critical). Includes absent and down targets.
+  # Satellite CRs are cluster-scoped, so matching deliberately uses node only.
+  - alert: DRBDTargetsMissing
+    expr: piraeus_satellite_info unless on (node) (up{job="drbd"} == 1)
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: DRBD exporter targets are missing
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Healthy disk copies remain below the resource-group placement policy for
+  # 15m (warning) or 30m (critical), per resource volume. Expected counts are
+  # discovered dynamically; intentional diskless clients do not count. The
+  # alert value is the expected count, not the number of missing copies.
+  - alert: LinstorReplicasMissing
+    expr: homelab:linstor_expected_disk_replicas unless on (namespace, name, volume_number) (homelab:linstor_healthy_disk_replicas >= on (namespace,
+      name, volume_number) homelab:linstor_expected_disk_replicas)
+    for: 15m
+    labels:
+      severity: warning
+      component: storage
+    annotations:
+      summary: LINSTOR resource {{ '{{' }} $labels.name }} has fewer healthy disk replicas than configured
+      description: Expected {{ '{{' }} $value }} UpToDate disk replicas according to the LINSTOR resource-group placement policy; intentional diskless
+        clients do not count.
+
+  # Escalation rule for LinstorReplicasMissing; same coverage as documented above.
+  # See this rule's threshold and persistence window below.
+  - alert: LinstorReplicasMissing
+    expr: homelab:linstor_expected_disk_replicas unless on (namespace, name, volume_number) (homelab:linstor_healthy_disk_replicas >= on (namespace,
+      name, volume_number) homelab:linstor_expected_disk_replicas)
+    for: 30m
+    labels:
+      severity: critical
+      component: storage
+    annotations:
+      summary: LINSTOR resource {{ '{{' }} $labels.name }} has fewer healthy disk replicas than configured
+      description: Expected {{ '{{' }} $value }} UpToDate disk replicas according to the LINSTOR resource-group placement policy; intentional diskless
+        clients do not count.
+
+  # For a cluster with an object-store backup destination, the last WAL archive
+  # failure is newer than its last successful archive for 15m (warning).
+  # Both timestamp metrics must exist; a subsequent successful archive clears it.
+  - alert: CNPGWALArchivingFailed
+    expr: (cnpg_pg_stat_archiver_last_failed_time > cnpg_pg_stat_archiver_last_archived_time) and on (namespace, cnpg_cluster) cnpg_cluster_instances{backup_destination!=""}
+    for: 15m
+    labels:
+      severity: warning
+      component: postgresql
+    annotations:
+      summary: PostgreSQL WAL archiving has failed without a subsequent successful archive
+
+  # No up series exists at all for either kube-state-metrics scrape job for
+  # 5m (critical). Complements up=0; it does not assert that every optional
+  # CNPG/LINSTOR/DRBD job must always have a target.
+  - alert: ClusterExporterMissing
+    expr: absent(up{job="kube-state-metrics"}) or absent(up{job="kube-state-metrics-internal"})
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: Expected cluster monitoring targets are missing
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # An exporter has up=1 but lacks a representative expected metric for 5m
+  # (critical). Checks pod phase, CNPG DB availability, LINSTOR node state, DRBD
+  # resource count and LINSTOR policy by target instance. This is a payload
+  # sanity check, not validation that every exported metric is present.
+  - alert: ClusterMetricsMissing
+    expr: (up{job="kube-state-metrics"} == 1 unless on (instance) kube_pod_status_phase) or (up{job="cloudnativepg"} == 1 unless on (instance)
+      cnpg_collector_up) or (up{job="linstor"} == 1 unless on (instance) linstor_node_state) or (up{job="drbd"} == 1 unless on (instance) drbd_resource_resources)
+      or (up{job="linstor-policy"} == 1 unless on (instance) linstor_policy_resource_group_desired_disk_replicas)
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: Cluster exporter is missing expected metrics
+      description: Persistent unhealthy state. namespace={{ '{{' }} $labels.namespace }} pod={{ '{{' }} $labels.pod }} cluster={{ '{{' }} $labels.cnpg_cluster }} node={{ '{{' }}
+        $labels.node }} resource={{ '{{' }} $labels.name }} instance={{ '{{' }} $labels.instance }} value={{ '{{' }} $value }}
+      dashboard_url: https://grafana.{{ internal_domain }}/d/homelab-cluster-health
+
+  # Escalation rule for LinstorVolumeUnhealthy; same coverage as documented above.
+  # See this rule's threshold and persistence window below.
+  - alert: LinstorVolumeUnhealthy
+    expr: label_replace((linstor_volume_state != 1 and linstor_volume_state != 4), "name", "$1", "resource", "(.+)")
+    for: 30m
+    labels:
+      severity: critical
+      component: storage
+    annotations: *id001
+
+  # For 5m (critical), fewer instances report collector_up=1 than the Cluster
+  # CR requests. Includes missing targets and reported DB failures. Unlike
+  # CNPGInstancesNotReady, this checks exporter observations rather than CR readiness.
+  - alert: CNPGInstanceMetricsMissing
+    expr: cnpg_cluster_instances unless on (namespace, cnpg_cluster) (count by (namespace, cnpg_cluster) (cnpg_collector_up == 1) >= on (namespace,
+      cnpg_cluster) cnpg_cluster_instances)
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: PostgreSQL has fewer observable healthy instances than desired
+
+  # An existing LINSTOR volume group lacks its desired disk-replica policy
+  # metric for 5m (critical). Without this input the replica-count comparison
+  # cannot determine the required redundancy.
+  - alert: LinstorPlacementPolicyMissing
+    expr: max by (namespace, resource_group) (linstor_volume_definition_size_bytes) unless on (namespace, resource_group) linstor_policy_resource_group_desired_disk_replicas
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: LINSTOR placement policy metrics are missing for an existing volume group
+  # Controller node-state metrics identify which declared satellites it reports.
+
+  # A satellite declared by Piraeus has no LINSTOR controller node-state metric
+  # for 5m (critical). Matches by node because satellite CRs are cluster-scoped;
+  # an existing non-online state is handled by LinstorSatelliteOffline.
+  - alert: LinstorControllerMetricsMissing
+    expr: piraeus_satellite_info unless on (node) linstor_node_state
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: LINSTOR controller metrics are missing for a declared satellite
+
+  # Kube-state-metrics records any list/watch errors in a trailing 10m window,
+  # and that condition persists for 5m (critical), grouped by resource. Signals
+  # RBAC/API/watch collection problems; a past error can keep this pending or
+  # firing until it ages out even after API access recovers.
+  - alert: KubeStateMetricsWatchErrors
+    expr: sum by (resource) (increase({__name__=~"kube_state_metrics_(list|watch)_total",result="error"}[10m])) > 0
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: Kubernetes state collection has list/watch errors
+
+  # An instance reports collector_up=1 but has no SQL recovery-role metric
+  # for 5m (critical). Detects incomplete query collection, including an invalid
+  # monitoring database. Does not itself establish that replication has stopped.
+  - alert: CNPGReplicationMetricsMissing
+    expr: cnpg_collector_up == 1 unless on (namespace, cnpg_cluster, pod, instance) cnpg_pg_replication_in_recovery
+    for: 5m
+    labels:
+      severity: critical
+      component: monitoring
+    annotations:
+      summary: PostgreSQL instance is reachable but replication metrics are missing
+      description: The exporter on {{ '{{' }} $labels.namespace }}/{{ '{{' }} $labels.pod }} cannot report its SQL replication role. Check custom query errors
+        and the monitoring target database.
+
+  # More than one reachable instance reports pg_is_in_recovery=false within
+  # the same cluster for 2m (critical). Investigate possible split brain. Counts
+  # only instances with both SQL role and collector_up=1; missing metrics can
+  # hide an instance, and this is not a direct test of concurrent writes.
+  - alert: CNPGMultiplePrimaries
+    expr: sum by (namespace, cnpg_cluster) ((cnpg_pg_replication_in_recovery == bool 0) * on (namespace, cnpg_cluster, pod, instance) (cnpg_collector_up
+      == bool 1)) > 1
+    for: 2m
+    labels:
+      severity: critical
+      component: postgresql
+    annotations:
+      summary: PostgreSQL cluster reports multiple reachable primary instances
+{% else %}
+groups: []
+{% endif %}

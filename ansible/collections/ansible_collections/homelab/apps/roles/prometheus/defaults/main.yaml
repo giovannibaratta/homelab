@@ -1,0 +1,5 @@
+---
+prometheus_kubernetes_monitoring_enabled: false
+
+prometheus_kubernetes_credentials: {}
+prometheus_kubernetes_api_server: "https://{{ network_k8s_ip }}:6443"
