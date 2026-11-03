@@ -7,5 +7,16 @@ deploy_prometheus_discovery: true
 k8s_monitoring_discovery_account_name: homelab-prometheus-discovery
 k8s_monitoring_discovery_secret_name: homelab-prometheus-discovery
 k8s_monitoring_discovery_namespace: kube-system
-k8s_monitoring_discovery_namespaces: [kube-system, cnpg-clusters, zitadel, piraeus-datastore]
 
+
+# Native LINSTOR metrics let us count healthy disk copies of each volume, but
+# do not expose how many copies its resource group is configured to require.
+# This exporter reads that desired count from the LINSTOR resource-groups API
+# and publishes linstor_policy_resource_group_desired_disk_replicas. Prometheus
+# compares actual healthy copies with that policy: 2 healthy copies are degraded
+# when 3 are required, but healthy when only 2 are required. This avoids hard-coded
+# replica counts. Disabling it removes the policy input needed by replica alerts.
+deploy_linstor_policy_exporter: true
+linstor_policy_exporter_version: "0.8.0"
+linstor_policy_exporter_namespace: piraeus-datastore
+linstor_policy_exporter_api_url: "http://linstor-controller.{{ linstor_policy_exporter_namespace }}.svc:3370/v1/resource-groups"

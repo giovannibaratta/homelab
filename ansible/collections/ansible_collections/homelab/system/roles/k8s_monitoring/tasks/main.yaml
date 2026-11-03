@@ -2,6 +2,7 @@
 - name: Monitoring | Determine exporter lifecycle
   ansible.builtin.set_fact:
     __kube_state_metrics_enabled: "{{ deploy_kube_state_metrics | default(false) | bool }}"
+    __linstor_policy_exporter_enabled: "{{ deploy_linstor_policy_exporter | default(false) | bool }}"
     __prometheus_discovery_enabled: "{{ deploy_prometheus_discovery | default(false) | bool }}"
 
 - name: Monitoring | Deploy exporters

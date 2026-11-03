@@ -5,42 +5,77 @@ spec:
         group: postgresql.cnpg.io
         version: v1
         kind: Cluster
-      metricNamePrefix: cnpg_cluster
+      metricNamePrefix: cnpg
       labelsFromPath:
         namespace: [metadata, namespace]
         cnpg_cluster: [metadata, name]
         backup_destination: [spec, backup, barmanObjectStore, destinationPath]
       metrics:
-        - name: created_timestamp
+        - name: cluster_info
+          help: Declared CloudNativePG cluster identity
+          each:
+            type: Info
+            info:
+              # Info emits nothing without an each-level label, even when
+              # resource-level labelsFromPath are configured above.
+              path: [metadata, uid]
+              labelsFromPath:
+                uid: []
+        - name: cluster_primary_info
+          help: Primary instance declared by the CloudNativePG operator
+          each:
+            type: Info
+            info:
+              path: [status, currentPrimary]
+              labelsFromPath:
+                pod: []
+        - name: cluster_created_timestamp
           help: PostgreSQL cluster creation timestamp
           each:
             type: Gauge
             gauge:
               path: [metadata, creationTimestamp]
-        - name: last_failed_backup_timestamp
+        - name: cluster_last_failed_backup_timestamp
           help: Last failed backup timestamp
           each:
             type: Gauge
             gauge:
               path: [status, lastFailedBackup]
               nilIsZero: true
-        - name: instances
+        - name: cluster_instances
           help: Desired PostgreSQL instance count
           each:
             type: Gauge
             gauge:
               path: [spec, instances]
-        - name: ready_instances
+        - name: cluster_ready_instances
           help: Ready PostgreSQL instance count
           each:
             type: Gauge
             gauge:
               path: [status, readyInstances]
               nilIsZero: true
-        - name: last_successful_backup_timestamp
+        - name: cluster_last_successful_backup_timestamp
           help: Last successful backup timestamp (zero if never backed up)
           each:
             type: Gauge
             gauge:
               path: [status, lastSuccessfulBackup]
               nilIsZero: true
+    - groupVersionKind:
+        group: piraeus.io
+        version: v1
+        kind: LinstorSatellite
+      metricNamePrefix: piraeus
+      # LinstorSatellite is cluster-scoped; its name identifies a Kubernetes node.
+      labelsFromPath:
+        node: [metadata, name]
+      metrics:
+        - name: satellite_info
+          help: Declared LINSTOR satellite node identity
+          each:
+            type: Info
+            info:
+              path: [metadata, uid]
+              labelsFromPath:
+                uid: []

@@ -7,6 +7,14 @@
   run_once: true
   when: __kube_state_metrics_enabled | bool
 
+- name: Monitoring | Install LINSTOR placement policy metrics exporter
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'linstor-policy-exporter.yaml.j2') | from_yaml_all | list }}"
+  run_once: true
+  when: __linstor_policy_exporter_enabled | bool
+
 - name: Monitoring | Provision external Prometheus discovery
   run_once: true
   when: __prometheus_discovery_enabled | bool

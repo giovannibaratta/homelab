@@ -1,0 +1,11 @@
+modules:
+  linstor-policy:
+    metrics:
+      - name: linstor_policy_resource_group
+        type: object
+        help: LINSTOR resource-group disk placement policy
+        path: '{[*]}'
+        labels:
+          resource_group: '{.name}'
+        values:
+          desired_disk_replicas: '{.select_filter.place_count}'

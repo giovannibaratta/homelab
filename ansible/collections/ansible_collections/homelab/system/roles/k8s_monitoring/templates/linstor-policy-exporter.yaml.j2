@@ -1,0 +1,73 @@
+{% set exporter_config %}{% include 'linstor-policy-config.yaml.j2' %}{% endset %}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-linstor-policy-exporter
+  namespace: {{ linstor_policy_exporter_namespace }}
+data:
+  config.yaml: |
+{{ exporter_config | indent(4, true) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homelab-linstor-policy-exporter
+  namespace: {{ linstor_policy_exporter_namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: homelab-linstor-policy-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: homelab-linstor-policy-exporter
+      annotations:
+        monitoring.homelab/config-revision: "{{ exporter_config | hash('sha256') }}"
+        monitoring.homelab/linstor-api-url: {{ linstor_policy_exporter_api_url | to_json }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile: {type: RuntimeDefault}
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: json-exporter
+          image: quay.io/prometheuscommunity/json-exporter:v{{ linstor_policy_exporter_version }}
+          args: [--config.file=/etc/json-exporter/config.yaml]
+          ports:
+            - {name: http-metrics, containerPort: 7979}
+          readinessProbe:
+            tcpSocket: {port: http-metrics}
+          livenessProbe:
+            tcpSocket: {port: http-metrics}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - {name: config, mountPath: /etc/json-exporter, readOnly: true}
+      volumes:
+        - name: config
+          configMap:
+            name: homelab-linstor-policy-exporter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homelab-linstor-policy-exporter
+  namespace: {{ linstor_policy_exporter_namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: homelab-linstor-policy-exporter
+  ports:
+    - {name: http-metrics, port: 7979, targetPort: http-metrics}

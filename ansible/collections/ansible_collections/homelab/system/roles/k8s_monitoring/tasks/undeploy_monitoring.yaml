@@ -1,4 +1,19 @@
 ---
+- name: Monitoring | Remove disabled LINSTOR placement policy exporter
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
+    state: absent
+    api_version: "{{ item.api }}"
+    kind: "{{ item.kind }}"
+    name: homelab-linstor-policy-exporter
+    namespace: "{{ linstor_policy_exporter_namespace }}"
+  loop:
+    - {api: apps/v1, kind: Deployment}
+    - {api: v1, kind: Service}
+    - {api: v1, kind: ConfigMap}
+  run_once: true
+  when: not (__linstor_policy_exporter_enabled | bool)
+
 - name: Monitoring | Remove kube-state-metrics resources when disabled
   kubernetes.core.k8s:
     kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
@@ -28,7 +43,7 @@
   register: __monitoring_discovery_bindings
   run_once: true
 
-- name: Monitoring | Revoke disabled or obsolete discovery namespace grants
+- name: Monitoring | Remove obsolete namespace grants after cluster-wide migration
   kubernetes.core.k8s:
     kubeconfig: "{{ kube_state_metrics_kubeconfig }}"
     state: absent
@@ -40,7 +55,6 @@
   run_once: true
   when:
     - item.metadata.name == k8s_monitoring_discovery_account_name
-    - not (__prometheus_discovery_enabled | bool) or item.metadata.namespace not in k8s_monitoring_discovery_namespaces
 
 - name: Monitoring | Remove disabled external discovery credentials and account
   kubernetes.core.k8s:
@@ -59,6 +73,9 @@
       kind: ServiceAccount
       name: "{{ k8s_monitoring_discovery_account_name }}"
       namespace: "{{ k8s_monitoring_discovery_namespace }}"
+    - api: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      name: "{{ k8s_monitoring_discovery_account_name }}"
     - api: rbac.authorization.k8s.io/v1
       kind: ClusterRole
       name: "{{ k8s_monitoring_discovery_account_name }}"
