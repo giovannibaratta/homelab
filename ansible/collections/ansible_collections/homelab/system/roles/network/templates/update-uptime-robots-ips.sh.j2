@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 API_URL="https://hetrixtools.com/resources/uptime-monitor-only-ips.txt"
 DEST_FILE="{{ __uptime_robot_ntf_ips_file }}"
 
-# Ensure jq and curl exist
+# Ensure curl exists
 if ! command -v curl >/dev/null; then
     echo "curl is missing."
     exit 1
 fi
 
-# 1. Fetch IPs
-RAW_IPS=$(curl -sL "https://hetrixtools.com/resources/uptime-monitor-only-ips.txt" | grep -E '^[0-9]')
+# 1. Fetch IPs. Accept only IPv4-shaped lines; nft validates address ranges below.
+RAW_IPS=$(curl -fsSL --max-time 30 "$API_URL")
+RAW_IPS=$(printf '%s\n' "$RAW_IPS" | grep -E '^([0-9]{1,3}\.){3}[0-9]{1,3}$' || true)
 
 if [ -z "$RAW_IPS" ]; then
     echo "No IPv4 addresses found for $HOSTNAME. DNS might be down."
@@ -23,16 +24,30 @@ fi
 IPS=$(echo "$RAW_IPS" | sed 's/^/    /; s/$/,/')
 
 # 3. Write strictly the elements block to a temp file
-TEMP_NFT=$(mktemp)
+TEMP_NFT=$(mktemp "${DEST_FILE}.XXXXXX")
+trap 'rm -f "$TEMP_NFT"' EXIT
 cat <<EOF > "$TEMP_NFT"
 elements = {
 $IPS
 }
 EOF
 
-# 4. Atomically replace the actual file
-mv "$TEMP_NFT" "$DEST_FILE"
-chmod 600 "$DEST_FILE"
+# 4. Prepare the live-set update as one transaction, preserving firewall counters.
+TEMP_BATCH=$(mktemp "${DEST_FILE}.batch.XXXXXX")
+trap 'rm -f "$TEMP_NFT" "$TEMP_BATCH"' EXIT
+cat <<EOF > "$TEMP_BATCH"
+flush set ip firewall uptimerobot_ips
+add element ip firewall uptimerobot_ips {
+$IPS
+}
+EOF
 
-# 5. Reload nftables to apply the new IPs
-systemctl reload nftables
+# On first setup the set may not exist; the shared rules load DEST_FILE later.
+if nft list set ip firewall uptimerobot_ips >/dev/null 2>&1; then
+    nft -c -f "$TEMP_BATCH"
+    nft -f "$TEMP_BATCH"
+fi
+
+# 5. Atomically replace the actual file for future reloads and reboots
+chmod 600 "$TEMP_NFT"
+mv "$TEMP_NFT" "$DEST_FILE"

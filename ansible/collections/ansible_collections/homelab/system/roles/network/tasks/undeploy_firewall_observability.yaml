@@ -1,0 +1,29 @@
+---
+- name: Remove router firewall metrics on non-router hosts
+  when: not (network_is_router | default(false) | bool)
+  block:
+    - name: Inspect previous firewall metrics timer
+      ansible.builtin.stat:
+        path: /etc/systemd/system/homelab-firewall-metrics.timer
+      register: __firewall_metrics_timer
+
+    - name: Stop previous firewall metrics timer and service
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: false
+        state: stopped
+      loop:
+        - homelab-firewall-metrics.timer
+        - homelab-firewall-metrics.service
+      when: __firewall_metrics_timer.stat.exists
+
+    - name: Remove firewall metrics artifacts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /usr/local/sbin/homelab-firewall-metrics
+        - /etc/systemd/system/homelab-firewall-metrics.service
+        - /etc/systemd/system/homelab-firewall-metrics.timer
+        - /var/lib/node_exporter/textfile_collector/firewall.prom
+      notify: Reload systemd daemons for network role

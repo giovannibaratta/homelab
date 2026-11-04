@@ -1,7 +1,7 @@
 # Clean existing table and preserve docker tables
 
 
-{% if network_is_router %}
+{% if network_is_router | default(false) | bool %}
 # Avoid delete to fail
 table ip custom_nat {
   chain nat_postrouting {}
@@ -13,12 +13,12 @@ delete chain ip custom_nat nat_postrouting
 table ip firewall
 delete table ip firewall
 
-{% if network_is_router %}
+{% if network_is_router | default(false) | bool %}
 table ip mss
 delete table ip mss
 {% endif %}
 
-{% if network_is_router %}
+{% if network_is_router | default(false) | bool %}
 # Only contains the persistent postrouting chain.
 # The prerouting and output chains for the VIP are loaded dynamically by Keepalived.
 table ip custom_nat {
@@ -31,7 +31,7 @@ table ip custom_nat {
 }
 {% endif %}
 
-{% if network_is_router %}
+{% if network_is_router | default(false) | bool %}
 # Since we are using PPPOE, the packet size of TCP must be adjusted
 # Not all client can adjusted the max MTU and TCP MSS, therefore
 # we do it at the router level
@@ -45,7 +45,42 @@ table ip mss {
 
 table ip firewall {
 
-{% if network_is_router %}
+{% if network_is_router | default(false) | bool %}
+  # Named counters are exported to Prometheus. All packet/byte
+  # counters reset when this table is recreated. New counters count attempts,
+  # not unique sessions (SYN retransmissions and UDP retries can repeat).
+{% set wan_categories = ['web_allowed', 'turn_allowed', 'geoip_dropped', 'unknown_dropped', 'forward_observed'] %}
+  counter wan_ipv4_options_dropped {}
+  counter wan_invalid_dropped {}
+{% for category in wan_categories %}
+  counter wan_{{ category }} {}
+  counter wan_{{ category }}_new {}
+
+  chain wan_{{ category }}_sample {
+    # Count attempts before log limiting. These rules never decide the verdict.
+    ct state new tcp flags & (fin | syn | rst | ack) == syn counter name wan_{{ category }}_new
+    ct state new ip protocol udp counter name wan_{{ category }}_new
+    ct state new tcp flags & (fin | syn | rst | ack) == syn limit rate 6/minute burst 10 packets log prefix "{{ 'Banned country ' if category == 'geoip_dropped' else 'WAN ' ~ category ~ ' ' }}"
+    ct state new ip protocol udp limit rate 6/minute burst 10 packets log prefix "{{ 'Banned country ' if category == 'geoip_dropped' else 'WAN ' ~ category ~ ' ' }}"
+  }
+{% endfor %}
+
+  # Inspect every WAN IPv4 fragment before defragmentation (-400), conntrack
+  # (-200), and VIP DNAT (0). IP-header-only matches also cover noninitial
+  # fragments; do not replace ip protocol with a TCP-port/payload match.
+  # Applies to local and forwarded traffic, including established connections.
+  # IPv4 options are not needed on this WAN. TCP options remain unaffected.
+  chain wan_ipv4_options {
+    type filter hook prerouting priority -450; policy accept;
+    iifname "ftth" ip protocol tcp ip hdrlength > 5 counter name wan_ipv4_options_dropped drop comment "Drop WAN IPv4 TCP options (CVE-2026-98432 defense in depth)"
+  }
+
+  # Observation only: subsequent Cilium/Podman/filter rules decide the verdict.
+  chain wan_forward_observation {
+    type filter hook forward priority -10; policy accept;
+    iifname "ftth" counter name wan_forward_observed jump wan_forward_observed_sample
+  }
+
   include "/app/nftables-geoip/ip-lists/geoip-def-all.nft"
   include "/app/nftables-geoip/ip-lists/geoip-ipv4-interesting.nft"
   define ALLOWED_COUNTRIES = { $IT, $IE }
@@ -61,7 +96,7 @@ table ip firewall {
   chain dispatcher {
     type filter hook input priority 1000;
     iif lo accept comment "always accept loopback"
-{% if network_is_router %}
+{% if network_is_router | default(false) | bool %}
     iifname ftth jump public_traffic # ftth is the interface name
 {% endif %}
     # br0.XXX is the WAN carrier for PPPOE (ftth) and must not be matched as internal traffic. Match br0 exactly.
@@ -78,28 +113,37 @@ table ip firewall {
     reject
   }
 
-{% if network_is_router %}
+{% if network_is_router | default(false) | bool %}
   # Drop all traffic from internet if not initiated from internal network
   chain public_traffic {
     meta mark set ip saddr map @geoip4
+    # Service counters below count packets reaching initial policy decisions;
+    # established replies bypass them. Full WAN volume comes from node_network_* metrics.
     ct state {established,related} accept
-    ct state invalid log prefix "Invalid state " drop
+    ct state invalid limit rate 6/minute burst 10 packets log prefix "WAN invalid_dropped "
+    ct state invalid counter name wan_invalid_dropped drop
 
     # --- Allow UptimeRobot Traffic ---
     # UptimeRobot must bypass GeoIP only for the public web ingress ports.
     # Do not let its source allow-list bypass destination-port restrictions.
+    ip saddr @uptimerobot_ips ip daddr {{ internal_ip_address }} tcp dport { 9080, 9443 } counter name wan_web_allowed jump wan_web_allowed_sample
     ip saddr @uptimerobot_ips ip daddr {{ internal_ip_address }} tcp dport { 9080, 9443 } accept comment "Allow UptimeRobot web checks"
 
     # Filter packet not coming from allowed countries checking the meta mark
     # set by geoip4. Geoblocking must be performed after the connection tracker
     # state to avoid blocking legit traffic
-    meta mark != $ALLOWED_COUNTRIES log prefix "Banned country " drop
+    meta mark != $ALLOWED_COUNTRIES counter name wan_geoip_dropped jump wan_geoip_dropped_sample
+    meta mark != $ALLOWED_COUNTRIES drop
     # Accept traffic to system ingress
+    ip daddr {{ internal_ip_address }} tcp dport { 9080, 9443 } counter name wan_web_allowed jump wan_web_allowed_sample
     ip daddr {{ internal_ip_address }} tcp dport { 9080, 9443 } accept
     # Accept traffic for STUN/TURN
+    ip daddr {{ internal_ip_address }} udp dport 3478 counter name wan_turn_allowed jump wan_turn_allowed_sample
     ip daddr {{ internal_ip_address }} udp dport 3478 accept
+    ip daddr {{ internal_ip_address }} tcp dport 5349 counter name wan_turn_allowed jump wan_turn_allowed_sample
     ip daddr {{ internal_ip_address }} tcp dport 5349 accept
-    log prefix "Public unknown traffic " drop
+    counter name wan_unknown_dropped jump wan_unknown_dropped_sample
+    drop
   }
 {% endif %}
 

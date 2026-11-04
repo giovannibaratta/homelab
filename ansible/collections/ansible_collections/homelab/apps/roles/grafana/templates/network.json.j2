@@ -127,6 +127,315 @@
       ],
       "title": "Mean Latency (ms)",
       "type": "timeseries"
+    },
+    {
+      "id": 2,
+      "title": "WAN throughput (all traffic)",
+      "description": "All traffic on each PPPoE ftth interface: RX/download and TX/upload. Includes local and forwarded traffic, allowed and subsequently blocked packets. Interface counters exclude physical Ethernet/PPPoE overhead; reconnects reset counters.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "8 * rate(node_network_receive_bytes_total{device=\"ftth\"}[$__rate_interval])",
+          "refId": "A",
+          "legendFormat": "__auto"
+        },
+        {
+          "expr": "8 * rate(node_network_transmit_bytes_total{device=\"ftth\"}[$__rate_interval])",
+          "refId": "B",
+          "legendFormat": "__auto"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "WAN received bytes \u2014 selected range",
+      "description": "Estimated received volume over the selected range. Includes dropped ingress packets; not application payload volume.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "increase(node_network_receive_bytes_total{device=\"ftth\"}[$__range])",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "WAN transmitted bytes \u2014 selected range",
+      "description": "Estimated transmitted volume over the selected range. Prometheus increase extrapolates across the range; gaps and interface resets affect accuracy.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "increase(node_network_transmit_bytes_total{device=\"ftth\"}[$__range])",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "WAN new attempt packets by decision",
+      "description": "Initial host-input policy decisions, not unique connections. TCP SYN retries and UDP retries can repeat. Established traffic bypasses service decision counters. Invalid traffic has no ct state new sample.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(homelab_firewall_new_packets_total{category!=\"forward_observed\"}[$__rate_interval])",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "WAN drop / policy packet rates",
+      "description": "Policy decision counters, not total WAN volume. Includes all matching IPv4-options drops; host-input service counters exclude established traffic. Counters reset on firewall reload.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(homelab_firewall_packets_total{category!=\"forward_observed\"}[$__rate_interval])",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "WAN forwarded packets observed",
+      "description": "Observed before filter-priority Cilium/Podman forwarding decisions. These packets are not necessarily accepted. Does not cover paths bypassing host Netfilter.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "rate(homelab_firewall_packets_total{category=\"forward_observed\"}[$__rate_interval])",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Firewall collection success",
+      "description": "1 means all expected named counters were collected. Missing series means collector or scrape unavailable; do not interpret missing data as zero traffic.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "homelab_firewall_collection_success",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Firewall collection age",
+      "description": "Last collection attempt age; normally below 60 seconds. Check alongside collection success and node exporter up.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "time() - homelab_firewall_collection_timestamp_seconds",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
     }
   ],
   "schemaVersion": 39,
@@ -143,6 +452,6 @@
   "timezone": "browser",
   "title": "Network",
   "uid": "fdt0ixfj7l534c",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }

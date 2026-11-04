@@ -300,6 +300,18 @@
     name: "python3-requests"
     state: present
 
+# Compare file contents, not timestamps: regenerating identical GeoIP data must
+# not reload the firewall and reset its traffic counters. Missing files count as
+# changed when first generated. Changed data must be loaded into the live rules.
+- name: Record current GeoIP file checksums to detect firewall data changes
+  ansible.builtin.stat:
+    path: "/app/nftables-geoip/ip-lists/{{ item }}"
+    checksum_algorithm: sha256
+  loop:
+    - geoip-def-all.nft
+    - geoip-ipv4-interesting.nft
+  register: __network_geoip_before
+
 - name: Generate list of allowed IPs
   ansible.builtin.command:
     # Upstream --download runs during argument parsing. Set --output-dir first
@@ -315,6 +327,24 @@
       - -c
       - es,fr,pt,it,de,ie,gb,ch,se,no,us
     chdir: /app/nftables-geoip
+  # Content checks below decide whether the live firewall needs refreshing.
+  changed_when: false
+
+- name: Record regenerated GeoIP file checksums for comparison
+  ansible.builtin.stat:
+    path: "/app/nftables-geoip/ip-lists/{{ item }}"
+    checksum_algorithm: sha256
+  loop:
+    - geoip-def-all.nft
+    - geoip-ipv4-interesting.nft
+  register: __network_geoip_after
+
+- name: Require firewall reload only when router GeoIP file contents changed
+  ansible.builtin.set_fact:
+    __network_geoip_changed: >-
+      {{ (network_is_router | default(false) | bool) and
+         ((__network_geoip_before.results | map(attribute='stat.checksum', default='missing') | list) !=
+          (__network_geoip_after.results | map(attribute='stat.checksum', default='missing') | list)) }}
 
 - name: Create override directory for nftables service
   ansible.builtin.file:
@@ -385,6 +415,7 @@
     path: /etc/nftables.conf
     regexp: '^\s*flush ruleset\s*$'
     state: absent
+  register: __network_nftables_flush_cleanup
 
 # Intentionally preserve host-owned content outside the Ansible markers.
 - name: Copy nftables shared rules
@@ -394,6 +425,7 @@
     create: true
     insertbefore: EOF
     block: "{{ lookup('template', 'nftables-rules.j2') }}"
+  register: __network_nftables_shared_config
 
 - name: Copy nftables VIP rules
   block:
@@ -409,8 +441,22 @@
         dest: /etc/nftables-vip-rules.backup.nft
         backup: true
 
+- name: Validate complete nftables configuration before reload
+  ansible.builtin.command: nft -c -f /etc/nftables.conf
+  changed_when: false
+  when: __network_nftables_flush_cleanup.changed or __network_nftables_shared_config.changed or (__network_geoip_changed | bool)
+
 - name: Reload nftables
   ansible.builtin.command: nft -f /etc/nftables.conf
+  when: __network_nftables_flush_cleanup.changed or __network_nftables_shared_config.changed or (__network_geoip_changed | bool)
+
+- name: Deploy router firewall observability
+  ansible.builtin.import_tasks: deploy_firewall_observability.yaml
+  tags: firewall-observability
+
+- name: Undeploy firewall observability on non-router hosts
+  ansible.builtin.import_tasks: undeploy_firewall_observability.yaml
+  tags: firewall-observability
 
 - name: Enable nftables on boot
   ansible.builtin.service:

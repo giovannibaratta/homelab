@@ -1,0 +1,60 @@
+---
+- name: Install router firewall metrics collection
+  when: network_is_router | default(false) | bool
+  block:
+    - name: Create node exporter textfile directory
+      ansible.builtin.file:
+        path: /var/lib/node_exporter/textfile_collector
+        state: directory
+        mode: "0755"
+
+    - name: Install firewall metrics collector
+      ansible.builtin.copy:
+        src: nftables-metrics.py
+        dest: /usr/local/sbin/homelab-firewall-metrics
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install firewall metrics service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-firewall-metrics.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Collect homelab nftables counters for node_exporter
+          After=nftables.service
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/homelab-firewall-metrics
+          User=root
+          NoNewPrivileges=true
+          ProtectSystem=strict
+          ProtectHome=true
+          PrivateTmp=true
+          ReadWritePaths=/var/lib/node_exporter/textfile_collector
+          # node_exporter owns its directory; root needs DAC override to write there.
+          # ProtectSystem/ReadWritePaths still restrict filesystem writes.
+          CapabilityBoundingSet=CAP_NET_ADMIN CAP_DAC_OVERRIDE
+
+    - name: Install firewall metrics timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-firewall-metrics.timer
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Collect homelab firewall metrics every 30 seconds
+          [Timer]
+          OnBootSec=30s
+          OnUnitActiveSec=30s
+          AccuracySec=1s
+          [Install]
+          WantedBy=timers.target
+
+    - name: Enable firewall metrics timer
+      ansible.builtin.systemd_service:
+        name: homelab-firewall-metrics.timer
+        daemon_reload: true
+        enabled: true
+        state: started
+

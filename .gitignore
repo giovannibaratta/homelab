@@ -4,3 +4,4 @@ ansible/.ansible
 .venv-lab/
 .DS_Store
 __pycache__
+ansible/.tmp/
