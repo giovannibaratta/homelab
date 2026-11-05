@@ -82,10 +82,12 @@
 
 - name: Activate virtualenv and install ansible dependencies
   ansible.builtin.shell: |
+    set -e
     source /app/auto-ansible/python-env/bin/activate
-    ansible-galaxy collection install collections/ansible_collections/homelab/utils
-    ansible-galaxy collection install collections/ansible_collections/homelab/system
-    ansible-galaxy collection install collections/ansible_collections/homelab/apps
+    ansible-galaxy collection install --upgrade \
+      collections/ansible_collections/homelab/utils \
+      collections/ansible_collections/homelab/system \
+      collections/ansible_collections/homelab/apps
   args:
     chdir: /app/auto-ansible/repo/ansible
     executable: /bin/bash
