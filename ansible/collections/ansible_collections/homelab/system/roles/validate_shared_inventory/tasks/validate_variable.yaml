@@ -1,0 +1,41 @@
+---
+- name: Require {{ shared_inventory_variable }} on every inventory host
+  ansible.builtin.assert:
+    that:
+      - __shared_missing_hosts | length == 0
+    fail_msg: >-
+      Shared variable {{ shared_inventory_variable }} is missing on hosts:
+      {{ __shared_missing_hosts | join(', ') }}.
+      Define it in shared inventory, not only in role defaults.
+    quiet: true
+  vars:
+    __shared_missing_hosts: >-
+      {%- set ns = namespace(hosts=[]) -%}
+      {%- for host in groups['all'] -%}
+      {%- if shared_inventory_variable not in hostvars[host] -%}
+      {%- set ns.hosts = ns.hosts + [host] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ ns.hosts }}
+
+- name: Require consistent {{ shared_inventory_variable }} across inventory hosts
+  ansible.builtin.assert:
+    that:
+      - __shared_conflicting_hosts | length == 0
+    fail_msg: >-
+      Shared variable {{ shared_inventory_variable }} differs from host
+      {{ groups['all'] | first }} on hosts:
+      {{ __shared_conflicting_hosts | join(', ') }}.
+      Remove conflicting host or group overrides.
+    quiet: true
+  vars:
+    __shared_conflicting_hosts: >-
+      {%- set ns = namespace(hosts=[]) -%}
+      {%- set reference = hostvars[groups['all'] | first][shared_inventory_variable] -%}
+      {%- for host in groups['all'] -%}
+      {%- set value = hostvars[host][shared_inventory_variable] -%}
+      {%- if value != reference or (value | type_debug) != (reference | type_debug) -%}
+      {%- set ns.hosts = ns.hosts + [host] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ ns.hosts }}

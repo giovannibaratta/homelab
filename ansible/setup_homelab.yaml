@@ -436,6 +436,12 @@
       ignore_errors: yes
       tags: p2p
 
+    - name: Manage Seerr lifecycle
+      ansible.builtin.import_role:
+        name: homelab.apps.seerr
+      become: true
+      tags: seerr
+
     - name: Deploy Pinchflat
       when: deploy_pinchflat | default(false) | bool
       ansible.builtin.import_role:

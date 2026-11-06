@@ -1,0 +1,18 @@
+---
+seerr_kubeconfig: /etc/kubernetes/admin.conf
+seerr_namespace: seerr
+seerr_chart_version: 3.9.1
+seerr_version: v3.5.1
+seerr_storage_class: piraeus-rwo-replicated
+seerr_storage_size: 1Gi
+seerr_hostname: "seerr.{{ internal_domain }}"
+
+seerr_configure_plex: true
+seerr_sonarr_hostname: "sonarr.{{ internal_domain }}"
+seerr_radarr_hostname: "radarr.{{ internal_domain }}"
+seerr_sonarr_url: "https://{{ seerr_sonarr_hostname }}"
+seerr_radarr_url: "https://{{ seerr_radarr_hostname }}"
+seerr_sonarr_root_folder: /data
+seerr_radarr_root_folder: /data
+seerr_sonarr_profile_name: HighQuality-ITA
+seerr_radarr_profile_name: High Quality - Italian

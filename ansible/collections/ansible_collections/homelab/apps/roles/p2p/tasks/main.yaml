@@ -7,7 +7,6 @@
     _p2p_prowlarr_server_url: https://prowlarr.{{ internal_domain }}
     _p2p_radarr_fqdn: radarr.{{ internal_domain }}
     _p2p_radarr_server_url: https://radarr.{{ internal_domain }}
-    overseerr_server_url: https://overseerr.{{ internal_domain }}
 
 - name: Ensure group exists with name {{ media_shared_group }}
   ansible.builtin.group:
@@ -38,9 +37,6 @@
 - name: Deploy Radarr
   ansible.builtin.import_tasks: deploy_radarr.yaml
 
-- name: Deploy Overseerr
-  ansible.builtin.import_tasks: deploy_overseerr.yaml
-
 - name: Configure Sonarr
   ansible.builtin.import_tasks: configure_sonarr.yaml
   delegate_to: localhost
@@ -53,10 +49,5 @@
 
 - name: Configure Prowlarr
   ansible.builtin.import_tasks: configure_prowlarr.yaml
-  delegate_to: localhost
-  become: false
-
-- name: Configure Overseerr
-  ansible.builtin.import_tasks: configure_overseerr.yaml
   delegate_to: localhost
   become: false

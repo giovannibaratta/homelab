@@ -1,0 +1,16 @@
+---
+- name: Validate shared Seerr enablement
+  ansible.builtin.include_role:
+    name: homelab.system.validate_shared_inventory
+  vars:
+    shared_inventory_variables:
+      - deploy_seerr
+
+- name: Deploy Seerr
+  ansible.builtin.import_tasks: deploy_seerr.yaml
+
+- name: Configure Seerr application
+  ansible.builtin.import_tasks: prepare_configuration.yaml
+
+- name: Undeploy Seerr
+  ansible.builtin.import_tasks: undeploy_seerr.yaml

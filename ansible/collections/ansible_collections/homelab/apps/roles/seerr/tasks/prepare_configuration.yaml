@@ -1,0 +1,42 @@
+---
+- name: Configure enabled Seerr instance
+  when: deploy_seerr | bool
+  run_once: true
+  block:
+    - name: Validate application configuration credentials
+      ansible.builtin.assert:
+        that:
+          - sonarr_api_key is defined
+          - p2p_radarr_api_key is defined
+          - p2p_smtp_sender is defined
+          - p2p_smtp_api_key is defined
+          - p2p_requestor_user_email is defined
+        fail_msg: Seerr configuration requires the existing Sonarr, Radarr, SMTP and requestor secret-bundle variables.
+
+    - name: Read Seerr service address
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ seerr_kubeconfig }}"
+        api_version: v1
+        kind: Service
+        namespace: "{{ seerr_namespace }}"
+        name: seerr
+      register: __seerr_service
+
+    - name: Read generated Seerr API credentials from its persistent configuration
+      kubernetes.core.k8s_exec:
+        kubeconfig: "{{ seerr_kubeconfig }}"
+        namespace: "{{ seerr_namespace }}"
+        pod: seerr-0
+        command: cat /app/config/settings.json
+      register: __seerr_settings
+      no_log: true
+
+    - name: Set Seerr API connection
+      ansible.builtin.set_fact:
+        seerr_server_url: "http://{{ __seerr_service.resources[0].spec.clusterIP }}:80"
+        seerr_api_key: "{{ (__seerr_settings.stdout | from_json).main.apiKey }}"
+      no_log: true
+
+    - name: Apply Seerr application settings
+      ansible.builtin.import_tasks: configure_seerr.yaml
+      no_log: true

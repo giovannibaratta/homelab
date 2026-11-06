@@ -1,0 +1,43 @@
+---
+- name: Deploy cluster Seerr resources
+  when: deploy_seerr | bool
+  run_once: true
+  block:
+    - name: Create Seerr namespace
+      kubernetes.core.k8s:
+        kubeconfig: "{{ seerr_kubeconfig }}"
+        api_version: v1
+        kind: Namespace
+        name: "{{ seerr_namespace }}"
+        state: present
+
+    - name: Create persistent Seerr configuration storage
+      kubernetes.core.k8s:
+        kubeconfig: "{{ seerr_kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: seerr-config
+            namespace: "{{ seerr_namespace }}"
+          spec:
+            accessModes: [ReadWriteOnce]
+            storageClassName: "{{ seerr_storage_class }}"
+            resources:
+              requests:
+                storage: "{{ seerr_storage_size }}"
+
+    - name: Install official Seerr Helm chart
+      kubernetes.core.helm:
+        kubeconfig: "{{ seerr_kubeconfig }}"
+        name: seerr
+        release_namespace: "{{ seerr_namespace }}"
+        chart_ref: oci://ghcr.io/seerr-team/seerr/seerr-chart
+        chart_version: "{{ seerr_chart_version }}"
+        state: present
+        reset_values: true
+        atomic: true
+        wait: true
+        wait_timeout: 10m
+        values: "{{ lookup('ansible.builtin.template', 'helm-values.yaml.j2') | from_yaml }}"

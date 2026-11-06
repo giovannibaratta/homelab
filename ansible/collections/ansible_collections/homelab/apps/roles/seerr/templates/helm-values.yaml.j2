@@ -1,0 +1,34 @@
+fullnameOverride: seerr
+image:
+  tag: {{ seerr_version | to_json }}
+serviceAccount:
+  automount: false
+config:
+  persistence:
+    existingClaim: seerr-config
+extraEnv:
+  - name: TZ
+    value: Europe/Rome
+  - name: LOG_LEVEL
+    value: info
+probes:
+  startupProbe:
+    httpGet:
+      path: /api/v1/settings/public
+      port: http
+    periodSeconds: 5
+    failureThreshold: 120
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  hosts:
+    - host: {{ seerr_hostname | to_json }}
+      paths:
+        - path: /
+          pathType: Prefix

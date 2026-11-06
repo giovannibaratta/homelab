@@ -82,13 +82,3 @@
   ansible.builtin.systemd_service:
     state: restarted
     name: radarr
-
-- name: Restart overseerr network
-  ansible.builtin.systemd_service:
-    state: restarted
-    name: overseerr-network
-
-- name: Restart overseerr service
-  ansible.builtin.systemd_service:
-    state: restarted
-    name: overseerr

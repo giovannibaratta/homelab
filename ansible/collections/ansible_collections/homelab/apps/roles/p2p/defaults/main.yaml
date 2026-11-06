@@ -16,10 +16,6 @@ sonarr_version: 4.0.16
 sonarr_conf_dir: /app/sonarr/conf
 sonarr_work_dir: /app/sonarr/work
 p2p_sonarr_container_data_dir: /data
-# Available versions https://hub.docker.com/r/sctx/overseerr/tags
-overseerr_version: b1c6e2fdbde49859a661767e9b414555aa7abc31
-overseerr_conf_dir: /app/overseerr/conf
-overseerr_work_dir: /app/overseerr/work
 # Available versions https://hub.docker.com/r/linuxserver/radarr/tags
 p2p_radarr_version: 6.0.4
 p2p_radarr_conf_dir: /app/radarr/conf

@@ -1,0 +1,10 @@
+---
+- name: Remove disabled Seerr release (preserve PVC and namespace)
+  when: not (deploy_seerr | bool)
+  run_once: true
+  kubernetes.core.helm:
+    kubeconfig: "{{ seerr_kubeconfig }}"
+    name: seerr
+    release_namespace: "{{ seerr_namespace }}"
+    state: absent
+    wait: true

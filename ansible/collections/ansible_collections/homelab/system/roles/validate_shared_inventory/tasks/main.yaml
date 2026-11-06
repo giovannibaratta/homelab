@@ -1,0 +1,6 @@
+---
+- name: Validate each shared inventory variable
+  ansible.builtin.include_tasks: validate_variable.yaml
+  loop: "{{ shared_inventory_variables }}"
+  loop_control:
+    loop_var: shared_inventory_variable

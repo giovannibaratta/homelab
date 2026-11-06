@@ -1,0 +1,206 @@
+---
+# Initial media-server login is interactive. Subsequent configuration uses the API.
+
+- name: Retrieve auth me from Seerr
+  ansible.builtin.uri:
+    url: "{{ seerr_server_url }}/api/v1/auth/me"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ seerr_api_key }}"
+    status_code: [200, 403]
+  register: seerr_authme_api_response
+  until: seerr_authme_api_response.status == 200 or seerr_authme_api_response.status == 403
+  retries: 60 # 10 seconds
+  delay: 1
+
+- name: Set is_first_login_completed
+  ansible.builtin.set_fact:
+    is_first_login_completed: "{{ seerr_authme_api_response.status == 200 }}"
+
+- name: Let user complete first login
+  no_log: false
+  when: not (is_first_login_completed | bool)
+  ansible.builtin.pause:
+    prompt: Open https://{{ seerr_hostname }} and complete initial media-server login/setup. When finished press enter
+
+- name: Configure Plex in Seerr
+  when: seerr_configure_plex | bool
+  ansible.builtin.uri:
+    url: "{{ seerr_server_url }}/api/v1/settings/plex"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ seerr_api_key }}"
+    status_code: [200]
+    body: "{{ lookup('ansible.builtin.template', 'seerr-configure-plex-body-request.json.j2') }}"
+    body_format: json
+
+- name: Retrieve Sonarr settings from Seerr
+  ansible.builtin.uri:
+    url: "{{ seerr_server_url }}/api/v1/settings/sonarr"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ seerr_api_key }}"
+    status_code: [200]
+  register: seerr_sonarr_settings_api_response
+
+- name: Count configured Sonarr integrations
+  ansible.builtin.set_fact:
+    sonarr_count: "{{ seerr_sonarr_settings_api_response.json | selectattr('hostname', 'equalto', seerr_sonarr_hostname) | list | length }}"
+
+- name: Set sonarr_exists fact
+  ansible.builtin.set_fact:
+    sonarr_exists: "{{ sonarr_count | int > 0 }}"
+
+- name: Configure Sonarr in Seerr if missing
+  when: not (sonarr_exists | bool)
+  block:
+    - name: Retrieve Sonarr quality profiles
+      ansible.builtin.uri:
+        url: "{{ seerr_sonarr_url }}/api/v3/qualityprofile"
+        method: GET
+        headers:
+          Accept: application/json
+          X-Api-Key: "{{ sonarr_api_key }}"
+        status_code: [200]
+      register: sonarr_quality_profiles_api_response
+      # Is Sonarr is restarted, it might take a few seconds to become responsive
+      until: sonarr_quality_profiles_api_response.status == 200
+      retries: 10 # 10 seconds
+      delay: 1
+
+    - name: Set quality_profiles_high_quality_ita_count fact
+      ansible.builtin.set_fact:
+        high_quality_ita_profile: "{{ sonarr_quality_profiles_api_response.json | to_json | from_json | community.general.json_query(jsme_query) | first }}"
+      vars:
+        jsme_query: "[?name == '{{ seerr_sonarr_profile_name }}']"
+
+    - name: Set Sonarr profile facts
+      ansible.builtin.set_fact:
+        sonar_qualityprofile_name: "{{ high_quality_ita_profile | community.general.json_query('name') }}"
+        sonar_qualityprofile_id: "{{ high_quality_ita_profile | community.general.json_query('id') }}"
+
+    - name: Configure Sonarr in Seerr
+      ansible.builtin.uri:
+        url: "{{ seerr_server_url }}/api/v1/settings/sonarr"
+        method: POST
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+          X-Api-Key: "{{ seerr_api_key }}"
+        status_code: [201]
+        body: "{{ lookup('ansible.builtin.template', 'seerr-add-sonarr-body-request.json.j2') }}"
+        body_format: json
+
+- name: Retrieve Radarr settings from Seerr
+  ansible.builtin.uri:
+    url: "{{ seerr_server_url }}/api/v1/settings/radarr"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ seerr_api_key }}"
+    status_code: [200]
+  register: seerr_radarr_settings_api_response
+
+- name: Count configured Radarr integrations
+  ansible.builtin.set_fact:
+    _p2p_radarr_count: "{{ seerr_radarr_settings_api_response.json | selectattr('hostname', 'equalto', seerr_radarr_hostname) | list | length }}"
+
+- name: Set radarr_exists fact
+  ansible.builtin.set_fact:
+    _p2p_radarr_exists: "{{ _p2p_radarr_count | int > 0 }}"
+
+- name: Retrieve Radarr quality profiles for a new integration
+  when: not (_p2p_radarr_exists | bool)
+  ansible.builtin.uri:
+    url: "{{ seerr_radarr_url }}/api/v3/qualityprofile"
+    headers:
+      X-Api-Key: "{{ p2p_radarr_api_key }}"
+    status_code: 200
+  register: seerr_radarr_profiles
+
+- name: Select Radarr quality profile
+  when: not (_p2p_radarr_exists | bool)
+  ansible.builtin.set_fact:
+    seerr_radarr_profile: "{{ seerr_radarr_profiles.json | selectattr('name', 'equalto', seerr_radarr_profile_name) | first }}"
+
+- name: Configure Radarr in Seerr
+  when: not (_p2p_radarr_exists | bool)
+  ansible.builtin.uri:
+    url: "{{ seerr_server_url }}/api/v1/settings/radarr"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ seerr_api_key }}"
+    status_code: [201]
+    body: "{{ lookup('ansible.builtin.template', 'seerr-add-radarr-body-request.json.j2') }}"
+    body_format: json
+
+- name: Configure SMTP
+  ansible.builtin.uri:
+    url: "{{ seerr_server_url }}/api/v1/settings/notifications/email"
+    method: POST
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      X-Api-Key: "{{ seerr_api_key }}"
+    status_code: [200]
+    body: "{{ lookup('ansible.builtin.template', 'seerr-configure-smtp-body-request.json.j2') }}"
+    body_format: json
+
+# The call assumes that there are less than 100 users in the system
+- name: Retrieve users
+  ansible.builtin.uri:
+    url: "{{ seerr_server_url }}/api/v1/user?take=100&skip=0"
+    method: GET
+    headers:
+      Accept: application/json
+      X-Api-Key: "{{ seerr_api_key }}"
+    status_code: [200]
+  register: seerr_users_api_response
+
+- name: Count existing requestor users
+  ansible.builtin.set_fact:
+    __p2p_user_with_email_count: "{{ seerr_users_api_response.json.results | selectattr('email', 'equalto', p2p_requestor_user_email) | list | length }}"
+
+- name: Set p2p_user_with_email_exists fact
+  ansible.builtin.set_fact:
+    __p2p_user_with_email_exists: "{{ __p2p_user_with_email_count | int > 0 }}"
+
+- name: Initialize user
+  when: not (__p2p_user_with_email_exists | bool)
+  block:
+    - name: Create user
+      ansible.builtin.uri:
+        url: "{{ seerr_server_url }}/api/v1/user"
+        method: POST
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+          X-Api-Key: "{{ seerr_api_key }}"
+        status_code: [201]
+        body: "{{ lookup('ansible.builtin.template', 'seerr-add-user-body-request.json.j2') }}"
+        body_format: json
+      register: __p2p_seerr_new_user_api_response
+
+    - name: Set __p2p_seerr_new_user_id
+      ansible.builtin.set_fact:
+        __p2p_seerr_new_user_id: "{{ __p2p_seerr_new_user_api_response.json | to_json | from_json | community.general.json_query(jsme_query) }}"
+      vars:
+        jsme_query: "id"
+
+    - name: Configure user
+      ansible.builtin.uri:
+        url: "{{ seerr_server_url }}/api/v1/user/{{ __p2p_seerr_new_user_id }}/settings/main"
+        method: POST
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+          X-Api-Key: "{{ seerr_api_key }}"
+        status_code: [200]
+        body: "{{ lookup('ansible.builtin.template', 'seerr-configure-user-body-request.json.j2') }}"
+        body_format: json
