@@ -1,4 +1,6 @@
 ---
+k8s_internal_routes: {}
+k8s_public_routes: {}
 # Available versions https://hub.docker.com/_/traefik/tags
 ingress_traefik_version: v3.7.15
 ingress_traefik_log_dir: /var/log/traefik

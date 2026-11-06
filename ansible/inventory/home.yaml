@@ -24,8 +24,20 @@ home:
     k8s_lb_network: 172.16.184.0/24
     k8s_ingress_lb_ip: "172.16.184.10"
     # Provide only the sub-domain prefix. They will be suffixed with .{{ internal_domain }}
-    k8s_public_domains: ["approvio", "idp"]
-    k8s_internal_domains: "{{ ['git', 'ui.k8s', 'coder', 'sungrow-exporter', 'prometheus', 'alertmanager'] + (['grafana'] if (grafana_deployment_type | default('')) == 'k8s' else []) }}"
+    k8s_public_routes:
+      approvio:
+      idp:
+    k8s_internal_routes:
+      git:
+      ui.k8s:
+      coder:
+      sungrow-exporter:
+      prometheus:
+      alertmanager:
+      grafana:
+        enabled: "{{ (grafana_deployment_type | default('')) == 'k8s' }}"
+      seerr:
+        enabled: "{{ deploy_seerr }}"
     network_dyn_dns_entry: "ingress"
     idp_deployment_type: "k8s" # Alternative is docker
     coder_deployment_type: "k8s" # Alternative is podman
@@ -41,6 +53,7 @@ home:
     deploy_prometheus: false
     deploy_alertmanager: false
     deploy_mediastack: false
+    deploy_seerr: true
     deploy_logging: false
     deploy_home_assistant: false
     deploy_remote_control: false

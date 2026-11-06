@@ -7,32 +7,27 @@
 
 http:
   routers:
-{% for domain in k8s_public_domains | default([]) %}
-    # Public Router for {{ domain }}.{{ internal_domain }} (Reachable from WAN & LAN)
-    k8s-public-{{ loop.index }}:
-      rule: "Host(`{{ domain }}.{{ internal_domain }}`)"
+{% for scope, routes in [('public', k8s_public_routes), ('internal', k8s_internal_routes)] %}
+{% for name, options in routes.items() %}
+{% set route = options | default({}, true) %}
+{% if route.enabled | default(true) | bool %}
+    k8s-{{ scope }}-{{ name }}:
+      rule: "Host(`{{ name }}.{{ internal_domain }}`)"
       entryPoints:
+{% if scope == 'public' %}
         - public-secure
         - websecure
-      service: k8s-ingress-svc
-      tls:
-        certResolver: letsencrypt
-      middlewares:
-        - default-chain@file
-{% endfor %}
-
-{% for domain in k8s_internal_domains | default([]) %}
-    # Internal Router for {{ domain }}.{{ internal_domain }} (Reachable from LAN ONLY)
-    k8s-internal-{{ loop.index }}:
-      rule: "Host(`{{ domain }}.{{ internal_domain }}`)"
-      entryPoints:
+{% else %}
         - web
         - websecure
+{% endif %}
       service: k8s-ingress-svc
       tls:
         certResolver: letsencrypt
       middlewares:
         - default-chain@file
+{% endif %}
+{% endfor %}
 {% endfor %}
 
   services:
