@@ -1,0 +1,33 @@
+---
+- name: Determine cluster monitoring configuration intent
+  ansible.builtin.set_fact:
+    __prometheus_config_enabled: >-
+      {%- set wanted = namespace(enabled=false) -%}
+      {%- for host in groups['all'] -%}
+      {%- if hostvars[host].deploy_prometheus | default(false) | bool -%}
+      {%- set wanted.enabled = true -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ wanted.enabled and (prometheus_config_enabled | bool) }}
+    __prometheus_config_crowdsec_hosts: >-
+      {%- set enabled = namespace(hosts=[]) -%}
+      {%- for host in groups['all'] -%}
+      {%- if hostvars[host].deploy_crowdsec | default(false) | bool -%}
+      {%- set enabled.hosts = enabled.hosts + [host] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ enabled.hosts }}
+    __prometheus_config_sungrow_enabled: >-
+      {%- set enabled = namespace(value=false) -%}
+      {%- for host in groups['all'] -%}
+      {%- if hostvars[host].deploy_sungrow_exporter | default(false) | bool -%}
+      {%- set enabled.value = true -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ enabled.value }}
+
+- name: Deploy native monitoring configuration
+  ansible.builtin.import_tasks: deploy_prometheus_config.yaml
+
+- name: Remove obsolete native monitoring configuration
+  ansible.builtin.import_tasks: undeploy_prometheus_config.yaml

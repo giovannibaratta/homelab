@@ -1,0 +1,10 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ pod_monitor.name }}
+  namespace: {{ prometheus_config_namespace }}
+  labels:
+{{ prometheus_config_selector_labels | to_nice_yaml(indent=2) | indent(4, true) }}
+    app.kubernetes.io/managed-by: homelab-prometheus-config
+spec:
+{{ pod_monitor.spec | to_nice_yaml(indent=2) | indent(2, true) }}

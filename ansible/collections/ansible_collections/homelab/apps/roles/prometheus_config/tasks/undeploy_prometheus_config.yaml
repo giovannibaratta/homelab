@@ -1,0 +1,115 @@
+---
+- name: Inspect monitoring CRD availability
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ prometheus_config_kubeconfig }}"
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: scrapeconfigs.monitoring.coreos.com
+  register: __prometheus_config_crd
+  run_once: true
+
+- name: Clean up disabled monitoring components
+  run_once: true
+  when: __prometheus_config_crd.resources | length > 0
+  block:
+    - name: Remove disabled base scrapes
+      kubernetes.core.k8s:
+        kubeconfig: "{{ prometheus_config_kubeconfig }}"
+        state: absent
+        api_version: monitoring.coreos.com/v1alpha1
+        kind: ScrapeConfig
+        namespace: "{{ prometheus_config_namespace }}"
+        name: "{{ item }}"
+      loop:
+        - homelab-hosts
+        - homelab-prometheus
+        - homelab-pingexporter
+        - homelab-idp
+      when: not (__prometheus_config_enabled | bool)
+
+    - name: Remove disabled pod monitors
+      kubernetes.core.k8s:
+        kubeconfig: "{{ prometheus_config_kubeconfig }}"
+        state: absent
+        api_version: monitoring.coreos.com/v1
+        kind: PodMonitor
+        namespace: "{{ prometheus_config_namespace }}"
+        name: "{{ item }}"
+      loop:
+        - homelab-kube-state-metrics
+        - homelab-kube-state-metrics-internal
+        - homelab-cloudnativepg
+        - homelab-linstor
+        - homelab-drbd
+        - homelab-linstor-policy
+      when: not (__prometheus_config_enabled | bool)
+
+    - name: Remove disabled general rules
+      kubernetes.core.k8s:
+        kubeconfig: "{{ prometheus_config_kubeconfig }}"
+        state: absent
+        api_version: monitoring.coreos.com/v1
+        kind: PrometheusRule
+        namespace: "{{ prometheus_config_namespace }}"
+        name: "{{ item }}"
+      loop:
+        - homelab-system
+        - homelab-cluster
+        - homelab-security
+      when: not (__prometheus_config_enabled | bool)
+
+    - name: Remove Traefik scrape when no targets remain
+      kubernetes.core.k8s:
+        kubeconfig: "{{ prometheus_config_kubeconfig }}"
+        state: absent
+        api_version: monitoring.coreos.com/v1alpha1
+        kind: ScrapeConfig
+        namespace: "{{ prometheus_config_namespace }}"
+        name: homelab-traefik-host
+      when: not (__prometheus_config_enabled | bool) or (prometheus_config_traefik_targets | length == 0)
+
+    - name: Remove CrowdSec scrape when no hosts enable it
+      kubernetes.core.k8s:
+        kubeconfig: "{{ prometheus_config_kubeconfig }}"
+        state: absent
+        api_version: monitoring.coreos.com/v1alpha1
+        kind: ScrapeConfig
+        namespace: "{{ prometheus_config_namespace }}"
+        name: homelab-crowdsec
+      when: not (__prometheus_config_enabled | bool) or (__prometheus_config_crowdsec_hosts | length == 0)
+
+    - name: Remove Sungrow scrape when disabled
+      kubernetes.core.k8s:
+        kubeconfig: "{{ prometheus_config_kubeconfig }}"
+        state: absent
+        api_version: monitoring.coreos.com/v1alpha1
+        kind: ScrapeConfig
+        namespace: "{{ prometheus_config_namespace }}"
+        name: homelab-sungrow-exporter
+      when: not (__prometheus_config_enabled | bool) or (not (__prometheus_config_sungrow_enabled | bool))
+
+- name: Inspect the server before removing obsolete copied credentials
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ prometheus_config_kubeconfig }}"
+    api_version: monitoring.coreos.com/v1
+    kind: Prometheus
+    namespace: "{{ prometheus_config_namespace }}"
+    name: "{{ prometheus_config_server_name }}"
+  register: __prometheus_config_server
+  run_once: true
+  when: __prometheus_config_crd.resources | length > 0
+
+- name: Remove the unused legacy scrape and discovery Secret
+  kubernetes.core.k8s:
+    kubeconfig: "{{ prometheus_config_kubeconfig }}"
+    state: absent
+    api_version: v1
+    kind: Secret
+    namespace: "{{ prometheus_config_namespace }}"
+    name: prometheus-config
+  run_once: true
+  when:
+    - __prometheus_config_crd.resources | length > 0
+    - __prometheus_config_server.resources | length > 0
+    - __prometheus_config_server.resources[0].spec.additionalScrapeConfigs is not defined
+    - "'prometheus-config' not in (__prometheus_config_server.resources[0].spec.volumes | default([]) | to_json)"

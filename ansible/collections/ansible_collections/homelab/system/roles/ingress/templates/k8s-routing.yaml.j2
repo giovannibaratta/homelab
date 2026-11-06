@@ -18,9 +18,7 @@ http:
       tls:
         certResolver: letsencrypt
       middlewares:
-        - rateLimit@file
-        - inFlightReq@file
-        - waf@file
+        - default-chain@file
 {% endfor %}
 
 {% for domain in k8s_internal_domains | default([]) %}
@@ -34,8 +32,7 @@ http:
       tls:
         certResolver: letsencrypt
       middlewares:
-        - rateLimit@file
-        - inFlightReq@file
+        - default-chain@file
 {% endfor %}
 
   services:

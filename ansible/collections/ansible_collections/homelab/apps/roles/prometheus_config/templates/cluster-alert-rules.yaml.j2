@@ -1,4 +1,3 @@
-{% if __prometheus_kubernetes_enabled | default(prometheus_kubernetes_monitoring_enabled) | bool %}
 # Cluster monitoring coverage: Kubernetes workload/node state, CNPG availability,
 # SQL/backup health, LINSTOR placement/capacity, DRBD replication and telemetry gaps.
 # Sources: kube-state-metrics (including custom CNPG/Piraeus CR collectors),
@@ -748,6 +747,3 @@ groups:
       component: postgresql
     annotations:
       summary: PostgreSQL cluster reports multiple reachable primary instances
-{% else %}
-groups: []
-{% endif %}

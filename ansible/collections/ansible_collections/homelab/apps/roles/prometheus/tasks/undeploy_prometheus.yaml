@@ -1,25 +1,31 @@
 ---
-- name: Stop and disable monitoring services on disabled hosts
-  when: not (deploy_prometheus | default(false) | bool)
+# Helm/Operator retain their data PVCs. Keep the namespace, configuration Secrets
+# and CRDs as well; neither backend cleanup nor rollback should erase history.
+- name: Remove the Kubernetes release when no inventory host wants it
+  run_once: true
+  when: __prometheus_k8s_hosts | length == 0
   block:
-    - name: Inspect existing monitoring units
+    - name: Inspect Kubernetes management credentials
       ansible.builtin.stat:
-        path: "/etc/systemd/system/{{ item }}.service"
-      loop: [prometheus, alertmanager]
-      register: __prometheus_units
+        path: "{{ prometheus_k8s_kubeconfig }}"
+      register: __prometheus_admin_config
 
-    - name: Stop and disable installed monitoring units
-      ansible.builtin.systemd_service:
-        name: "{{ item.item }}.service"
-        state: stopped
-        enabled: false
-      loop: "{{ __prometheus_units.results }}"
-      when: item.stat.exists
+    - name: Inspect the monitoring Helm release
+      kubernetes.core.helm_info:
+        kubeconfig: "{{ prometheus_k8s_kubeconfig }}"
+        name: "{{ prometheus_k8s_helm_release }}"
+        release_namespace: "{{ prometheus_k8s_namespace }}"
+      register: __prometheus_release
+      when: __prometheus_admin_config.stat.exists
 
-    - name: Remove obsolete monitoring unit files
-      ansible.builtin.file:
-        path: "/etc/systemd/system/{{ item }}.service"
+    - name: Uninstall kube-prometheus-stack while retaining data PVCs
+      kubernetes.core.helm:
+        kubeconfig: "{{ prometheus_k8s_kubeconfig }}"
+        name: "{{ prometheus_k8s_helm_release }}"
+        release_namespace: "{{ prometheus_k8s_namespace }}"
         state: absent
-      loop: [prometheus, alertmanager]
-      notify: Reload systemd daemons
-
+        wait: true
+        wait_timeout: "{{ prometheus_k8s_wait_timeout }}s"
+      when:
+        - __prometheus_admin_config.stat.exists
+        - __prometheus_release.status is defined

@@ -1,0 +1,139 @@
+fullnameOverride: {{ prometheus_k8s_helm_release }}
+grafana:
+  enabled: false
+kubeStateMetrics:
+  enabled: false
+nodeExporter:
+  enabled: false
+windowsMonitoring:
+  enabled: false
+defaultRules:
+  create: false
+kubernetesServiceMonitors:
+  enabled: false
+kubeApiServer:
+  enabled: false
+kubelet:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+coreDns:
+  enabled: false
+kubeDns:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+prometheusOperator:
+  serviceMonitor:
+    selfMonitor: false
+prometheus:
+  serviceAccount:
+    createTokenSecret: false
+  serviceMonitor:
+    selfMonitor: false
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts: [{{ ('prometheus.' ~ internal_domain) | to_json }}]
+    paths: [/]
+    pathType: Prefix
+  prometheusSpec:
+    replicas: 1
+    shards: 1
+    image:
+      registry: {{ prometheus_image.split('/', 1)[0] }}
+      repository: {{ prometheus_image.split('/', 1)[1].rsplit(':', 1)[0] }}
+      tag: {{ prometheus_image.rsplit(':', 1)[1] }}
+      sha: ""
+    version: {{ prometheus_image.rsplit(':', 1)[1] }}
+    scrapeInterval: {{ prometheus_scrape_interval | to_json }}
+    evaluationInterval: {{ prometheus_evaluation_interval | to_json }}
+    scrapeTimeout: {{ prometheus_scrape_timeout | to_json }}
+    retention: {{ prometheus_retention_time | to_json }}
+    retentionSize: {{ prometheus_retention_size | to_json }}
+    externalUrl: https://prometheus.{{ internal_domain }}/
+    # Preserve the original alert label set.
+    prometheusExternalLabelNameClear: true
+    replicaExternalLabelNameClear: true
+    ruleSelector:
+      matchLabels:
+{{ prometheus_resource_selector_labels | to_nice_yaml(indent=2) | indent(8, true) }}
+    serviceMonitorSelector:
+      matchLabels:
+{{ prometheus_resource_selector_labels | to_nice_yaml(indent=2) | indent(8, true) }}
+    podMonitorSelector:
+      matchLabels:
+{{ prometheus_resource_selector_labels | to_nice_yaml(indent=2) | indent(8, true) }}
+    probeSelector:
+      matchLabels:
+{{ prometheus_resource_selector_labels | to_nice_yaml(indent=2) | indent(8, true) }}
+    scrapeConfigSelector:
+      matchLabels:
+{{ prometheus_resource_selector_labels | to_nice_yaml(indent=2) | indent(8, true) }}
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      runAsGroup: 65534
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      requests: {cpu: 250m, memory: 512Mi}
+      limits: {memory: 2Gi}
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: {{ prometheus_k8s_storage_class }}
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: {{ prometheus_k8s_storage_size }}
+alertmanager:
+  serviceMonitor:
+    selfMonitor: false
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts: [{{ ('alertmanager.' ~ internal_domain) | to_json }}]
+    paths: [/]
+    pathType: Prefix
+  alertmanagerSpec:
+    replicas: 1
+    image:
+      registry: {{ prometheus_alertmanager_image.split('/', 1)[0] }}
+      repository: {{ prometheus_alertmanager_image.split('/', 1)[1].rsplit(':', 1)[0] }}
+      tag: {{ prometheus_alertmanager_image.rsplit(':', 1)[1] }}
+      sha: ""
+    version: {{ prometheus_alertmanager_image.rsplit(':', 1)[1] }}
+    useExistingSecret: true
+    configSecret: alertmanager-config
+    externalUrl: https://alertmanager.{{ internal_domain }}/
+    automountServiceAccountToken: false
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      runAsGroup: 65534
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {memory: 256Mi}
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: {{ prometheus_k8s_storage_class }}
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: {{ prometheus_k8s_alertmanager_storage_size }}

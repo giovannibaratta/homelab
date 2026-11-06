@@ -1,0 +1,12 @@
+{% set rule_groups %}{% include 'network-alert-rules.yaml.j2' %}{% endset %}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: homelab-network
+  namespace: {{ prometheus_config_network_namespace }}
+  labels:
+{{ prometheus_config_network_selector_labels | to_nice_yaml(indent=2) | indent(4, true) }}
+    app.kubernetes.io/managed-by: homelab-prometheus-config-network
+spec:
+{{ rule_groups | from_yaml | to_nice_yaml(indent=2) | indent(2, true) }}

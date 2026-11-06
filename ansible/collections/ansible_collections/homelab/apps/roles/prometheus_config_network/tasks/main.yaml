@@ -1,0 +1,17 @@
+---
+- name: Determine cluster monitoring configuration intent
+  ansible.builtin.set_fact:
+    __prometheus_config_network_enabled: >-
+      {%- set wanted = namespace(enabled=false) -%}
+      {%- for host in groups['all'] -%}
+      {%- if hostvars[host].deploy_prometheus | default(false) | bool -%}
+      {%- set wanted.enabled = true -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ wanted.enabled and (prometheus_config_network_enabled | bool) }}
+
+- name: Deploy native monitoring configuration
+  ansible.builtin.import_tasks: deploy_prometheus_config_network.yaml
+
+- name: Remove obsolete native monitoring configuration
+  ansible.builtin.import_tasks: undeploy_prometheus_config_network.yaml

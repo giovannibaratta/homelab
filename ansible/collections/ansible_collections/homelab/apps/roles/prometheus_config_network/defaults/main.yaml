@@ -1,0 +1,5 @@
+---
+prometheus_config_network_enabled: true
+prometheus_config_network_namespace: "{{ prometheus_k8s_namespace | default('monitoring') }}"
+prometheus_config_network_selector_labels: "{{ prometheus_resource_selector_labels | default({'monitoring.homelab/stack': prometheus_k8s_helm_release | default('prometheus')}) }}"
+prometheus_config_network_kubeconfig: "{{ prometheus_k8s_kubeconfig | default('/etc/kubernetes/admin.conf') }}"

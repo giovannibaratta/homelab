@@ -88,13 +88,3 @@ groups:
       summary: "UPS monitoring is down on {{ '{{' }} $labels.instance {{ '}}' }}"
       description: "UPS monitoring data on instance {{ '{{' }} $labels.instance {{ '}}' }} is stale or absent for more than 15 minutes."
 
-- name: Security
-  rules:
-  - alert: HighUploadSpeed
-    expr: rate(node_network_transmit_bytes_total{device="ftth"}[5m]) > 50000000
-    for: 15m
-    labels:
-      severity: critical
-    annotations:
-      summary: "High upload speed detected on ftth interface"
-      description: "The upload speed on the 'ftth' network interface for instance {{ '{{' }} $labels.instance {{ '}}' }} has exceeded 400 Mbps (50 MB/s) for more than 15 minutes. Current value: {{ '{{' }} $value {{ '}}' }} bytes/s"

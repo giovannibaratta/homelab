@@ -1,0 +1,88 @@
+# Job definitions. scrapeconfig.yaml.j2 supplies the common Kubernetes wrapper.
+# One host scrape includes nftables, UPS and Auto-Ansible textfile metrics.
+- name: homelab-hosts
+  spec:
+    jobName: hosts
+    scrapeInterval: 10s
+    staticConfigs:
+{% for host in prometheus_config_targets %}
+      - targets: ['{{ hostvars[host].internal_ip }}:9100']
+        labels:
+          instance: {{ hostvars[host].internal_ip | to_json }}
+          reboot_enabled: "{{ 'false' if hostvars[host].system_update_day | default('') == 'never' else 'true' }}"
+      - targets: ['{{ hostvars[host].internal_ip }}:9101']
+        labels:
+          instance: {{ hostvars[host].internal_ip | to_json }}
+{% endfor %}
+    metricRelabelings:
+      - sourceLabels: [__name__, chip, sensor]
+        regex: node_hwmon_temp_celsius;pci0000:00_0000:00:18_3;temp1
+        targetLabel: __name__
+        replacement: remapped_node_cpu_temp_celsius
+      - sourceLabels: [__name__, chip, sensor]
+        regex: node_hwmon_temp_celsius;platform_coretemp_0;temp1
+        targetLabel: __name__
+        replacement: remapped_node_cpu_temp_celsius
+
+- name: homelab-prometheus
+  spec:
+    jobName: prometheus
+    scrapeInterval: 15s
+    staticConfigs:
+      - targets: ['localhost:9090']
+
+- name: homelab-traefik-host
+  enabled: {{ (prometheus_config_traefik_targets | length > 0) | to_json }}
+  spec:
+    jobName: traefik-host
+    scrapeInterval: 15s
+    metricsPath: /metrics
+    staticConfigs:{{ ' []' if not prometheus_config_traefik_targets else '' }}
+{% for host in prometheus_config_traefik_targets %}
+      - targets: ['{{ hostvars[host].internal_ip }}:{{ prometheus_config_traefik_port }}']
+        labels:
+          node: {{ host | to_json }}
+{% endfor %}
+
+- name: homelab-pingexporter
+  spec:
+    jobName: pingexporter
+    scrapeInterval: 1s
+    scrapeTimeout: 1s
+    scheme: HTTPS
+    metricsPath: /metrics
+    staticConfigs:
+      - targets: ['pingexporter.{{ internal_domain }}']
+
+- name: homelab-idp
+  spec:
+    jobName: idp
+    scrapeInterval: 5s
+    scrapeTimeout: 5s
+    scheme: HTTPS
+    metricsPath: /debug/metrics
+    staticConfigs:
+      - targets: ['idp.{{ internal_domain }}']
+
+- name: homelab-crowdsec
+  enabled: {{ (__prometheus_config_crowdsec_hosts | length > 0) | to_json }}
+  spec:
+    jobName: crowdsec
+    scrapeInterval: 15s
+    staticConfigs:{{ ' []' if not __prometheus_config_crowdsec_hosts else '' }}
+{% for host in __prometheus_config_crowdsec_hosts %}
+      - targets: ['{{ hostvars[host].crowdsec_metrics_address | default(hostvars[host].internal_ip) }}:{{ hostvars[host].crowdsec_metrics_port | default(6060) }}']
+        labels:
+          instance: {{ hostvars[host].internal_ip | to_json }}
+          host: {{ host | to_json }}
+{% endfor %}
+
+- name: homelab-sungrow-exporter
+  enabled: {{ (__prometheus_config_sungrow_enabled | bool) | to_json }}
+  spec:
+    jobName: sungrow_exporter
+    scrapeInterval: 30s
+    scheme: HTTPS
+    metricsPath: /metrics
+    staticConfigs:
+      - targets: ['sungrow-exporter.{{ internal_domain }}']

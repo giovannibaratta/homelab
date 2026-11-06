@@ -1,0 +1,23 @@
+global:
+  smtp_from: {{ alertmanager_sender | to_json }}
+  smtp_smarthost: live.smtp.mailtrap.io:587
+  smtp_auth_username: smtp@mailtrap.io
+  smtp_auth_password: {{ alertmanager_smtp_auth_password | to_json }}
+route:
+  receiver: 'me'
+  # One email batch across alert types, clusters and nodes.
+  group_by: []
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+inhibit_rules:
+  - source_matchers: ['severity="critical"']
+    target_matchers: ['severity="warning"']
+    equal: [alertname, namespace, pod, container, cnpg_cluster, node, name, instance]
+
+receivers:
+  - name: 'me'
+    email_configs:
+      - to: {{ alertmanager_receiver_email | to_json }}
+        send_resolved: true

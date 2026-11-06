@@ -1,0 +1,11 @@
+{% set rule_groups %}{% include rule_file.rules_template %}{% endset %}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ rule_file.name }}
+  namespace: {{ prometheus_config_namespace }}
+  labels:
+{{ prometheus_config_selector_labels | to_nice_yaml(indent=2) | indent(4, true) }}
+    app.kubernetes.io/managed-by: homelab-prometheus-config
+spec:
+{{ rule_groups | from_yaml | to_nice_yaml(indent=2) | indent(2, true) }}

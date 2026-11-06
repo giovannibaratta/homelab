@@ -1,0 +1,146 @@
+---
+# Named PodMonitor specs and rule files; common resource wrappers are templates.
+prometheus_config_pod_monitors:
+  - name: homelab-kube-state-metrics
+    spec:
+      namespaceSelector:
+        any: true
+      selector:
+        matchLabels:
+          app.kubernetes.io/name: homelab-kube-state-metrics
+      podMetricsEndpoints:
+        - portNumber: 8080
+          interval: 15s
+          scrapeTimeout: 10s
+          filterRunning: false
+          relabelings:
+            - sourceLabels: [__meta_kubernetes_pod_phase]
+              regex: Pending|Running|Unknown
+              action: keep
+            - targetLabel: job
+              replacement: kube-state-metrics
+            - action: labeldrop
+              regex: ^(container|endpoint|pod|namespace|node)$
+  - name: homelab-kube-state-metrics-internal
+    spec:
+      namespaceSelector:
+        any: true
+      selector:
+        matchLabels:
+          app.kubernetes.io/name: homelab-kube-state-metrics
+      podMetricsEndpoints:
+        - portNumber: 8081
+          interval: 15s
+          scrapeTimeout: 10s
+          filterRunning: false
+          relabelings:
+            - sourceLabels: [__meta_kubernetes_pod_phase]
+              regex: Pending|Running|Unknown
+              action: keep
+            - targetLabel: job
+              replacement: kube-state-metrics-internal
+            - action: labeldrop
+              regex: ^(container|endpoint|pod|namespace|node)$
+  - name: homelab-cloudnativepg
+    spec:
+      namespaceSelector:
+        any: true
+      selector:
+        matchExpressions:
+          - key: cnpg.io/cluster
+            operator: Exists
+      podMetricsEndpoints:
+        - portNumber: 9187
+          interval: 15s
+          scrapeTimeout: 10s
+          filterRunning: false
+          relabelings:
+            - sourceLabels: [__meta_kubernetes_pod_phase]
+              regex: Pending|Running|Unknown
+              action: keep
+            - sourceLabels: [__meta_kubernetes_pod_node_name]
+              targetLabel: node
+            - sourceLabels: [__meta_kubernetes_pod_label_cnpg_io_cluster]
+              targetLabel: cnpg_cluster
+            - targetLabel: job
+              replacement: cloudnativepg
+            - action: labeldrop
+              regex: ^(container|endpoint)$
+  - name: homelab-linstor
+    spec:
+      namespaceSelector:
+        any: true
+      selector:
+        matchLabels:
+          app.kubernetes.io/component: linstor-controller
+      podMetricsEndpoints:
+        - portNumber: 3370
+          interval: 15s
+          scrapeTimeout: 10s
+          filterRunning: false
+          relabelings:
+            - sourceLabels: [__meta_kubernetes_pod_phase]
+              regex: Pending|Running|Unknown
+              action: keep
+            - targetLabel: job
+              replacement: linstor
+            - action: labeldrop
+              regex: ^(container|endpoint|pod|node)$
+  - name: homelab-drbd
+    spec:
+      namespaceSelector:
+        any: true
+      selector:
+        matchLabels:
+          app.kubernetes.io/component: linstor-satellite
+      podMetricsEndpoints:
+        - portNumber: 9942
+          interval: 15s
+          scrapeTimeout: 10s
+          filterRunning: false
+          relabelings:
+            - sourceLabels: [__meta_kubernetes_pod_phase]
+              regex: Pending|Running|Unknown
+              action: keep
+            - sourceLabels: [__meta_kubernetes_pod_node_name]
+              targetLabel: node
+            - targetLabel: job
+              replacement: drbd
+            - action: labeldrop
+              regex: ^(container|endpoint)$
+  - name: homelab-linstor-policy
+    spec:
+      namespaceSelector:
+        any: true
+      selector:
+        matchLabels:
+          app.kubernetes.io/name: homelab-linstor-policy-exporter
+      podMetricsEndpoints:
+        - portNumber: 7979
+          interval: 15s
+          scrapeTimeout: 10s
+          filterRunning: false
+          relabelings:
+            - sourceLabels: [__meta_kubernetes_pod_phase]
+              regex: Pending|Running|Unknown
+              action: keep
+            - sourceLabels: [__meta_kubernetes_pod_annotation_monitoring_homelab_linstor_api_url]
+              regex: (.+)
+              action: keep
+            - sourceLabels: [__meta_kubernetes_pod_annotation_monitoring_homelab_linstor_api_url]
+              targetLabel: __param_target
+            - targetLabel: job
+              replacement: linstor-policy
+            - action: labeldrop
+              regex: ^(container|endpoint|pod|node)$
+          path: /probe
+          params:
+            module: [linstor-policy]
+
+prometheus_config_rule_files:
+  - name: homelab-system
+    rules_template: system-alert-rules.yaml.j2
+  - name: homelab-cluster
+    rules_template: cluster-alert-rules.yaml.j2
+  - name: homelab-security
+    rules_template: security-alert-rules.yaml.j2

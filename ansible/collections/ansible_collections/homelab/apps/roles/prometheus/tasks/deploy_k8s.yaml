@@ -1,0 +1,72 @@
+---
+- name: Validate Helm release naming
+  ansible.builtin.assert:
+    that:
+      - prometheus_k8s_helm_release is match('^[a-z][a-z0-9-]*[a-z0-9]$')
+      - prometheus_k8s_helm_release | length <= 26
+    fail_msg: Use a DNS-safe release name of 2 to 26 characters (chart fullname limit).
+
+- name: Create monitoring namespace
+  kubernetes.core.k8s:
+    kubeconfig: "{{ prometheus_k8s_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ prometheus_k8s_namespace }}"
+        labels:
+          pod-security.kubernetes.io/enforce: restricted
+
+- name: Apply the existing Alertmanager configuration
+  kubernetes.core.k8s:
+    kubeconfig: "{{ prometheus_k8s_kubeconfig }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: alertmanager-config
+        namespace: "{{ prometheus_k8s_namespace }}"
+      type: Opaque
+      data:
+        alertmanager.yaml: "{{ lookup('ansible.builtin.template', 'alertmanager.yaml.j2') | b64encode }}"
+  no_log: true
+
+- name: Deploy kube-prometheus-stack
+  kubernetes.core.helm:
+    kubeconfig: "{{ prometheus_k8s_kubeconfig }}"
+    name: "{{ prometheus_k8s_helm_release }}"
+    release_namespace: "{{ prometheus_k8s_namespace }}"
+    chart_ref: kube-prometheus-stack
+    chart_repo_url: "{{ prometheus_k8s_helm_repository_url }}"
+    chart_version: "{{ prometheus_k8s_helm_chart_version }}"
+    state: present
+    reset_values: true
+    atomic: true
+    wait: true
+    wait_timeout: "{{ prometheus_k8s_wait_timeout }}s"
+    values: "{{ lookup('ansible.builtin.template', 'helm-values.yaml.j2') | from_yaml }}"
+
+# Helm waits for chart resources, but the StatefulSets are created asynchronously
+# by the Operator.
+- name: Wait for Operator-managed monitoring pods
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ prometheus_k8s_kubeconfig }}"
+    api_version: v1
+    kind: Pod
+    namespace: "{{ prometheus_k8s_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/name={{ item }}"
+      - "app.kubernetes.io/instance={{ prometheus_k8s_helm_release }}-{{ item }}"
+  register: __prometheus_ready_pods
+  until:
+    - __prometheus_ready_pods.resources | length == 1
+    - __prometheus_ready_pods.resources[0].metadata.deletionTimestamp is not defined
+    - >-
+      (__prometheus_ready_pods.resources[0].status.conditions | default([])
+       | selectattr('type', 'equalto', 'Ready')
+       | selectattr('status', 'equalto', 'True') | list | length) == 1
+  retries: "{{ (prometheus_k8s_wait_timeout | int / 5) | int }}"
+  delay: 5
+  loop: [prometheus, alertmanager]

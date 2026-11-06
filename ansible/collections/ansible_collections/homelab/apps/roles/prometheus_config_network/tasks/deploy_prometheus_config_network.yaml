@@ -1,0 +1,8 @@
+---
+- name: Apply network alert rules
+  kubernetes.core.k8s:
+    kubeconfig: "{{ prometheus_config_network_kubeconfig }}"
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'rules.yaml.j2') | from_yaml }}"
+  run_once: true
+  when: __prometheus_config_network_enabled | bool

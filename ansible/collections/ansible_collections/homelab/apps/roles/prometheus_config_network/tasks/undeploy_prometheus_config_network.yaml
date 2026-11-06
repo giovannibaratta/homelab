@@ -1,0 +1,22 @@
+---
+- name: Remove network rules when disabled
+  run_once: true
+  when: not (__prometheus_config_network_enabled | bool)
+  block:
+    - name: Inspect rule CRD availability
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ prometheus_config_network_kubeconfig }}"
+        api_version: apiextensions.k8s.io/v1
+        kind: CustomResourceDefinition
+        name: prometheusrules.monitoring.coreos.com
+      register: __prometheus_config_network_crd
+
+    - name: Remove network alert rules
+      kubernetes.core.k8s:
+        kubeconfig: "{{ prometheus_config_network_kubeconfig }}"
+        state: absent
+        api_version: monitoring.coreos.com/v1
+        kind: PrometheusRule
+        namespace: "{{ prometheus_config_network_namespace }}"
+        name: homelab-network
+      when: __prometheus_config_network_crd.resources | length > 0

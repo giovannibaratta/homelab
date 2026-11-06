@@ -1,7 +1,15 @@
 ---
 - name: Determine Prometheus lifecycle
   ansible.builtin.set_fact:
-    __prometheus_any_enabled: "{{ deploy_prometheus | default(false) | bool }}"
+    # Evaluate inventory-wide intent so disabled hosts cannot delete shared resources.
+    __prometheus_k8s_hosts: >-
+      {%- set ns = namespace(hosts=[]) -%}
+      {%- for host in groups['all'] -%}
+      {%- if (hostvars[host].deploy_prometheus | default(false) | bool) -%}
+      {%- set ns.hosts = ns.hosts + [host] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ ns.hosts }}
 
 - name: Deploy monitoring services
   ansible.builtin.import_tasks: deploy_prometheus.yaml

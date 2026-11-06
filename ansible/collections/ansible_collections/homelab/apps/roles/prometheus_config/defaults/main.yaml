@@ -1,0 +1,9 @@
+---
+prometheus_config_enabled: true
+prometheus_config_namespace: "{{ prometheus_k8s_namespace | default('monitoring') }}"
+prometheus_config_selector_labels: "{{ prometheus_resource_selector_labels | default({'monitoring.homelab/stack': prometheus_k8s_helm_release | default('prometheus')}) }}"
+prometheus_config_kubeconfig: "{{ prometheus_k8s_kubeconfig | default('/etc/kubernetes/admin.conf') }}"
+prometheus_config_targets: "{{ groups['all'] }}"
+prometheus_config_traefik_targets: []
+prometheus_config_traefik_port: 8082
+prometheus_config_server_name: "{{ prometheus_k8s_helm_release | default('prometheus') }}-prometheus"

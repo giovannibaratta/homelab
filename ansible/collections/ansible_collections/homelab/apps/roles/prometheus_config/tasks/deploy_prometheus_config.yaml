@@ -1,0 +1,38 @@
+---
+- name: Apply scrape jobs
+  kubernetes.core.k8s:
+    kubeconfig: "{{ prometheus_config_kubeconfig }}"
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'scrapeconfig.yaml.j2') | from_yaml }}"
+  loop: "{{ lookup('ansible.builtin.template', 'scrape-jobs.yaml.j2') | from_yaml }}"
+  loop_control:
+    loop_var: scrape_job
+    label: "{{ scrape_job.name }}"
+  run_once: true
+  when:
+    - __prometheus_config_enabled | bool
+    - scrape_job.enabled | default(true) | bool
+
+- name: Apply Kubernetes pod monitors
+  kubernetes.core.k8s:
+    kubeconfig: "{{ prometheus_config_kubeconfig }}"
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'podmonitor.yaml.j2') | from_yaml }}"
+  loop: "{{ prometheus_config_pod_monitors }}"
+  loop_control:
+    loop_var: pod_monitor
+    label: "{{ pod_monitor.name }}"
+  run_once: true
+  when: __prometheus_config_enabled | bool
+
+- name: Apply general alert and recording rules
+  kubernetes.core.k8s:
+    kubeconfig: "{{ prometheus_config_kubeconfig }}"
+    state: present
+    definition: "{{ lookup('ansible.builtin.template', 'prometheus-rule.yaml.j2') | from_yaml }}"
+  loop: "{{ prometheus_config_rule_files }}"
+  loop_control:
+    loop_var: rule_file
+    label: "{{ rule_file.name }}"
+  run_once: true
+  when: __prometheus_config_enabled | bool

@@ -1,5 +1,27 @@
 ---
-prometheus_kubernetes_monitoring_enabled: false
+prometheus_k8s_namespace: monitoring
+prometheus_k8s_kubeconfig: /etc/kubernetes/admin.conf
+prometheus_k8s_storage_class: piraeus-rwo-async
+prometheus_k8s_storage_size: 15Gi
+prometheus_k8s_alertmanager_storage_size: 1Gi
+prometheus_k8s_wait_timeout: 300
+prometheus_k8s_helm_release: prometheus
+prometheus_k8s_helm_repository_url: https://prometheus-community.github.io/helm-charts
+prometheus_k8s_helm_chart_version: "92.21.1"
 
-prometheus_kubernetes_credentials: {}
-prometheus_kubernetes_api_server: "https://{{ network_k8s_ip }}:6443"
+prometheus_image: docker.io/prom/prometheus:v2.52.0
+prometheus_alertmanager_image: quay.io/prometheus/alertmanager:v0.27.0
+prometheus_retention_size: 10GB
+
+# An empty time retention preserves the existing size-only retention policy.
+# Examples: "180d" (approximately six months), "1y". With both limits set,
+# whichever is reached first removes old data.
+# Set prometheus_retention_size to "0" for time-only retention, sizing the PVC
+# for the expected ingestion rate and leaving room for WAL/compaction.
+prometheus_retention_time: ""
+prometheus_scrape_interval: 15s
+prometheus_evaluation_interval: 1m
+prometheus_scrape_timeout: 10s
+# Shared with configuration roles: resource labels must match these selectors.
+prometheus_resource_selector_labels:
+  monitoring.homelab/stack: "{{ prometheus_k8s_helm_release }}"
