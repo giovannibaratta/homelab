@@ -83,7 +83,7 @@ table ip firewall {
 
   include "/app/nftables-geoip/ip-lists/geoip-def-all.nft"
   include "/app/nftables-geoip/ip-lists/geoip-ipv4-interesting.nft"
-  define ALLOWED_COUNTRIES = { $IT, $IE }
+  define ALLOWED_COUNTRIES = { $IT, $IE, $FR, $DE }
 
   # --- Include UptimeRobot IPs ---
   set uptimerobot_ips {
