@@ -1,4 +1,6 @@
 image:
+  registry: "{{ k8s_ingress_traefik_image_repository.split('/', 1)[0] }}"
+  repository: "{{ k8s_ingress_traefik_image_repository.split('/', 1)[1] }}"
   tag: "{{ k8s_ingress_traefik_version }}"
 
 ports:
