@@ -11,17 +11,26 @@ provider.
 ## Expose services
 
 Podman services declare their routes through Traefik container labels.
-Kubernetes services are routed through the cluster ingress using these inventory
-lists:
+Kubernetes services are routed through the cluster ingress using
+`k8s_internal_routes` (LAN) and `k8s_public_routes` (WAN and LAN) in inventory.
 
-| Variable | Purpose |
-| --- | --- |
-| `k8s_public_domains` | Domains accessible through the public HTTPS entry point |
-| `k8s_internal_domains` | Domains accessible through the internal HTTPS entry point |
+Keys are DNS prefixes, suffixed with `internal_domain`:
+
+```yaml
+k8s_public_routes:
+  approvio:
+  idp:
+k8s_internal_routes:
+  git:
+  overseerr:
+    enabled: "{{ deploy_seerr }}"
+```
+
+Empty entries are enabled by default; conditional entries specify `enabled`.
+`enabled` defaults to true and is interpreted as a boolean.
 
 Provide DNS records and the certificate-provider credentials required by the
-homelab deployment. Internal services should use the internal domain list;
-adding a service to the public list exposes its route publicly.
+homelab deployment. Adding an entry to `k8s_public_routes` exposes that route publicly.
 
 Public web routes use `default-chain@file` for rate limiting, concurrent-request
 limiting, and WAF inspection. Apply security policies to individual routes.
@@ -91,9 +100,9 @@ host's internal address. `ingress_traefik_metrics_port` defaults to `8082`.
 This endpoint is unauthenticated, so keep it restricted to the trusted monitoring
 network. Prometheus scraping is configured separately.
 
-`ingress_traefik_version`, `ingress_auth_version`, and `ingress_waf_version`
-select the component versions. See [defaults/main.yaml](defaults/main.yaml) for
-all options and current defaults.
+Set `ingress_traefik_enable_dhi: true` for a host to opt into Docker
+Hardened Traefik. Configure Podman credentials for `dhi.io` first. See [defaults/main.yaml](defaults/main.yaml) for OAuth2
+Proxy and WAF version settings.
 
 Apply ingress changes through the homelab deployment workflow using the `ingress`
 tag. That workflow also reads the published authentication credentials.
