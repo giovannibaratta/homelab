@@ -157,6 +157,7 @@
       become: true
       vars:
         containers_storage_dir: /app/containers
+        containers_registry_credentials: "{{ podman_registry_credentials | default({}) }}"
       tags:
         - first-setup
         - containers

@@ -123,3 +123,57 @@
     minute: "*/5"
     state: present
     user: root
+
+- name: Validate the Podman registry credentials map
+  ansible.builtin.assert:
+    that: containers_registry_credentials is mapping
+    fail_msg: containers_registry_credentials must be a mapping keyed by registry hostname.
+
+- name: Validate each Podman registry credential
+  ansible.builtin.assert:
+    that:
+      - registry_host is string
+      - registry_host is match('^(?:[A-Za-z0-9][A-Za-z0-9.-]*|\[[0-9A-Fa-f:]+\])(?::[0-9]+)?$')
+      - containers_registry_credentials[registry_host] is mapping
+      - containers_registry_credentials[registry_host].username is string
+      - containers_registry_credentials[registry_host].username | trim | length > 0
+      - containers_registry_credentials[registry_host].password is string
+      - containers_registry_credentials[registry_host].password | trim | length > 0
+    fail_msg: >-
+      Each registry entry needs a hostname with an optional port
+      and non-empty username and password strings.
+  loop: "{{ containers_registry_credentials.keys() | list }}"
+  loop_control:
+    loop_var: registry_host
+
+- name: Configure persistent Podman registry credentials
+  when: containers_registry_credentials | length > 0
+  block:
+    - name: Look up the root account home directory
+      ansible.builtin.getent:
+        database: passwd
+        key: root
+
+    - name: Ensure the persistent Podman configuration directory exists
+      ansible.builtin.file:
+        path: "{{ __containers_auth_file | dirname }}"
+        state: directory
+
+    - name: Log in to each registry for rootful Podman
+      containers.podman.podman_login:
+        registry: "{{ item.key }}"
+        username: "{{ item.value.username }}"
+        password: "{{ item.value.password }}"
+        authfile: "{{ __containers_auth_file }}"
+      loop: "{{ containers_registry_credentials | dict2items }}"
+      no_log: true
+
+    - name: Restrict the Podman auth file
+      ansible.builtin.file:
+        path: "{{ __containers_auth_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+      when: not ansible_check_mode
+  vars:
+    __containers_auth_file: "{{ ansible_facts.getent_passwd.root[4] }}/.config/containers/auth.json"
