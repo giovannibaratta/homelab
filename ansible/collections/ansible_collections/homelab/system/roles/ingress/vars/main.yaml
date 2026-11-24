@@ -1,2 +1,17 @@
 ---
 traefik_container_user: traefik
+
+__ingress_traefik_images:
+  upstream:
+    image: docker.io/traefik:v3.7.19
+    runtime_id: 0
+    subordinate_mappings:
+      - "1:4000000000:100000"
+  dhi:
+    image: dhi.io/traefik:3.7.19-debian13
+    runtime_id: 65532
+    workdir: /app/traefik/work
+    subordinate_mappings:
+      # Leave ID 65532 available for the host account that owns the mounts.
+      - "0:4000000000:65532"
+      - "65533:4000065532:34468"

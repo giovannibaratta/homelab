@@ -356,10 +356,13 @@
   notify: Restart Traefik service
 
 - name: Create Traefik Quadlet
+  vars:
+    __traefik_image_profile: "{{ __ingress_traefik_images['dhi' if ingress_traefik_enable_dhi | bool else 'upstream'] }}"
   containers.podman.podman_container:
     name: traefik
     state: quadlet
-    image: docker.io/traefik:{{ ingress_traefik_version }}
+    image: "{{ __traefik_image_profile.image }}"
+    workdir: "{{ __traefik_image_profile.workdir | default(omit) }}"
 
     env_file: /app/traefik/conf/traefik.env
     recreate: true
@@ -371,13 +374,14 @@
       - "/app/traefik/work:/app/traefik/work"
       - "{{ ingress_traefik_log_dir }}:/var/log/traefik"
 
-    uidmap:
-      - 0:{{ traefik_container_user_result.uid }}:1
-      - 1:4000000000:100000
-
-    gidmap:
-      - 0:{{ traefik_container_user_result.group }}:1
-      - 1:4000000000:100000
+    uidmap: >-
+      {{ [(__traefik_image_profile.runtime_id | string) ~ ':' ~
+          (traefik_container_user_result.uid | string) ~ ':1'] +
+         __traefik_image_profile.subordinate_mappings }}
+    gidmap: >-
+      {{ [(__traefik_image_profile.runtime_id | string) ~ ':' ~
+          (traefik_container_user_result.group | string) ~ ':1'] +
+         __traefik_image_profile.subordinate_mappings }}
 
     quadlet_options:
       - |

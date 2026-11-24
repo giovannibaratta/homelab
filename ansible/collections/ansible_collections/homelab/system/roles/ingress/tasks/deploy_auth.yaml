@@ -69,7 +69,7 @@
       containers.podman.podman_container:
         name: ingress-auth
         state: quadlet
-        image: "quay.io/oauth2-proxy/oauth2-proxy:{{ ingress_auth_version }}"
+        image: "{{ ingress_auth_image_repository }}:{{ ingress_auth_version }}"
         # Referencing the Quadlet file adds the generated network dependency.
         network: ingress-auth.network
         ports:

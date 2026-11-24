@@ -226,6 +226,7 @@
       become: true
       tags: ingress
       vars:
+        ingress_traefik_enable_dhi: true
         # Saved credentials may be absent on the first run, before Zitadel is
         # provisioned. Empty inputs let ingress skip OAuth2 Proxy and keep the
         # LAN dashboard closed while retaining loopback access. The next run

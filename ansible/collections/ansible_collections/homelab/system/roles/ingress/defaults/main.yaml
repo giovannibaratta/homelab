@@ -2,7 +2,7 @@
 k8s_internal_routes: {}
 k8s_public_routes: {}
 # Available versions https://hub.docker.com/_/traefik/tags
-ingress_traefik_version: v3.7.15
+ingress_traefik_enable_dhi: false
 ingress_traefik_log_dir: /var/log/traefik
 # Optional exporter bound only to the host's internal address.
 ingress_traefik_metrics_enabled: false
@@ -10,7 +10,8 @@ ingress_traefik_metrics_port: 8082
 
 # Authentication is optional; incomplete configuration keeps the LAN dashboard closed.
 deploy_ingress_auth: true
-ingress_auth_version: v7.15.0
+ingress_auth_image_repository: quay.io/oauth2-proxy/oauth2-proxy
+ingress_auth_version: v7.15.6
 ingress_auth_port: 4180
 ingress_auth_cookie_name: "__Host-ingress_auth"
 ingress_auth_issuer_url: "https://idp.{{ internal_domain }}"
@@ -23,7 +24,7 @@ ingress_auth_allowed_emails: []
 
 # WAF Configuration
 # Available versions https://hub.docker.com/r/owasp/modsecurity-crs/tags
-ingress_waf_version: 4.28.0-nginx-202608050608
+ingress_waf_version: 4.30.0-nginx-202611190211
 # ModSecurity plugin version https://github.com/madebymode/traefik-modsecurity-plugin/releases
 ingress_waf_plugin_version: v1.6.0
 
