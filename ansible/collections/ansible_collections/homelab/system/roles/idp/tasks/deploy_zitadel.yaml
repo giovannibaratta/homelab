@@ -161,7 +161,7 @@
       containers.podman.podman_container:
         name: zitadel
         state: quadlet
-        image: ghcr.io/zitadel/zitadel:{{ idp_zitadel_version }}
+        image: "{{ idp_zitadel_image_repository }}:{{ idp_zitadel_version }}"
         command: "start-from-init --masterkeyFile /zitadel.masterkey"
         env_file: "{{ idp_zitadel_conf_dir }}/zitadel.env"
         recreate: true

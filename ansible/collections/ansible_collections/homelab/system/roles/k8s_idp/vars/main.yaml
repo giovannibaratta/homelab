@@ -1,0 +1,3 @@
+---
+__k8s_idp_upstream_image: ghcr.io/zitadel/zitadel:v4.20.5
+__k8s_idp_dhi_image: dhi.io/zitadel:4.20.5-debian13

@@ -80,7 +80,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: zitadel
-          image: "ghcr.io/zitadel/zitadel:{{ k8s_idp_version }}"
+          image: "{{ __k8s_idp_dhi_image if k8s_idp_enable_dhi | bool else __k8s_idp_upstream_image }}"
           command: ["/app/zitadel", "start-from-init", "--masterkeyFile", "/zitadel.masterkey"]
           envFrom:
             - secretRef:

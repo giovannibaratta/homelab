@@ -262,6 +262,7 @@
           vars:
             k8s_idp_enabled: "{{ idp_deployment_type == 'k8s' }}"
             k8s_idp_database_host: zitadeldb-rw.zitadel.svc.cluster.local
+            k8s_idp_enable_dhi: true
 
         - when: deploy_idp | bool
           ansible.builtin.import_role:
