@@ -16,35 +16,6 @@
   ansible.builtin.apt:
     update_cache: true
 
-- name: Create /usr/libexec/podman directory
-  ansible.builtin.file:
-    path: /usr/libexec/podman
-    state: directory
-    mode: "0755"
-
-- name: Download netavark archive
-  ansible.builtin.get_url:
-    url: https://github.com/containers/netavark/releases/download/{{ containers_netavark_version }}/netavark.gz
-    dest: /tmp/netavark_{{ containers_netavark_version }}.gz
-    mode: "0644"
-
-- name: Uncompress netavark
-  ansible.builtin.command:
-    cmd: gunzip -d -k -f /tmp/netavark_{{ containers_netavark_version }}.gz
-    creates: /tmp/netavark_{{ containers_netavark_version }}
-
-- name: Copy netavark executable
-  ansible.builtin.copy:
-    src: /tmp/netavark_{{ containers_netavark_version }}
-    dest: /usr/libexec/podman/netavark
-    remote_src: true
-    mode: "0755"
-
-- name: Make netavark executable
-  ansible.builtin.file:
-    path: /usr/libexec/podman/netavark
-    mode: "0755"
-
 # uidmap is required by podman for non root user
 - name: Install uidmap
   ansible.builtin.package:
@@ -64,27 +35,76 @@
     name: slirp4netns
     state: present
 
-- name: Pin podman version to 5.x releases
-  ansible.builtin.copy:
-    dest: /etc/apt/preferences.d/podman-pin
-    content: |
-      Package: podman
-      Pin: version 5.*
-      Pin-Priority: 1001 # Forced Installation
-    mode: "0644"
-  notify: Update apt cache
+- name: Install the AMD64 Podman runtime
+  vars:
+    __podman_deb_version: "100:{{ __podman_version }}-1"
+    __netavark_deb_version: "100:{{ __netavark_version }}-1"
+  block:
+    - name: Pin Podman and its networking packages
+      ansible.builtin.copy:
+        dest: /etc/apt/preferences.d/podman-pin
+        mode: "0644"
+        content: |
+          Package: podman podman-docker
+          Pin: version {{ __podman_deb_version }}
+          Pin-Priority: 1000
 
-- name: Install podman
-  ansible.builtin.package:
-    name: podman
-    state: present
+          Package: podman-netavark podman-aardvark-dns
+          Pin: version {{ __netavark_deb_version }}
+          Pin-Priority: 1000
 
-- name: Install podman-docker
-  ansible.builtin.package:
-    name: podman-docker
-    state: present
+          Package: buildah
+          Pin: version {{ __buildah_deb_version }}
+          Pin-Priority: 1000
 
-- name: Install aardvark-dns
-  ansible.builtin.package:
-    name: aardvark-dns
-    state: present
+          Package: skopeo
+          Pin: version {{ __skopeo_deb_version }}
+          Pin-Priority: 1000
+
+          Package: podman podman-docker podman-netavark podman-aardvark-dns buildah skopeo
+          Pin: version *
+          Pin-Priority: -1
+
+    - name: Install Podman and its networking packages together
+      ansible.builtin.apt:
+        name:
+          - "podman={{ __podman_deb_version }}"
+          - "podman-docker={{ __podman_deb_version }}"
+          - "podman-netavark={{ __netavark_deb_version }}"
+          - "podman-aardvark-dns={{ __netavark_deb_version }}"
+          - "buildah={{ __buildah_deb_version }}"
+          - "skopeo={{ __skopeo_deb_version }}"
+        state: present
+
+    - name: Check the packaged Netavark files
+      ansible.builtin.command: dpkg --verify podman-netavark
+      register: __containers_netavark_verify
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Restore the packaged Netavark executable if its checksum differs
+      ansible.builtin.command:
+        argv:
+          - apt-get
+          - --assume-yes
+          - --reinstall
+          - install
+          - "podman-netavark={{ __netavark_deb_version }}"
+      when:
+        - not ansible_check_mode
+        - "'/usr/libexec/podman/netavark' in __containers_netavark_verify.stdout"
+
+    - name: Verify the installed Podman and Netavark versions
+      ansible.builtin.command:
+        argv: "{{ item.command }}"
+      loop:
+        - command: [podman, --version]
+          expected: "{{ __podman_version }}"
+        - command: [/usr/libexec/podman/netavark, --version]
+          expected: "{{ __netavark_version }}"
+      register: __containers_runtime_version
+      changed_when: false
+      failed_when: >-
+        __containers_runtime_version.rc != 0 or
+        __containers_runtime_version.stdout.split() | last != item.expected
+      when: not ansible_check_mode
