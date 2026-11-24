@@ -1,0 +1,15 @@
+---
+- name: Check if Helm is installed
+  ansible.builtin.command: helm version
+  register: __helm_cli_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Install Helm 3
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  args:
+    executable: /bin/bash
+  when: __helm_cli_check.rc != 0

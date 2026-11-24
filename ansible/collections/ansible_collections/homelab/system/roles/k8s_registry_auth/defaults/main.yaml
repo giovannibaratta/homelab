@@ -1,0 +1,3 @@
+---
+# Registry hostname -> {username, password}. Keep passwords in Vault.
+k8s_registry_credentials: {}

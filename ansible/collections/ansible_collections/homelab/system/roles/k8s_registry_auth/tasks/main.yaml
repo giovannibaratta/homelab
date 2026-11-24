@@ -1,0 +1,67 @@
+---
+- name: Configure shared Kubernetes registry authentication
+  run_once: true
+  when: k8s_registry_credentials | length > 0
+  block:
+    - name: Discover the mutating admission policy API
+      kubernetes.core.k8s_info:
+        api_version: admissionregistration.k8s.io/v1beta1
+        kind: MutatingAdmissionPolicy
+        name: homelab-registry-auth
+      register: __k8s_registry_policy_api
+
+    - name: Require the mutating admission policy API
+      ansible.builtin.assert:
+        that: __k8s_registry_policy_api.api_found
+        fail_msg: >-
+          The API server does not expose MutatingAdmissionPolicy v1beta1.
+          Apply the Kubespray admission feature gate and runtime API settings first.
+
+    - name: Ensure Helm is available
+      ansible.builtin.import_role:
+        name: homelab.utils.helm_cli
+
+    - name: Install Reflector
+      kubernetes.core.helm:
+        name: reflector
+        chart_ref: oci://ghcr.io/emberstack/helm-charts/reflector
+        chart_version: "10.0.81"
+        release_namespace: kube-system
+        state: present
+        wait: true
+
+    - name: Initialize the registry credential map
+      ansible.builtin.set_fact:
+        __k8s_registry_auths: {}
+      no_log: true
+
+    - name: Assemble Docker registry credentials
+      ansible.builtin.set_fact:
+        __k8s_registry_auths: >-
+          {{ __k8s_registry_auths | default({}) | combine({
+            item.key: {'auth': (item.value.username ~ ':' ~ item.value.password) | b64encode}
+          }) }}
+      loop: "{{ k8s_registry_credentials | dict2items }}"
+      no_log: true
+
+    - name: Publish the source registry pull secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: registry-pull
+            namespace: kube-system
+            annotations:
+              reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+              reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+          type: kubernetes.io/dockerconfigjson
+          data:
+            .dockerconfigjson: "{{ {'auths': __k8s_registry_auths} | to_json | b64encode }}"
+      no_log: true
+
+    - name: Apply the registry admission policy and binding
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'registry-admission.yaml.j2') | from_yaml_all | list }}"

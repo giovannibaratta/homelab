@@ -127,6 +127,17 @@
               - k8s-cp
             loadBalancerIPs: true
 
+- name: Configure Kubernetes registry authentication
+  hosts: kube_control_plane
+  become: true
+  tasks:
+    - ansible.builtin.import_role:
+        name: homelab.system.k8s_registry_auth
+      vars:
+        k8s_registry_credentials: "{{ podman_registry_credentials | default({}) }}"
+      tags:
+        - k8s-registry-auth
+
 - name: Deploy Kubernetes Ingress
   hosts: kube_control_plane
   become: yes
